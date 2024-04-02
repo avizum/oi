@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import inspect
 import pathlib
 from typing import TYPE_CHECKING
 
@@ -20,6 +21,7 @@ if TYPE_CHECKING:
 
 
 NORMAL_PERMISSONS = discord.Permissions(1644942454270)
+SOURCE_URL = "https://github.com/avizum/oi"
 
 
 class UsagePageSource(menus.ListPageSource):
@@ -172,6 +174,42 @@ class Utility(core.Cog):
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
 
         await ctx.send(embed=embed)
+
+    @oi.command()
+    async def source(self, ctx: Context, command: str | None = None):
+        """
+        View the source of Oi.
+
+        Typing a command will send the source of the command.
+        """
+
+        view = discord.ui.View()
+        view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label="Source", url=SOURCE_URL))
+        if not command:
+            return await ctx.send("Here is the source.", view=view)
+
+        if command == "help":
+            cmd = self.bot.help_command
+        else:
+            cmd = self.bot.get_command(command)
+        if not cmd:
+            return await ctx.send("Could not find command.", view=view)
+
+        if isinstance(cmd, commands.HelpCommand):
+            lines, number_one = inspect.getsourcelines(type(command))
+            src = command.__module__
+        else:
+            lines, number_one = inspect.getsourcelines(cmd.callback.__code__)
+            src = cmd.callback.__module__
+
+        path = f"{src.replace('.', '/')}.py"
+
+        number_two = number_one + len(lines) - 1
+        command = "help" if isinstance(command, commands.HelpCommand) else command
+        link = f"{SOURCE_URL}/blob/main/{path}#L{number_one}-L{number_two}"
+        view.clear_items()
+        view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label=f"Source for {command}", url=link))
+        await ctx.send("Here is the source.", view=view)
 
     @oi.command()
     async def linecount(self, ctx: Context):
