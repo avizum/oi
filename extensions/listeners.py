@@ -20,10 +20,7 @@ class Important(core.Cog):
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
         self.vote_webhook: discord.Webhook = discord.Webhook.from_url(bot.config["VOTE_WEBHOOK"], session=bot.session)
-        self.join_webhook: discord.Webhook = discord.Webhook.from_url(bot.config["GUILD_JOIN_WEBHOOK"], session=bot.session)
-        self.leave_webhook: discord.Webhook = discord.Webhook.from_url(
-            bot.config["GUILD_LEAVE_WEBHOOK"], session=bot.session
-        )
+        self.guilds_webhook: discord.Webhook = discord.Webhook.from_url(bot.config["GUILDS_WEBHOOK"], session=bot.session)
 
     async def cog_load(self) -> None:
         await self.bot.wait_until_ready()
@@ -97,7 +94,7 @@ class Important(core.Cog):
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         embed.set_footer(text=f"Now in {len(self.bot.guilds)} guilds")
-        await self.join_webhook.send(embed=embed)
+        await self.guilds_webhook.send(username="Oi: Joined Guild", embed=embed)
 
         channels = [
             channel
@@ -135,7 +132,7 @@ class Important(core.Cog):
         if guild.icon:
             embed.set_thumbnail(url=guild.icon.url)
         embed.set_footer(text=f"Now in {len(self.bot.guilds)} guilds")
-        await self.leave_webhook.send(embed=embed)
+        await self.guilds_webhook.send(username="Oi: Left Guild", embed=embed)
 
 
 async def setup(bot: OiBot) -> None:
