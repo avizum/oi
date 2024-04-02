@@ -331,12 +331,16 @@ class Music(core.Cog):
         Reconnects your player without loss of the queue and song position.
         """
         if await self.bot.is_owner(ctx.author) and not ctx.interaction:
+            to_reconnect: list[asyncio.Task] = []
             for vc in self.bot.voice_clients:
-                self.bot.loop.create_task(self._reconnect(vc))  # type: ignore # all voice clients are type Player
-            await ctx.send("Finished reconnecting all players.")
-        else:
-            await self._reconnect(ctx.voice_client)
-            await ctx.send("Reconnected.")
+                to_reconnect.append(self.bot.loop.create_task(self._reconnect(vc)))  # type: ignore # all voice clients are type Player
+            gathered = await asyncio.gather(*to_reconnect)
+            failed = len([result for result in gathered if result is False])
+            if failed:
+                return await ctx.send(f"{failed} players failed to reconnect.")
+            return await ctx.send("Finished reconnecting all players.")
+        await self._reconnect(ctx.voice_client)
+        return await ctx.send("Reconnected.")
 
     @core.command(extras=EXTRAS)
     @in_voice(bot=False)
