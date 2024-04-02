@@ -146,6 +146,13 @@ class Music(core.Cog):
 
         return commands.check(inner)
 
+    async def cog_check(self, _: PlayerContext) -> bool:
+        try:
+            wavelink.Pool.get_node()
+        except wavelink.InvalidNodeException as e:
+            raise commands.CheckFailure("Music server is down. Please try again later.") from e
+        return True
+
     @core.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
         node: wavelink.Node = payload.node
