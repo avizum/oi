@@ -303,19 +303,24 @@ class Music(core.Cog):
         await ctx.voice_client.disconnect()
         await ctx.send("Disconnected. Goodbye!")
 
-    async def _reconnect(self, voice_client: Player):
+    async def _reconnect(self, voice_client: Player) -> bool:
         channel = voice_client.channel
-        await voice_client.disconnect()
-        voice_client.locked = True
+        try:
+            await voice_client.disconnect()
+            voice_client.locked = True
 
-        await asyncio.sleep(1)
+            await asyncio.sleep(1)
 
-        vc: Player = await channel.connect(cls=Player(ctx=voice_client.ctx))  # type: ignore
-        vc.queue.put(list(voice_client.queue))
-        if voice_client.current:
-            vc.queue.put_at(0, voice_client.current)
-            await vc.play(vc.queue.get())
-            await vc.seek(int(voice_client.position) - 1)
+            vc: Player = await channel.connect(cls=Player(ctx=voice_client.ctx))  # type: ignore
+            vc.queue.put(list(voice_client.queue))
+            if voice_client.current:
+                vc.queue.put_at(0, voice_client.current)
+                await vc.play(vc.queue.get())
+                await vc.seek(int(voice_client.position) - 1)
+            return True
+        except Exception as exc:
+            _log.error("Ignoring exception while reconnecting player:", exc_info=exc)
+            return False
 
     @core.command()
     @in_voice(author=True, bot=True)
