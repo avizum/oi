@@ -303,21 +303,19 @@ class Music(core.Cog):
         await ctx.voice_client.disconnect()
         await ctx.send("Disconnected. Goodbye!")
 
-    async def do_reconnect(self, voice_client: Player):
-        old_vc: Player = voice_client
-        old_channel = old_vc.channel
-        if old_vc.controller:
-            await old_vc.controller.disable()
-        old_position = old_vc.position
-        await voice_client.disconnect(force=True)
+    async def _reconnect(self, voice_client: Player):
+        channel = voice_client.channel
+        await voice_client.disconnect()
+        voice_client.locked = True
+
         await asyncio.sleep(1)
 
-        new_vc: Player = await old_channel.connect(cls=Player(ctx=old_vc.ctx))  # type: ignore
-        new_vc.queue = old_vc.queue
-        if old_vc.current:
-            new_vc.queue.put_at(0, old_vc.current)
-            await new_vc.play(new_vc.queue.get())
-            await new_vc.seek(int(old_position) - 1)
+        vc: Player = await channel.connect(cls=Player(ctx=voice_client.ctx))  # type: ignore
+        vc.queue.put(list(voice_client.queue))
+        if voice_client.current:
+            vc.queue.put_at(0, voice_client.current)
+            await vc.play(vc.queue.get())
+            await vc.seek(int(voice_client.position) - 1)
 
     @core.command()
     @in_voice(author=True, bot=True)
@@ -329,10 +327,10 @@ class Music(core.Cog):
         """
         if await self.bot.is_owner(ctx.author) and not ctx.interaction:
             for vc in self.bot.voice_clients:
-                await self.do_reconnect(vc)  # type: ignore
+                self.bot.loop.create_task(self._reconnect(vc))  # type: ignore # all voice clients are type Player
             await ctx.send("Finished reconnecting all players.")
         else:
-            await self.do_reconnect(ctx.voice_client)
+            await self._reconnect(ctx.voice_client)
             await ctx.send("Reconnected.")
 
     @core.command(extras=EXTRAS)
