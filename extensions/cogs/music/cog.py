@@ -147,6 +147,16 @@ class Music(core.Cog):
         return commands.check(inner)
 
     @core.Cog.listener()
+    async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
+        node: wavelink.Node = payload.node
+
+        if payload.resumed:
+            return
+        else:
+            for vc in node.players.values():
+                self.bot.loop.create_task(self._reconnect(vc))  # type: ignore # all node players are type Player
+
+    @core.Cog.listener()
     async def on_wavelink_track_end(self, payload: TrackEnd) -> None:
         vc = payload.player
         if vc is None:
