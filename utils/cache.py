@@ -1,3 +1,14 @@
+"""
+MPL-2.0 LICENSE
+
+The contents of this file are taken from:
+https://github.com/Rapptz/RoboDanny/blob/582804d238c8ae302ab9aed6a1b5b8d928ba837f/cogs/utils/cache.py#L34-L68
+
+This Source Code Form is subject to the terms of the Mozilla Public
+License, v. 2.0. If a copy of the MPL was not distributed with this
+file, You can obtain one at http://mozilla.org/MPL/2.0/.
+"""
+
 import time
 from typing import Any
 

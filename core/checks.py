@@ -1,7 +1,10 @@
 """
-From Avimetry bot
+GPL-3.0 LICENSE
 
-Copyright (C) 2021 - 2023 avizum
+Some of the contents of this file is taken from:
+https://github.com/avizum/alpine/blob/f50ae4edd27ddac7e9913c113a2f898ac4da0332/core/checks.py
+
+Copyright (C) 2021-2024  Shobhits7, avizum
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
