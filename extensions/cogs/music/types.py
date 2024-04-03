@@ -20,9 +20,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import enum
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
-import discord
 import wavelink
 
 import core
