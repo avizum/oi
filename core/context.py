@@ -105,7 +105,7 @@ TIPS: list[list[str]] = [
     ],
 ]
 
-CHANCE = 1 / 24
+CHANCE = 1 / 20
 
 
 class Context(commands.Context, Generic[BotT]):
