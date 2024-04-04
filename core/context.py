@@ -277,25 +277,6 @@ class Context(commands.Context, Generic[BotT]):
             await msg.edit(view=None)
         return ConfirmResult(msg, view.value)
 
-    async def send_error(
-        self,
-        message: str | None = None,
-        *,
-        embed: discord.Embed | None = None,
-        embeds: Sequence[discord.Embed] | None = None,
-        view: discord.ui.View | None = None,
-    ) -> discord.Message:
-        if embed:
-            embed.color = discord.Color.red()
-        return await self.send(message, embed=embed, embeds=embeds, ephemeral=True, view=view, delete_after=60, no_tips=True)
-
-
-class DMContext(Context):
-    author: discord.User
-    guild: None
-    channel: discord.DMChannel
-    me: discord.ClientUser
-
 
 async def setup(bot: OiBot) -> None:
     bot.context = Context
