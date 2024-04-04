@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any, TYPE_CHECKING
 
 import discord
@@ -137,11 +138,11 @@ class Paginator(discord.ui.View):
     async def on_timeout(self) -> None:
         if not self.message:
             return
-        elif self.delete_message_after:
-            return await self.message.delete()
-        elif self.remove_view_after:
-            await self.message.edit(view=None)
-        return
+        with contextlib.suppress(discord.NotFound, discord.Forbidden):
+            if self.delete_message_after:
+                await self.message.delete()
+            elif self.remove_view_after:
+                await self.message.edit(view=None)
 
     async def show_page(self, itn: discord.Interaction, page_num: int):
         page = await self.source.get_page(page_num)

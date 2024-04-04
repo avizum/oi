@@ -28,6 +28,7 @@ import humanize
 from discord.ext import commands, tasks
 
 import core
+from utils.helpers import embed_to_text
 from utils.exceptions import Maintenance
 
 if TYPE_CHECKING:
@@ -136,7 +137,14 @@ class Important(core.Cog):
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url)
         embed.set_footer(text="Sorry if this disrupted something, you may delete this message. :)")
-        await channel.send(embed=embed)
+
+        bot_permissions = channel.permissions_for(guild.me)
+        if bot_permissions.send_messages:
+            if not bot_permissions.embed_links:
+                await channel.send(embed_to_text(embed))
+                return
+            await channel.send(embed=embed)
+            return
 
     @core.Cog.listener()
     async def on_guild_remove(self, guild: discord.Guild) -> None:
