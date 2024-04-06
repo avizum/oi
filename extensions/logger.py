@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import logging
+import sys
 from typing import TYPE_CHECKING
 
 from discord import Webhook
@@ -67,6 +68,8 @@ class WebhookLogger(core.Cog):
         for message in batch:
             lines = message.splitlines()
             for line in lines:
+                for path in sys.path:
+                    line = line.replace(f"{path}/", "")
                 if len(line) >= 1988:
                     line = f"{line[:1985]}..."
                 paginator.add_line(line)
