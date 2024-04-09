@@ -253,6 +253,7 @@ class PlayerController(ui.View):
             required = math.ceil(len(vc.channel.members) / 2)
             if itn.user.id in self.vc.skip_votes:
                 await send("You already voted to skip the track.", ephemeral=True)
+                return
             self.vc.skip_votes.add(itn.user.id)
             if len(self.vc.skip_votes) >= required:
                 await self.vc.skip()

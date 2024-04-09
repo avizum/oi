@@ -190,6 +190,8 @@ class Music(core.Cog):
         elif vc.autoplay == wavelink.AutoPlayMode.enabled:
             return
 
+        vc.skip_votes.clear()
+
         try:
             await vc.play(vc.queue.get())
         except wavelink.QueueEmpty:
