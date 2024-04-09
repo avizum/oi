@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import math
 from typing import Any, TYPE_CHECKING
@@ -149,7 +148,6 @@ class PlayerController(ui.View):
         self.counter: int = -1
         self.is_updating: bool = False
         self.choosing_loop: bool = False
-        self.update_lock: asyncio.Lock = asyncio.Lock()
         super().__init__(timeout=None)
 
     async def disable(self) -> None:
@@ -195,25 +193,30 @@ class PlayerController(ui.View):
     async def update(self, itn: Interaction | None = None) -> None:
         if self.is_updating or self.is_finished() or self.message is None:
             return
+
+        self.is_updating = True
+
+        if not itn and type(self.message) != discord.Message:
+            try:
+                self.message = await self.message.fetch()
+            except discord.NotFound:
+                self.message = None
+                return
+
+        edit = itn.response.edit_message if itn and not itn.response.is_done() else self.message.edit
+        current = self.vc.current
+
         if self.counter >= 10:
+            await edit(view=None)
+            if current:
+                await self.vc.invoke_controller(current)
+            self.is_updating = False
             return
 
-        async with self.update_lock:
-            self.is_updating = True
-            self.update_buttons()
+        self.update_buttons()
+        await edit(embed=self.vc.create_now_playing(current), view=self)
 
-            if type(self.message) != discord.Message:
-                try:
-                    self.message = await self.message.fetch()
-                except discord.HTTPException:
-                    return await self.disable()
-
-            current = self.vc.current
-            embed = self.vc.create_now_playing(current)
-
-            edit = itn.response.edit_message if itn and not itn.response.is_done() else self.message.edit
-            await edit(embed=embed, view=self)
-            self.is_updating = False
+        self.is_updating = False
 
     @cui.button(cls=PlayerButton, emoji="<:skip_left:1058275414591684689>")
     async def rewind(self, itn: Interaction, _: PlayerButton):

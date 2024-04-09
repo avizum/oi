@@ -131,24 +131,27 @@ class Player(wavelink.Player):
     async def invoke_controller(self, playable: Playable) -> None:
         if self.locked:
             return
+
         embed = self.create_now_playing(playable)
         controller = self.controller
+
         if not controller:
-            view = PlayerController(ctx=self.ctx, vc=self)
-            msg = await self.ctx.send(embed=embed, view=view, format_embeds=False, no_tips=True)
-            view.message = msg
-            self.controller = view
-        elif controller.message is None:
-            controller.update_buttons()
-            msg = await self.ctx.send(embed=embed, view=controller, format_embeds=False, no_tips=True)
-            controller.message = msg
+            controller = PlayerController(ctx=self.ctx, vc=self)
+            self.controller = controller
+
+        controller.update_buttons()
+
+        if controller.message is None:
+            controller.message = await self.ctx.send(embed=embed, view=controller, format_embeds=False, no_tips=True)
+            return
+
         elif controller.counter >= 10:
             with contextlib.suppress(discord.NotFound):
-                msg = await controller.message.fetch()
-                await msg.edit(view=None)
-            controller.update_buttons()
-            msg = await self.ctx.send(embed=embed, view=controller, format_embeds=False, no_tips=True)
-            controller.message = msg
+                message = await controller.message.fetch()
+                await message.edit(view=None)
+
+            controller.message = await self.ctx.send(embed=embed, view=controller, format_embeds=False, no_tips=True)
             controller.counter = -1
-        else:
-            await controller.update()
+            return
+
+        await controller.update()
