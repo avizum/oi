@@ -207,8 +207,9 @@ class PlayerController(ui.View):
         current = self.vc.current
 
         if self.counter >= 10:
+            invoke_controller = (not itn.extras.get("no_invoke", False)) if itn else False
             await edit(view=None)
-            if current:
+            if invoke_controller and current:
                 await self.vc.invoke_controller(current)
             self.is_updating = False
             return
@@ -234,6 +235,8 @@ class PlayerController(ui.View):
 
     @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1058275418987319356>")
     async def skip(self, itn: Interaction, _: PlayerSkipButton):
+        itn.extras = dict(no_invoke=True)
+
         vc = self.vc
 
         assert self.vc.current is not None
