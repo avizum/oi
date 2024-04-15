@@ -191,7 +191,7 @@ class OiBot(Bot):
 
     def setup_logging(self) -> None:
         formatter = _ColourFormatter()
-        handler = WebhookHandler(self)
+        handler = WebhookHandler()
         handler.setFormatter(formatter)
         self.webhook_handler = handler
         stream_handler = logging.StreamHandler()

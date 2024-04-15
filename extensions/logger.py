@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 
 
 class WebhookHandler(logging.Handler):
-    def __init__(self, bot: OiBot, level: int = logging.NOTSET) -> None:
+    def __init__(self, level: int = logging.NOTSET) -> None:
         super().__init__(level=level)
         self.batch: list[str] = []
 
