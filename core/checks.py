@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, Coroutine, TYPE_CHECKING, TypeVar
 
 import discord
 from discord.ext import commands
@@ -34,7 +34,7 @@ from utils.exceptions import NotVoted
 from .commands import Command
 
 if TYPE_CHECKING:
-    from discord.ext.commands._types import Check, ContextT, CoroFunc, UserCheck
+    from discord.ext.commands._types import Check, ContextT, UserCheck
 
     from .context import Context
 
@@ -48,6 +48,12 @@ __all__ = (
     "has_voted",
     "is_owner",
 )
+
+
+T = TypeVar("T")
+Coro = Coroutine[Any, Any, T]
+CoroFunc = Callable[..., Coro[Any]]
+CommandCoro = Command[Any, ..., Any] | CoroFunc
 
 
 def check(predicate: UserCheck[ContextT]) -> Check[ContextT]:
@@ -75,7 +81,7 @@ def check(predicate: UserCheck[ContextT]) -> Check[ContextT]:
     return decorator  # type: ignore
 
 
-def has_permissions(**perms: bool):
+def has_permissions(**perms: bool) -> Callable[[CommandCoro], CommandCoro]:
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
         raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
@@ -90,7 +96,7 @@ def has_permissions(**perms: bool):
 
         raise commands.MissingPermissions(missing)
 
-    def decorator(func: Command | CoroFunc) -> Command | CoroFunc:
+    def decorator(func: CommandCoro) -> CommandCoro:
         permissions = [perm for perm, value in perms.items() if value]
         app_command_permissions = discord.Permissions(**perms)
         if isinstance(func, Command):
@@ -124,7 +130,7 @@ def has_permissions(**perms: bool):
     return decorator
 
 
-def has_guild_permissions(**perms: bool):
+def has_guild_permissions(**perms: bool) -> Callable[[CommandCoro], CommandCoro]:
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
         raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
@@ -141,7 +147,7 @@ def has_guild_permissions(**perms: bool):
 
         raise commands.MissingPermissions(missing)
 
-    def decorator(func: Command | CoroFunc) -> Command | CoroFunc:
+    def decorator(func: CommandCoro) -> CommandCoro:
         permissions = [perm for perm, value in perms.items() if value]
         if isinstance(func, Command):
             func.checks.append(predicate)  # type: ignore
@@ -169,7 +175,7 @@ def has_guild_permissions(**perms: bool):
     return decorator
 
 
-def bot_has_permissions(**perms: bool):
+def bot_has_permissions(**perms: bool) -> Callable[[CommandCoro], CommandCoro]:
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
         raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
@@ -184,7 +190,7 @@ def bot_has_permissions(**perms: bool):
 
         raise commands.BotMissingPermissions(missing)
 
-    def decorator(func: Command | CoroFunc) -> Command | CoroFunc:
+    def decorator(func: CommandCoro) -> CommandCoro:
         permissions = [perm for perm, value in perms.items() if value]
         if isinstance(func, Command):
             func.checks.append(predicate)  # type: ignore
@@ -212,7 +218,7 @@ def bot_has_permissions(**perms: bool):
     return decorator
 
 
-def bot_has_guild_permissions(**perms: bool):
+def bot_has_guild_permissions(**perms: bool) -> Callable[[CommandCoro], CommandCoro]:
     invalid = set(perms) - set(discord.Permissions.VALID_FLAGS)
     if invalid:
         raise TypeError(f"Invalid permission(s): {', '.join(invalid)}")
@@ -229,7 +235,7 @@ def bot_has_guild_permissions(**perms: bool):
 
         raise commands.BotMissingPermissions(missing)
 
-    def decorator(func: Command | CoroFunc) -> Command | CoroFunc:
+    def decorator(func: CommandCoro) -> CommandCoro:
         permissions = [perm for perm, value in perms.items() if value]
         if isinstance(func, Command):
             func.checks.append(predicate)  # type: ignore
@@ -257,13 +263,13 @@ def bot_has_guild_permissions(**perms: bool):
     return decorator
 
 
-def is_owner():
-    async def predicate(ctx: Context):
+def is_owner() -> Callable[[CommandCoro], CommandCoro]:
+    async def predicate(ctx: Context) -> bool:
         if not await ctx.bot.is_owner(ctx.author):
             raise commands.NotOwner("You do not own this bot.")
         return True
 
-    def decorator(func: Command | CoroFunc) -> Command | CoroFunc:
+    def decorator(func: CommandCoro) -> CommandCoro:
         if isinstance(func, Command):
             func.checks.append(predicate)  # type: ignore
             func.member_permissions = ["bot_owner"]
@@ -289,8 +295,8 @@ def is_owner():
     return decorator
 
 
-def has_voted():
-    async def predicate(ctx: Context):
+def has_voted() -> Callable[[CommandCoro], CommandCoro]:
+    async def predicate(ctx: Context) -> bool:
         bot = ctx.bot
 
         if await bot.is_owner(ctx.author):
@@ -300,10 +306,11 @@ def has_voted():
             check = await bot.topgg.get_user_vote(ctx.author.id)
             bot.votes[ctx.author.id] = check
             if not check:
-                raise NotVoted
+                raise NotVoted()
             return True
+        return False
 
-    def decorator(func: Command | CoroFunc) -> Command | CoroFunc:
+    def decorator(func: CommandCoro) -> CommandCoro:
         if isinstance(func, Command):
             func.checks.append(predicate)  # type: ignore
             func.member_permissions = ["to_vote"]
