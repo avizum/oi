@@ -27,6 +27,7 @@ import wavelink
 import core
 
 if TYPE_CHECKING:
+    from .cog import Music
     from .player import Player
 
 __all__ = (
@@ -47,6 +48,7 @@ class SearchType(enum.Enum):
 
 
 class PlayerContext(core.Context):
+    cog: Music
     voice_client: Player
 
 

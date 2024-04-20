@@ -76,7 +76,7 @@ class Player(wavelink.Player):
     def create_now_playing(self, track: Playable | None = None) -> discord.Embed:
         assert self.guild is not None
 
-        nothing = f"Nothing is in the queue. Add some songs with {self.client.tree_commands['play'].mention}."
+        nothing = f"Nothing is in the queue. Add some songs with {self.ctx.cog.play.mention}."
         if track is None:
             embed = discord.Embed(
                 title="Now Playing",
@@ -95,8 +95,7 @@ class Player(wavelink.Player):
 
         if self.autoplay == wavelink.AutoPlayMode.enabled:
             nothing = (
-                "Autoplay is enabled, but nothing is in the queue. "
-                f"Add some songs with {self.client.tree_commands['play'].mention}."
+                "Autoplay is enabled, but nothing is in the queue. " f"Add some songs with {self.ctx.cog.play.mention}."
             )
 
         joined = "\n".join(next_tracks) or nothing

@@ -20,13 +20,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Callable, Concatenate, ParamSpec, TYPE_CHECKING, TypeVar
+from typing import Any, Callable, Concatenate, Generator, ParamSpec, TYPE_CHECKING, TypeVar
 
 from discord import app_commands
 from discord.ext import commands
 from discord.utils import MISSING
 
 if TYPE_CHECKING:
+    from discord.app_commands import AppCommand
     from discord.ext.commands import Context
     from discord.ext.commands._types import Coro
 
@@ -102,18 +103,31 @@ class Group(commands.Group, Command[CogT, P, T]):
 
 class HybridCommand(commands.HybridCommand, Command[CogT, P, T]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.raw_app_command: AppCommand | None = None
         super().__init__(*args, **kwargs)
-        app_command = getattr(self, "app_command", None)
-        if app_command:
-            app_command.guild_only = True
+
+        if self.app_command:
+            self.app_command.guild_only = True
+
+    @property
+    def mention(self):
+        if not self.raw_app_command:
+            return f"/{self.qualified_name}"
+        return self.raw_app_command.mention
 
 
 class HybridGroup(commands.HybridGroup, Group[CogT, P, T]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
+        self.raw_app_command: AppCommand | None = None
         super().__init__(*args, **kwargs)
-        app_command = getattr(self, "app_command", None)
-        if app_command:
-            app_command.guild_only = True
+        if self.app_command:
+            self.app_command.guild_only = True
+
+    @property
+    def mention(self):
+        if not self.raw_app_command:
+            return f"/{self.qualified_name}"
+        return self.raw_app_command.mention
 
     def command(
         self,
@@ -214,6 +228,16 @@ class Bot(commands.AutoShardedBot):
             return cmd
 
         return decorator
+
+    def walk_commands(
+        self,
+    ) -> Generator[HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any] | commands.Command[Any, ..., Any], None, None]:
+        return super().walk_commands()
+
+    def get_command(
+        self, name: str
+    ) -> HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any] | commands.Command[Any, ..., Any] | None:
+        return super().get_command(name)
 
 
 describe = app_commands.describe

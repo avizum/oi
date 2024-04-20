@@ -31,7 +31,7 @@ import discord
 import jishaku
 import toml
 import wavelink
-from discord.app_commands import AppCommand, AppCommandGroup
+from discord.app_commands import AppCommand
 from discord.ext import commands
 from discord.ext.commands.core import _CaseInsensitiveDict
 from discord.utils import _ColourFormatter
@@ -42,7 +42,7 @@ from waifuim import Client as WaifiImClient
 from extensions.logger import WebhookHandler
 from utils.cache import ExpiringCache
 
-from .commands import Bot
+from .commands import Bot, HybridCommand
 
 _log = logging.getLogger("oi")
 
@@ -65,7 +65,6 @@ class OiBot(Bot):
     command_usage: dict[str, int] = {}
     songs_played: int = 0
     support_server: str = "https://discord.gg/hWhGQ4QHE9"
-    tree_commands: dict[str, AppCommand | AppCommandGroup] = {}
     invite_url = discord.utils.oauth_url(867713143366746142, permissions=discord.Permissions(1644942454270))
     context: type[commands.Context] = commands.Context
     theme: int = 0x00FFB3
@@ -179,15 +178,13 @@ class OiBot(Bot):
                 continue
             self.command_usage[command.qualified_name] = 0
 
-    async def fill_tree_commands(self, commands: list[AppCommand] | None = None) -> dict[str, AppCommand | AppCommandGroup]:
+    async def fill_command_mentions(self, commands: list[AppCommand] | None = None):
         await self.wait_until_ready()
-        tree_cmds = commands or await self.tree.fetch_commands()
-        for command in tree_cmds:
-            for option in command.options:
-                if isinstance(option, AppCommandGroup):
-                    self.tree_commands[option.qualified_name] = option
-            self.tree_commands[command.name] = command
-        return self.tree_commands
+        raw_tree_cmds = commands or await self.tree.fetch_commands()
+        for raw_cmd in raw_tree_cmds:
+            cmd = self.get_command(raw_cmd.name)
+            if isinstance(cmd, HybridCommand):
+                cmd.raw_app_command = raw_cmd
 
     def setup_logging(self) -> None:
         formatter = _ColourFormatter()
@@ -207,7 +204,7 @@ class OiBot(Bot):
         self.loop.create_task(self.start_wavelink_nodes())
         self.loop.create_task(self.start_topgg())
         self.loop.create_task(self.start_waifuim())
-        self.loop.create_task(self.fill_tree_commands())
+        self.loop.create_task(self.fill_command_mentions())
 
     def run(self) -> None:
         self.setup_logging()

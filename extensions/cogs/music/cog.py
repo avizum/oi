@@ -407,7 +407,7 @@ class Music(core.Cog):
         vc = ctx.voice_client or await self._connect(ctx)
 
         if vc is None:
-            await ctx.send(f"Could not join your channel. Use {self.bot.tree_commands['connect'].mention} to continue.")
+            await ctx.send(f"Could not join your channel. Use {self.connect.mention} to continue.")
             return
 
         search = await vc.fetch_tracks(query, source)
