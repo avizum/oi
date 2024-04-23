@@ -19,8 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import contextlib
-import random
 import sys
 from typing import Any, Generic, Sequence, TYPE_CHECKING, TypeVar
 
@@ -71,43 +69,6 @@ class ConfirmResult:
         return f"<ConfirmResult result={self.result}>"
 
 
-TIPS: list[list[str]] = [
-    [
-        "<:cr_ztheart:853385258762240041> Please vote for Oi.",
-        "Vote Here!",
-        "https://top.gg/bot/867713143366746142/vote",
-    ],
-    [
-        "<:cr_ztheart:853385258762240041> These tips disappear if you vote!",
-        "Vote Here!",
-        "https://top.gg/bot/867713143366746142/vote",
-    ],
-    [
-        "<:cr_ztheart:853385258762240041> If you vote for Oi, you get a cookie!",
-        "Vote Here!",
-        "https://top.gg/bot/867713143366746142/vote",
-    ],
-    ["Join the support server if you need help!", "Support Server", "https://discord.gg/hWhGQ4QHE9"],
-    [
-        "Need Help? Use `/help` or join the support server!",
-        "Support Server",
-        "https://discord.gg/hWhGQ4QHE9",
-    ],
-    [
-        "Oi is made by people on their free time! Please be patient with us.",
-        "[Developer] avizum's page",
-        "https://github.com/avizum",
-    ],
-    [
-        "Oi is made by people on their free time! Please be patient with us.",
-        "[Developer] ROLEX's page",
-        "https://github.com/Shobhits7",
-    ],
-]
-
-CHANCE = 1 / 20
-
-
 class Context(commands.Context, Generic[BotT]):
     bot: OiBot
     author: discord.Member
@@ -146,7 +107,6 @@ class Context(commands.Context, Generic[BotT]):
         format_embeds: bool = True,
         view: discord.ui.View | None = None,
         suppress_embeds: bool = False,
-        no_tips: bool = False,
         ephemeral: bool = False,
         silent: bool = False,
     ) -> discord.Message:
@@ -182,17 +142,9 @@ class Context(commands.Context, Generic[BotT]):
         if not self.permissions.read_message_history:
             reference = None
 
-        random_num = random.random()
-        new_content = content
-        original = content
-        if self.author.id not in self.bot.votes and random_num < CHANCE and not no_tips:
-            msg, _, url = random.choice(TIPS)
-            advert = f"{msg} | <{url}>"
-            new_content = f"{advert}\n\n{content}" if content is not None else advert
-
         if self.interaction is None or self.interaction.is_expired():
             return await super().send(
-                content=new_content,
+                content=content,
                 tts=tts,
                 embed=embed,
                 embeds=embeds,
@@ -211,7 +163,7 @@ class Context(commands.Context, Generic[BotT]):
 
         # Convert None to MISSING to appease type remaining implementations
         kwargs = {
-            "content": original,
+            "content": content,
             "tts": tts,
             "embed": MISSING if embed is None else embed,
             "embeds": MISSING if embeds is None else embeds,
@@ -237,12 +189,6 @@ class Context(commands.Context, Generic[BotT]):
         if delete_after is not None:
             await msg.delete(delay=delete_after)
 
-        with contextlib.suppress(Exception):
-            if self.author.id not in self.bot.votes and random_num < CHANCE and not no_tips:
-                message, label, url = random.choice(TIPS)
-                view = discord.ui.View()
-                view.add_item(discord.ui.Button(label=label, url=url))
-                await self.interaction.followup.send(message, view=view, ephemeral=True)
         return msg
 
     async def confirm(
