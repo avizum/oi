@@ -141,7 +141,7 @@ class Player(wavelink.Player):
         controller.update_buttons()
 
         if controller.message is None:
-            controller.message = await self.ctx.send(embed=embed, view=controller, format_embeds=False, no_tips=True)
+            controller.message = await self.ctx.send(embed=embed, view=controller, format_embeds=False)
             return
 
         elif controller.counter >= 10:
@@ -149,7 +149,7 @@ class Player(wavelink.Player):
                 message = await controller.message.fetch()
                 await message.edit(view=None)
 
-            controller.message = await self.ctx.send(embed=embed, view=controller, format_embeds=False, no_tips=True)
+            controller.message = await self.ctx.send(embed=embed, view=controller, format_embeds=False)
             controller.counter = -1
             return
 
