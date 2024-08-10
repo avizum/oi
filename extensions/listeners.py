@@ -28,8 +28,8 @@ import humanize
 from discord.ext import commands, tasks
 
 import core
+from utils.exceptions import Blacklisted, Maintenance
 from utils.helpers import embed_to_text
-from utils.exceptions import Maintenance
 
 if TYPE_CHECKING:
     from core import Context, OiBot
@@ -51,10 +51,14 @@ class Important(core.Cog):
     async def bot_check(self, ctx: Context) -> bool:
         if await self.bot.is_owner(ctx.author):
             return True
+        if ctx.author.id in self.bot.blacklisted:
+            raise Blacklisted()
         if ctx.guild is None:
             raise commands.NoPrivateMessage("Commands can not be used in DMs.")
         if self.bot.maintenance and not await self.bot.is_owner(ctx.author):
             raise Maintenance("Bot is under maintenance.")
+        if ctx.cog in self.bot.maintenance_cogs:
+            raise Maintenance(f"{ctx.cog.qualified_name} module is under maintenance.")
         return True
 
     @tasks.loop(minutes=5)

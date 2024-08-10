@@ -30,3 +30,7 @@ class Maintenance(commands.CheckFailure):
     """
     Raised when bot is under maintenance.
     """
+
+
+class Blacklisted(commands.CheckFailure):
+    """Raised when a user is blacklisted."""

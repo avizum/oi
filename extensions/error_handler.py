@@ -30,7 +30,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import core
-from utils.exceptions import Maintenance, NotVoted
+from utils.exceptions import Blacklisted, Maintenance, NotVoted
 
 if TYPE_CHECKING:
     from core import Context, OiBot
@@ -46,6 +46,16 @@ VOTE_VIEW.add_item(
     )
 )
 
+# This is needed because the bot has no intents.
+# Bot.get_user is always empty.
+MODS = {
+    531179463673774080: "rolex6596",  # Rolex
+    920320601615380552: "rolex4160",  # Rolex alt
+    750135653638865017: "avizum",  # avizum
+    343019667511574528: "crunchyanime",  # Crunchy
+}
+
+
 
 class ErrorHandler(core.Cog):
     def __init__(self, bot: OiBot):
@@ -54,6 +64,7 @@ class ErrorHandler(core.Cog):
             bot.config["ERROR_WEBHOOK"],
             session=self.bot.session,
         )
+        self.blacklist_cooldown = commands.CooldownMapping.from_cooldown(1, 300, commands.BucketType.user)
         self._original_tree_error = self.bot.tree.on_error
         self.bot.tree.on_error = self.on_tree_error
 
@@ -73,14 +84,36 @@ class ErrorHandler(core.Cog):
         if isinstance(error, app_commands.CommandInvokeError):
             error = error.original
 
-        if isinstance(error, commands.CommandNotFound):
+        if isinstance(error, Blacklisted):
+            ratelimited = self.blacklist_cooldown.update_rate_limit(ctx.message)
+            blacklist = self.bot.blacklisted[ctx.author.id]
+            embed = discord.Embed(title="You are blacklisted from Oi.", color=discord.Color.red())
+            embed.add_field(
+                name=f"Moderator Note from {MODS[blacklist["moderator"]]}:",
+                value=blacklist["reason"],
+                inline=False,
+            )
+            next_steps = "Moderation actions are done manually, so it is unlikely that this message is an error.\n\n"
+            if blacklist["permanent"]:
+                next_steps += "This action is **PERMANENT** and can not be appealed in the support server."
+            else:
+                next_steps += "You may appeal this blacklist in the support server."
+            embed.add_field(name="Next Steps", value=next_steps, inline=False)
+            view = discord.ui.View()
+            view.add_item(
+                discord.ui.Button(style=discord.ButtonStyle.url, label="Support Server", url=self.bot.support_server)
+            )
+            if ctx.interaction or not ratelimited:
+                await ctx.send(embed=embed, view=view, ephemeral=True)
+
+        elif isinstance(error, commands.CommandNotFound):
             return
 
         elif isinstance(error, NotVoted):
             return await ctx.send("You need to vote for Oi to use this command.", ephemeral=True, view=VOTE_VIEW)
 
         elif isinstance(error, Maintenance):
-            return await ctx.send("Oi is currently under maintenance.", ephemeral=True)
+            return await ctx.send(str(error), ephemeral=True)
 
         elif isinstance(error, discord.NotFound) and error.code == 10062:
             return

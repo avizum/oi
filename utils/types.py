@@ -85,3 +85,9 @@ class UrbanData(TypedDict):
     written_on: str
     example: str
     thumbs_down: int
+
+
+class Blacklist(TypedDict):
+    reason: str
+    moderator: int
+    permanent: bool

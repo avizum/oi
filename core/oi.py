@@ -27,6 +27,7 @@ from datetime import datetime
 
 import aiohttp
 import async_timeout
+import asyncpg
 import discord
 import jishaku
 import toml
@@ -41,8 +42,9 @@ from waifuim import Client as WaifiImClient
 
 from extensions.logger import WebhookHandler
 from utils.cache import ExpiringCache
+from utils.types import Blacklist
 
-from .commands import Bot, HybridCommand
+from .commands import Bot, Cog, HybridCommand
 
 _log = logging.getLogger("oi")
 
@@ -58,17 +60,10 @@ __all__ = ("OiBot",)
 
 class OiBot(Bot):
     user: discord.ClientUser
-    invite_url: str
-    owner_ids: set[int]
     webhook_handler: WebhookHandler
-    launched_at: datetime = datetime.now(tz=dt.timezone.utc)
-    command_usage: dict[str, int] = {}
-    songs_played: int = 0
-    support_server: str = "https://discord.gg/hWhGQ4QHE9"
-    invite_url = discord.utils.oauth_url(867713143366746142, permissions=discord.Permissions(1644942454270))
-    context: type[commands.Context] = commands.Context
-    theme: int = 0x00FFB3
-    maintenance: bool = False
+    pool: asyncpg.Pool
+    owner_id: None
+    owner_ids: set[int]
 
     def __init__(self) -> None:
         super().__init__(
@@ -85,6 +80,16 @@ class OiBot(Bot):
         )
         self._BotBase__cogs: dict[str, commands.Cog] = _CaseInsensitiveDict()
         self.votes: ExpiringCache = ExpiringCache(60 * 60 * 12)  # 12 hours
+        self.maintenance: bool = False
+        self.maintenance_cogs: list[Cog] = []
+        self.launched_at: datetime = datetime.now(tz=dt.timezone.utc)
+        self.command_usage: dict[str, int] = {}
+        self.blacklisted: dict[int, Blacklist] = {}
+        self.songs_played: int = 0
+        self.support_server: str = "https://discord.gg/hWhGQ4QHE9"
+        self.invite_url: str = discord.utils.oauth_url(867713143366746142, permissions=discord.Permissions(1644942454270))
+        self.context: type[commands.Context] = commands.Context
+        self.theme: int = 0x00FFB3
 
         with open("config.toml", "r") as f:
             self.config = toml.loads(f.read())
@@ -178,13 +183,22 @@ class OiBot(Bot):
                 continue
             self.command_usage[command.qualified_name] = 0
 
-    async def fill_command_mentions(self, commands: list[AppCommand] | None = None):
+    async def fill_command_mentions(self, commands: list[AppCommand] | None = None) -> None:
         await self.wait_until_ready()
         raw_tree_cmds = commands or await self.tree.fetch_commands()
         for raw_cmd in raw_tree_cmds:
             cmd = self.get_command(raw_cmd.name)
             if isinstance(cmd, HybridCommand):
                 cmd.raw_app_command = raw_cmd
+
+    async def create_pool(self) -> asyncpg.Pool:
+        pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["POSTGRESQL"])  # type: ignore
+        blacklisted = await pool.fetch("SELECT * FROM blacklist")
+        for data in blacklisted:
+            self.blacklisted[data["user_id"]] = dict(data)  # type: ignore
+
+        self.pool = pool
+        return pool
 
     def setup_logging(self) -> None:
         formatter = _ColourFormatter()
@@ -201,6 +215,7 @@ class OiBot(Bot):
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
         self.loop.create_task(self.load_extensions())
+        self.loop.create_task(self.create_pool())
         self.loop.create_task(self.start_wavelink_nodes())
         self.loop.create_task(self.start_topgg())
         self.loop.create_task(self.start_waifuim())
