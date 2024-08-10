@@ -24,6 +24,8 @@ import contextlib
 import datetime
 import logging
 import math
+import urllib
+import urllib.parse
 from typing import Annotated, cast, Literal, TYPE_CHECKING
 
 import discord
@@ -61,6 +63,7 @@ SEARCH_TYPES = Literal[
     "Spotify",
     "SoundCloud",
     "Apple Music",
+    "Deezer",
 ]
 
 
@@ -208,7 +211,7 @@ class Music(core.Cog):
         self.bot.songs_played += 1
 
         track = payload.original
-        if vc.autoplay == wavelink.AutoPlayMode.enabled:
+        if vc.autoplay == wavelink.AutoPlayMode.enabled and not getattr(track.extras, "requester", None):
             duration = "LIVE" if track.is_stream else format_seconds(track.length / 1000)
             suffix = f" - {track.author}" if track.author not in track.title else ""
             track.extras = Extras(
@@ -251,7 +254,7 @@ class Music(core.Cog):
                 vc.locked = False  # allow the controller to update and get disabled.
 
         _log.error(
-            f"Error occured while playing {track.title} in guild ID {vc.ctx.guild.id}\n"
+            f"Error occured while playing {track.title} ({track.encoded}) in guild ID {vc.ctx.guild.id}\n"
             f"Message: {exception.get('message')}\nSeverity: {exception.get('severity')}"
         )
 
@@ -467,7 +470,7 @@ class Music(core.Cog):
                 end = "queue."
             embed = discord.Embed(
                 title="Enqueued Track",
-                description=f"Added {search.extras.hyperlink} to the {end}.",
+                description=f"Added {search.extras.hyperlink} to the {end}",
             )
         embed.set_thumbnail(url=search.artwork)
 
@@ -958,6 +961,61 @@ class Music(core.Cog):
         await ctx.send("Reset all fitlers.")
 
     @core.command()
+    @in_voice()
+    @in_channel()
+    @not_deafened()
+    @core.has_voted()
+    @core.describe(
+        text="What to say in the voice channel.",
+        voice="Which voice to use.",
+        translate="Whether to translate text to the native language of the voice.",
+        speed="How slow or fast the speech should be.",
+    )
+    async def tts(
+        self,
+        ctx: PlayerContext,
+        *,
+        text: commands.Range[str, 1, 2000],
+        voice: str = "Carter",
+        translate: bool = False,
+        speed: commands.Range[float, 0.5, 10.0] = 1.0,
+    ):
+        """
+        Text to speech in voice channel.
+        """
+        vc = ctx.voice_client
+
+        if vc.current and not vc.paused:
+            return await ctx.send("This command requires the player to be idle.", ephemeral=True)
+
+        current = None
+        start = 0
+        if vc.current:
+            current = vc.current
+            start = vc.position
+
+        text = urllib.parse.quote(text)
+
+        search = await wavelink.Playable.search(
+            f"ftts://{text}?voice={voice}&translate={str(translate).lower()}&speed={speed}", source=None
+        )
+        if not search:
+            return await ctx.send("Could not load speech.", ephemeral=True)
+
+        track = search[0]
+        track.extras = Extras(
+            requester=str(ctx.author),
+            requester_id=ctx.author.id,
+            duration="N/A",
+            hyperlink="TTS query",
+        )
+
+        await vc.play(track, add_history=False, paused=False)
+        await self.bot.wait_for("wavelink_track_end", check=lambda pl: pl.player.channel == vc.channel)
+        if current:
+            await vc.play(current, start=start, paused=True, add_history=False)
+
+    @core.command()
     @core.has_voted()
     @core.describe(search="The song to search for.")
     async def lyrics(self, ctx: PlayerContext, *, search: str | None = None):
@@ -967,25 +1025,28 @@ class Music(core.Cog):
         If no query is provided, the lyrics for the current song (if any) will be shown.
         """
         vc = ctx.voice_client
-        if vc is None:
-            return await ctx.send("Nothing is playing.")
 
-        if search is None and vc.current is None:
-            return await ctx.send("Must provide a query or be playing a song.", ephemeral=True)
+        if not search:
+            if vc and not vc.current:
+                raise commands.BadArgument("There is no song playing. Please enter a search query or play a song.")
 
-        if search is None and vc.current:
-            search = vc.current.title
+            assert vc.current is not None
+            title = vc.current.title
+            lyrics_data = await vc.fetch_current_lyrics()
 
-        async with ctx.typing():
-            resp = await self.bot.session.get("https://api.yodabot.xyz/api/lyrics/search", params={"q": search})
-            if resp.status != 200:
-                return await ctx.send("Could not find lyrics for that song.", ephemeral=True)
-            data = await resp.json()
-            lyrics: str = data["lyrics"]
-            lyrics_pag = commands.Paginator(prefix="", suffix="", max_size=1000)
-            for line in lyrics.splitlines():
-                lyrics_pag.add_line(line)
+        else:
+            fetch = await Player.fetch_lyrics(search)
+            if not fetch:
+                raise commands.BadArgument("No results found matching your search.")
+            title, lyrics_data = fetch
 
-            source = LyricPageSource(data["title"], lyrics_pag)
-            paginator = Paginator(source, ctx=ctx, delete_message_after=True)
-            await paginator.start()
+        if not lyrics_data or lyrics_data and not lyrics_data["text"]:
+            raise commands.BadArgument("No results found matching your search.")
+        lyrics = lyrics_data["text"]
+        pag = commands.Paginator(max_size=320)
+        for line in lyrics.splitlines():
+            pag.add_line(line)
+
+        source = LyricPageSource(title, pag)
+        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        await paginator.start()

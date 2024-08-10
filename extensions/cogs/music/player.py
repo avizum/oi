@@ -28,7 +28,7 @@ from wavelink import Playable, Playlist, QueueMode
 
 from core import OiBot
 
-from .types import PlayerContext
+from .types import Lyrics, PlayerContext
 from .views import PlayerController
 
 if TYPE_CHECKING:
@@ -43,6 +43,7 @@ source_map = {
     "Spotify": "spsearch",
     "SoundCloud": "scsearch",
     "Apple Music": "amsearch",
+    "Deezer": "dzsearch",
 }
 
 
@@ -118,7 +119,7 @@ class Player(wavelink.Player):
 
     async def fetch_tracks(self, query: str, source: SEARCH_TYPES) -> Playable | Playlist | None:
         try:
-            tracks = await Playable.search(query, source=source_map.get(source, "ytmsearch"))
+            tracks = await Playable.search(query, source=source_map.get(source, "ytsearch"))
         except wavelink.LavalinkLoadException:
             tracks = None
 
@@ -154,3 +155,28 @@ class Player(wavelink.Player):
             return
 
         await controller.update()
+
+    async def fetch_current_lyrics(self) -> Lyrics | None:
+        try:
+            data: Lyrics = await self.node.send(
+                "GET", path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics"
+            )
+            return data
+        except (wavelink.LavalinkException, wavelink.NodeException):
+            return
+
+    @classmethod
+    async def fetch_lyrics(cls, query: str) -> tuple[str, Lyrics] | None:
+        try:
+            tracks = await Playable.search(query, source="ytmsearch")
+            if isinstance(tracks, Playlist) or tracks is None:
+                return
+            track = tracks[0]
+        except wavelink.LavalinkLoadException:
+            return
+        try:
+            node = wavelink.Pool.get_node("OiBot")
+            data: Lyrics = await node.send("GET", path="v4/lyrics", params={"track": f"{track.encoded}"})
+            return track.title, data
+        except (wavelink.LavalinkException, wavelink.NodeException):
+            return

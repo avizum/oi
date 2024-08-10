@@ -196,7 +196,7 @@ class PlayerController(ui.View):
 
         self.is_updating = True
 
-        if not itn and type(self.message) != discord.Message:
+        if not itn and type(self.message) is not discord.Message:
             try:
                 self.message = await self.message.fetch()
             except discord.NotFound:
@@ -210,6 +210,7 @@ class PlayerController(ui.View):
             invoke_controller = (not itn.extras.get("no_invoke", False)) if itn else False
             await edit(view=None)
             if invoke_controller and current:
+                self.counter = -1
                 await self.vc.invoke_controller(current)
             self.is_updating = False
             return

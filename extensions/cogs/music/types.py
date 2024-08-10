@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import enum
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING, TypedDict
 
 import wavelink
 
@@ -67,3 +67,18 @@ class TrackStuck(wavelink.TrackStuckEventPayload):
 
 class TrackException(wavelink.TrackExceptionEventPayload):
     player: Player
+
+
+class LyricLine(TypedDict):
+    timestamp: int
+    duration: int
+    line: str
+    plugin: Any
+
+
+class Lyrics(TypedDict):
+    sourceName: str
+    provider: str
+    text: str
+    lines: list[LyricLine]
+    plugin: Any

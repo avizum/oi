@@ -369,12 +369,12 @@ class Fun(core.Cog):
             await ctx.send(fact)
 
     @random.command()
-    async def activity(self, ctx: Context):
+    async def activity(self, ctx: Context, safe: bool = True):
         """
         Get a random activity.
         """
         async with ctx.typing():
-            resp = await self.bot.session.get("https://www.boredapi.com/api/activity")
+            resp = await self.bot.session.get("https://bored-api.appbrewery.com/random")
             json = await resp.json()
             await ctx.send(json["activity"])
 
