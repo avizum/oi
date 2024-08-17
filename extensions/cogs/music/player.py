@@ -159,7 +159,8 @@ class Player(wavelink.Player):
     async def fetch_current_lyrics(self) -> Lyrics | None:
         try:
             data: Lyrics = await self.node.send(
-                "GET", path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics"
+                "GET",
+                path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics?skipTrackSource=true",
             )
             return data
         except (wavelink.LavalinkException, wavelink.NodeException):
@@ -169,7 +170,7 @@ class Player(wavelink.Player):
     async def fetch_lyrics(cls, query: str) -> tuple[str, Lyrics] | None:
         try:
             tracks = await Playable.search(query, source="ytmsearch")
-            if isinstance(tracks, Playlist) or tracks is None:
+            if isinstance(tracks, Playlist) or not tracks:
                 return
             track = tracks[0]
         except wavelink.LavalinkLoadException:
