@@ -162,6 +162,8 @@ class Music(core.Cog):
 
         def inner(ctx: PlayerContext) -> bool:
             vc = ctx.voice_client
+            if not vc.privileged:
+                return True
             if vc and ctx.author != vc.privileged or not ctx.permissions.manage_guild:
                 raise commands.CheckFailure("You need to be DJ or have the `Manage Server` permission to do this.")
             return True

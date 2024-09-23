@@ -26,7 +26,7 @@ from typing import Any, TYPE_CHECKING
 import discord
 from discord import ButtonStyle, ui
 from discord.ext import menus
-from wavelink import Playable, QueueMode
+from wavelink import AutoPlayMode, Playable, QueueMode
 
 from core import ui as cui
 
@@ -67,7 +67,7 @@ class PlayerButton(ui.Button["PlayerController"]):
         elif itn.user not in vc.channel.members:
             await itn.response.send_message(f"You need to be in {vc.channel.mention} to use this.", ephemeral=True)
             return False
-        elif itn.user == vc.privileged or itn.permissions.manage_guild:
+        elif itn.user == vc.privileged or itn.permissions.manage_guild or not vc.privileged:
             return True
         else:
             await itn.response.send_message("You need to be DJ to use this.", ephemeral=True)
@@ -79,20 +79,21 @@ class PlayerSkipButton(PlayerButton):
         assert self.view is not None
         vc = self.view.vc
 
-        if not vc.current or not vc.connected:
+        if not vc or vc and vc.locked or not vc.current or not vc.connected:
             await itn.response.defer()
             return False
 
         if itn.user not in vc.channel.members:
             await itn.response.send_message(f"You need to be in {vc.channel.mention} to use this.", ephemeral=True)
             return False
-        return vc is not None and vc.current is not None
+        return True
 
 
 class LoopTypeSelect(ui.Select["PlayerController"]):
-    def __init__(self, vc: Player, controller: PlayerController):
-        self.vc = vc
+    def __init__(self, controller: PlayerController):
+        self.vc = controller.vc
         self.controller = controller
+        vc = self.vc
         assert vc.current is not None
         super().__init__(
             placeholder="Choose loop type...",
@@ -136,7 +137,6 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             else:
                 self.vc.queue.mode = QueueMode.loop
             self.controller.remove_item(self)
-            self.controller.choosing_loop = False
             await self.controller.update(itn)
 
 
@@ -147,7 +147,7 @@ class PlayerController(ui.View):
         self.message: discord.Message | None = None
         self.counter: int = -1
         self.is_updating: bool = False
-        self.choosing_loop: bool = False
+        self.loop_select: LoopTypeSelect | None = None
         super().__init__(timeout=None)
 
     async def disable(self) -> None:
@@ -164,22 +164,24 @@ class PlayerController(ui.View):
         self.skip.disabled = disabled
         self.shuffle.disabled = disabled
         self.loop.disabled = disabled
+        self.autoplay.disabled = disabled
 
     def update_buttons(self) -> None:
         self.set_disabled(False)
         self.pause.style = ButtonStyle.gray
         self.loop.style = ButtonStyle.gray
+        self.autoplay.style = ButtonStyle.gray
         self.loop.emoji = "<:loop_all:1155046704509374534>"
 
         vc = self.vc
-
-        if self.choosing_loop:
-            self.loop.disabled = True
 
         if vc.queue.mode is not QueueMode.normal:
             self.loop.style = ButtonStyle.green
             if vc.queue.mode == QueueMode.loop:
                 self.loop.emoji = "<:loop_one:1155046706774286366>"
+
+        if vc.autoplay is not AutoPlayMode.disabled:
+            self.autoplay.style = ButtonStyle.green
 
         if vc.paused:
             self.pause.style = ButtonStyle.red
@@ -276,10 +278,21 @@ class PlayerController(ui.View):
     async def loop(self, itn: Interaction, button: PlayerButton):
         assert self.vc.current is not None
 
-        self.add_item(LoopTypeSelect(self.vc, self))
-        self.choosing_loop = True
-        button.disabled = True
+        if not self.loop_select:
+            self.loop_select = LoopTypeSelect(self)
+            self.add_item(self.loop_select)
+        else:
+            self.remove_item(self.loop_select)
+            self.loop_select = None
+
+        await self.update(itn)
         self.ctx.bot.command_usage["queue loop"] += 1
+
+    @cui.button(cls=PlayerButton, emoji="<:autoplay:1271721832659157032>")
+    async def autoplay(self, itn: Interaction, button: PlayerButton):
+        state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
+        self.vc.autoplay = state
+        self.ctx.bot.command_usage["player autoplay"] += 1
         await self.update(itn)
 
 

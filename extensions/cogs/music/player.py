@@ -94,7 +94,7 @@ class Player(wavelink.Player):
         tng = copy_queue[:2] if queue_mode is QueueMode.loop else copy_queue[:3]
         next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
 
-        if self.autoplay == wavelink.AutoPlayMode.enabled:
+        if self.autoplay is not wavelink.AutoPlayMode.disabled:
             nothing = (
                 "Autoplay is enabled, but nothing is in the queue. " f"Add some songs with {self.ctx.cog.play.mention}."
             )
