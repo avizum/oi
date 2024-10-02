@@ -863,6 +863,9 @@ class Music(core.Cog):
     async def player_filter_tremolo(
         self, ctx: PlayerContext, frequency: Range[float, 0.1, 100.0], depth: Range[float, 0.1, 1.0]
     ):
+        """
+        Adds a termolo effect to the player.
+        """
         vc = ctx.voice_client
 
         filters = vc.filters
