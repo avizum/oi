@@ -367,8 +367,11 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
                 message=f"This user's blacklist was marked permanent.\n\nReason:\n>>> {blacklist["reason"]}",
                 confirm_messsage=f"Do you still want to unblacklist {user}?",
             )
-            if not conf.result:
-                return await conf.message.edit(content="Blacklist will not be removed.", view=None)
+        else:
+            conf = await ctx.confirm(message=f"Are you sure you want to unblacklist {user}?")
+
+        if not conf.result:
+            return await conf.message.edit(content="Blacklist will not be removed.", view=None)
 
         query = """
             DELETE FROM blacklist
