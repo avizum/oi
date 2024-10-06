@@ -309,7 +309,6 @@ class Music(core.Cog):
             return
 
         if not vc.dj_enabled or vc.dj_role:
-            print("DJ not enabled/dj role")
             return
 
         if member == vc.privileged and after.channel != vc.channel or not vc.privileged and after.channel == vc.channel:
