@@ -91,3 +91,9 @@ class Blacklist(TypedDict):
     reason: str
     moderator: int
     permanent: bool
+
+
+class PlayerSettings(TypedDict):
+    guild_id: int
+    dj_role: int
+    dj_enabled: bool

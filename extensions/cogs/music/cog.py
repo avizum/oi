@@ -158,14 +158,30 @@ class Music(core.Cog):
     def is_privileged():
         """
         Checks whether a member is DJ or has elevated server permissions.
+
+
+        If DJ is disabled: anyone is privileged
+        If DJ enabled, role: anyone with the role is privileged
+        If DJ enabled, no role: first user is privileged
         """
 
         def inner(ctx: PlayerContext) -> bool:
             vc = ctx.voice_client
-            if not vc.privileged:
+
+            if not vc.dj_enabled or ctx.author.guild_permissions.manage_guild:
                 return True
-            if vc and ctx.author != vc.privileged or not ctx.permissions.manage_guild:
-                raise commands.CheckFailure("You need to be DJ or have the `Manage Server` permission to do this.")
+
+            if vc.dj_role:
+                if vc.dj_role in ctx.author.roles:
+                    return True
+                raise commands.CheckFailure(
+                    f"You need to have {vc.dj_role.mention} role or have `Manage Server` permissions to do this."
+                )
+            elif not vc.dj_role:
+                if vc.privileged and vc.privileged == ctx.author:
+                    return True
+                raise commands.CheckFailure("You need to be DJ or have `Manage Server` permission to do this.")
+
             return True
 
         return commands.check(inner)
@@ -292,6 +308,10 @@ class Music(core.Cog):
         if vc is None or member.bot:
             return
 
+        if not vc.dj_enabled or vc.dj_role:
+            print("DJ not enabled/dj role")
+            return
+
         if member == vc.privileged and after.channel != vc.channel or not vc.privileged and after.channel == vc.channel:
             privileged: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
             if privileged:
@@ -312,19 +332,18 @@ class Music(core.Cog):
         assert ctx.author.voice is not None
         channel = ctx.author.voice.channel
         assert channel is not None
-        vc = ctx.voice_client
-        if vc:
-            await ctx.send(f"Already connected to {vc.channel.mention}")
-            return vc
+        if ctx.voice_client:
+            await ctx.send(f"Already connected to {ctx.voice_client.channel.mention}")
+            vc = ctx.voice_client
         try:
-
             vc = Player(ctx=ctx)
             await channel.connect(cls=vc, self_deaf=True)  # type: ignore
             await ctx.send(f"Connected to {vc.channel.mention}")
-            return vc
         except wavelink.ChannelTimeoutException:
             await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}")
             return
+        await vc._set_player_settings()
+        return vc
 
     @core.command()
     @in_voice(bot=False)
@@ -408,9 +427,9 @@ class Music(core.Cog):
     @core.describe(
         query="What to search for.",
         source="Where to search.",
-        play_now="[DJ] Whether to play the song now.",
-        play_next="[DJ] Whether to play the song next.",
-        shuffle="[DJ] Whether to shuffle the queue.",
+        play_now="Whether to play the song now.",
+        play_next="Whether to play the song next.",
+        shuffle="Whether to shuffle the queue.",
     )
     async def play(
         self,
@@ -552,7 +571,7 @@ class Music(core.Cog):
         """
         Skips the song.
 
-        If you are DJ or track requester, the player will skip the track.
+        If you are a DJ or track requester, the track will be skipped.
         Otherwise, a vote will be added in order to skip.
         """
         vc = ctx.voice_client
@@ -560,16 +579,22 @@ class Music(core.Cog):
         if not vc.current:
             return await ctx.send("There is nothing playing.")
 
-        if await self.is_privileged().predicate(ctx):
+        try:
+            await self.is_privileged().predicate(ctx)
             await vc.skip()
-            await ctx.send(f"DJ {ctx.author} has skipped the track.")
-        elif ctx.author.id == vc.current.extras.requester_id:
+            await ctx.send(f"{ctx.author} has skipped the track.")
+            return
+        except commands.CheckFailure:
+            pass
+
+        if ctx.author.id == vc.current.extras.requester_id:
             await vc.skip()
             await ctx.send(f"Track requester {ctx.author} has skipped the track.")
         else:
             required = math.ceil(len(vc.channel.members) / 2)
             if ctx.author.id in vc.skip_votes:
                 await ctx.send("You already voted to skip the track.", ephemeral=True)
+                return
             vc.skip_votes.add(ctx.author.id)
             if len(vc.skip_votes) >= required:
                 await vc.skip()
@@ -674,37 +699,89 @@ class Music(core.Cog):
         """
         await ctx.send_help(ctx.command)
 
+    @player_dj.command(name="enable")
+    @core.has_guild_permissions(manage_guild=True)
+    async def player_dj_enable(self, ctx: PlayerContext):
+        """
+        Enables DJ.
+        """
+        vc = ctx.voice_client
+        settings = self.bot.player_settings[ctx.guild.id]
+        if settings["dj_enabled"] is True:
+            return await ctx.send("DJ is already enabled.")
+
+        query = """
+            UPDATE player_settings
+            SET dj_enabled=$1
+            WHERE guild_id=$2
+            RETURNING *
+        """
+        settings = await ctx.bot.pool.fetchrow(query, True, ctx.guild.id)
+        self.bot.player_settings[ctx.guild.id] = settings
+        if vc:
+            vc.dj_enabled = True
+        return await ctx.send("Enabled DJ.")
+
     @player_dj.command(name="disable")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @core.has_guild_permissions(manage_guild=True)
     async def player_dj_disable(self, ctx: PlayerContext):
         """
-        Disables DJ for this session.
+        Disables DJ.
         """
         vc = ctx.voice_client
-
-        if not vc.privileged:
+        settings = self.bot.player_settings[ctx.guild.id]
+        if settings["dj_enabled"] is False:
             return await ctx.send("DJ is already disabled.")
 
-        vc.privileged = None
-        await ctx.send("Disabled DJ for the rest of this session.")
-
-    @player_dj.command(name="set")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
-    @core.describe(member="The person to set as DJ")
-    async def player_dj_set(self, ctx: PlayerContext, member: discord.Member):
+        query = """
+            UPDATE player_settings
+            SET dj_enabled=$1
+            WHERE guild_id=$2
+            RETURNING *
         """
-        Allows the DJ to set a new DJ.
+        settings = await ctx.bot.pool.fetchrow(query, False, ctx.guild.id)
+        self.bot.player_settings[ctx.guild.id] = settings
+        if vc:
+            vc.dj_enabled = False
+        return await ctx.send("Disabled DJ.")
+
+    @player_dj.command(name="role")
+    @core.has_guild_permissions(manage_guild=True)
+    async def player_dj_role(self, ctx: PlayerContext, role: discord.Role | None):
+        """
+        Sets the DJ role. If not set, the DJ is whoever calls Oi into the channel first.
         """
         vc = ctx.voice_client
+        settings = self.bot.player_settings[ctx.guild.id]
+        if role and settings["dj_role"] == role.id:
+            return await ctx.send(f"DJ is already set to {role.mention}.", allowed_mentions=MENTIONS)
 
-        vc.privileged = member
-        await ctx.send(f"The DJ has been set to {member}")
+        if not vc.dj_enabled:
+            conf = await ctx.confirm(message="DJ is disabled. Would you like to enable it and set the DJ role?")
+            if not conf.result:
+                return await conf.message.edit(content="DJ will remain disabled.", view=None)
+
+        role_id = role.id if role else 0
+        query = """
+            UPDATE player_settings
+            SET dj_role=$1, dj_enabled=$2
+            WHERE guild_id=$3
+            RETURNING *
+        """
+        settings = await ctx.bot.pool.fetchrow(query, role_id, True, ctx.guild.id)
+        self.bot.player_settings[ctx.guild.id] = settings
+        if vc:
+            vc.dj_role = role
+            vc.dj_enabled = True
+        if not role:
+            message = "DJ role has been unset. The first user of each session will be set as DJ."
+            if conf:
+                return await conf.message.edit(content=message, view=None)
+            return await ctx.send(message)
+        message = f"DJ role set to {role.mention}."
+        if conf:
+            return await conf.message.edit(content=message, allowed_mentions=MENTIONS, view=None)
+        return await ctx.send(message, allowed_mentions=MENTIONS)
 
     @player.command(name="current")
     @in_voice()
@@ -720,7 +797,7 @@ class Music(core.Cog):
         if ctx.channel != vc.ctx.channel:
             try:
                 await self.is_privileged().predicate(ctx)
-                await vc.ctx.send(f"DJ {ctx.author} moved the controller to {ctx.channel.mention}")
+                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}")
             except commands.CheckFailure:
                 raise commands.CheckFailure(f"This command can only be ran in {vc.ctx.channel.mention}, not here.")
 

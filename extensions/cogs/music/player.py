@@ -60,11 +60,30 @@ class Player(wavelink.Player):
         super().__init__(*args, **kwargs)
         self.ctx: PlayerContext = ctx
         self.loop_track: Playable | None = None
-        self.privileged: discord.Member | None = ctx.author
+        self.privileged: discord.Member | None = None
         self.skip_votes = set()
         self.members: list[discord.Member] = []
         self.controller: PlayerController | None = None
         self.locked: bool = False
+
+        self.dj_enabled: bool = False
+        self.dj_role: discord.Role | None = None
+
+    async def _set_player_settings(self) -> None:
+        settings = self.client.player_settings.get(self.channel.guild.id)
+        if not settings:
+            query = """
+                INSERT INTO player_settings (guild_id, dj_role, dj_enabled)
+                VALUES ($1, $2, $3)
+                RETURNING *
+            """
+            settings = await self.client.pool.fetchrow(query, self.channel.guild.id, 0, True)
+            self.client.player_settings[self.channel.guild.id] = settings
+
+        self.dj_enabled = settings["dj_enabled"]
+        self.dj_role = self.channel.guild.get_role(settings["dj_role"])
+        if self.dj_enabled and not self.dj_role:
+            self.privileged = self.ctx.author
 
     async def skip(self) -> Playable | None:
         await super().skip(force=False)

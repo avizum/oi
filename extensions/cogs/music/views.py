@@ -67,10 +67,26 @@ class PlayerButton(ui.Button["PlayerController"]):
         elif itn.user not in vc.channel.members:
             await itn.response.send_message(f"You need to be in {vc.channel.mention} to use this.", ephemeral=True)
             return False
-        elif itn.user == vc.privileged or itn.permissions.manage_guild or not vc.privileged:
+
+        if not vc.dj_enabled or itn.user.guild_permissions.manage_guild:
             return True
+
+        if vc.dj_role:
+            if vc.dj_role in itn.user.roles:
+                return True
+            await itn.response.send_message(
+                f"You need to have {vc.dj_role.mention} role or have `Manage Server` permission to do this.", ephemeral=True
+            )
+            return False
+        elif not vc.dj_role:
+            if vc.privileged and vc.privileged == itn.user:
+                return True
+            await itn.response.send_message(
+                "You need to be DJ or have `Manage Server` permission to do this.", ephemeral=True
+            )
+            return False
         else:
-            await itn.response.send_message("You need to be DJ to use this.", ephemeral=True)
+            await itn.response.send_message("You need to be a DJ to use this.", ephemeral=True)
             return False
 
 
