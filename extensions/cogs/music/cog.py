@@ -755,6 +755,8 @@ class Music(core.Cog):
         if role and settings["dj_role"] == role.id:
             return await ctx.send(f"DJ is already set to {role.mention}.", allowed_mentions=MENTIONS)
 
+        conf = None
+
         if not vc.dj_enabled:
             conf = await ctx.confirm(message="DJ is disabled. Would you like to enable it and set the DJ role?")
             if not conf.result:
