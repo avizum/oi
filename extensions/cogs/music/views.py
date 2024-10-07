@@ -238,6 +238,26 @@ class PlayerController(ui.View):
 
         self.is_updating = False
 
+    def is_privileged(self, itn: Interaction) -> bool:
+
+        vc = self.vc
+
+        assert vc.current is not None
+        assert isinstance(itn.user, discord.Member)
+
+        if not vc.dj_enabled or itn.user.guild_permissions.manage_guild:
+            return True
+
+        if vc.dj_role:
+            if vc.dj_role in itn.user.roles:
+                return True
+            return False
+        elif not vc.dj_role:
+            if vc.privileged == itn.user:
+                return True
+            return False
+        return True
+
     @cui.button(cls=PlayerButton, emoji="<:skip_left:1058275414591684689>")
     async def rewind(self, itn: Interaction, _: PlayerButton):
         await self.vc.seek(0)
@@ -259,12 +279,13 @@ class PlayerController(ui.View):
         vc = self.vc
 
         assert self.vc.current is not None
+        assert isinstance(itn.user, discord.Member)
 
         send = itn.followup.send if itn.response.is_done() else itn.response.send_message
 
-        if self.vc.privileged == itn.user:
+        if self.is_privileged(itn):
             await self.vc.skip()
-            await send(f"DJ {itn.user} has skipped the track.")
+            await send(f"{itn.user} has skipped the track.")
         elif self.vc.current.extras.requester_id == itn.user.id:
             await self.vc.skip()
             await send(f"Track requester {itn.user} has skipped the track.")

@@ -178,7 +178,7 @@ class Music(core.Cog):
                     f"You need to have {vc.dj_role.mention} role or have `Manage Server` permissions to do this."
                 )
             elif not vc.dj_role:
-                if vc.privileged and vc.privileged == ctx.author:
+                if vc.privileged == ctx.author:
                     return True
                 raise commands.CheckFailure("You need to be DJ or have `Manage Server` permission to do this.")
 
