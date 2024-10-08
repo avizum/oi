@@ -394,7 +394,7 @@ class Image(core.Cog):
 
         Images are from https://waifu.im
         """
-        search = await self.bot.waifuim.search(included_tags=[tag.value], nsfw=False, multiple=True)
+        search = await self.bot.waifuim.search(included_tags=[tag.value], nsfw=False, limit=10)
         paginator = Paginator(WaifuPaginator(search, tag.name), ctx=ctx, remove_view_after=True)
         await paginator.start()
 
@@ -410,7 +410,7 @@ class Image(core.Cog):
         This command only works in NSFW channels.
         Images are from https://waifu.im
         """
-        search = await self.bot.waifuim.search(included_tags=[tag.value], nsfw=True, multiple=True)
+        search = await self.bot.waifuim.search(included_tags=[tag.value], nsfw=True, limit=10)
         paginator = Paginator(WaifuPaginator(search, tag.name), ctx=ctx, remove_view_after=True)
         await paginator.start()
 
