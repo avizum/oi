@@ -30,6 +30,7 @@ from utils.helpers import _format_embeds, embed_to_text
 from utils.view import OiView
 
 if TYPE_CHECKING:
+    from .commands import Command
     from .oi import OiBot
 
 BotT = TypeVar("BotT", bound=commands.Bot | commands.AutoShardedBot)
@@ -73,7 +74,7 @@ class Context(commands.Context, Generic[BotT]):
     bot: OiBot
     author: discord.Member
     guild: discord.Guild
-    command: commands.Command
+    command: Command[Any, ..., Any]
     me: discord.Member
     channel: discord.TextChannel | discord.VoiceChannel | discord.Thread
 

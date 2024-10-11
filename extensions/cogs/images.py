@@ -372,8 +372,8 @@ class Image(core.Cog):
         async with ctx.typing():
             embed = discord.Embed(title="Raccoon")
             embed.set_image(url="attachment://raccoon.png")
-            racoon = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=racoon)
+            raccoon = await self.get_animal(ctx.command.name)
+            await ctx.send(embed=embed, file=raccoon)
 
     @core.group()
     async def waifu(self, ctx: Context):

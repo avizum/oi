@@ -408,6 +408,9 @@ class Music(core.Cog):
     @core.has_permissions(ban_members=True)
     @core.is_owner()
     async def refresh(self, ctx: PlayerContext, po_token: str, visitor_data: str):
+        """
+        Refreshes the internal tokens used by Lavalink.
+        """
         vc = ctx.voice_client or await self._connect(ctx)
 
         if vc is None:
@@ -746,6 +749,7 @@ class Music(core.Cog):
 
     @player_dj.command(name="role")
     @core.has_guild_permissions(manage_guild=True)
+    @core.describe(role="The role to set as DJ")
     async def player_dj_role(self, ctx: PlayerContext, role: discord.Role | None):
         """
         Sets the DJ role. If not set, the DJ is whoever calls Oi into the channel first.
