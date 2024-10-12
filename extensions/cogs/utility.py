@@ -98,13 +98,13 @@ class Utility(core.Cog):
         view = discord.ui.View()
         view.add_item(
             discord.ui.Button(
-                label="Top.gg", emoji="<:topgg:1058957715491274772>", url="https://top.gg/bot/867713143366746142/vote"
+                label="Top.gg", emoji="<:topgg:1294459854894665768>", url="https://top.gg/bot/867713143366746142/vote"
             )
         )
         view.add_item(
             discord.ui.Button(
                 label="Discord Bot List",
-                emoji="<:discordbotlist:1058957872765095976>",
+                emoji="<:dbl:1294459668231356416>",
                 url="https://discordbotlist.com/bots/oi/upvote",
             )
         )
@@ -141,7 +141,7 @@ class Utility(core.Cog):
         embed = discord.Embed(title="Oi Information", color=0x00FFB3)
 
         embed.add_field(
-            name="<:developer:1155024200944328755> Developers",
+            name="<:developer:1294459993889706097> Developers",
             value=(
                 "[rolex6956](https://discord.com/users/531179463673774080)\n"
                 "[avizum](https://discord.com/users/750135653638865017)\n"

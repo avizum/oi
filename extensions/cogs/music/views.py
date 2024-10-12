@@ -115,19 +115,19 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             placeholder="Choose loop type...",
             options=[
                 discord.SelectOption(
-                    emoji="<:loop_one:1155046706774286366>",
+                    emoji="<:loop_one:1294459971014230016>",
                     label=f"Loop {vc.current.title if len(vc.current.title) <= 92 else f'{vc.current.title[:92]}...'}",
                     description="Enable loop for this track only.",
                     value="TRACK",
                 ),
                 discord.SelectOption(
-                    emoji="<:loop_all:1155046704509374534>",
+                    emoji="<:loop_all:1294459877447696385>",
                     label="Loop the Queue",
                     description="Enable loop on the whole queue.",
                     value="QUEUE",
                 ),
                 discord.SelectOption(
-                    emoji="<:stop:1058275420388212736>",
+                    emoji="<:stop:1294459644722282577>",
                     label="Disable Loop",
                     description="Disable looping.",
                     value="DISABLE",
@@ -143,7 +143,7 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             disable = self.values[0] == "DISABLE"
             loop_queue = self.values[0] == "QUEUE"
             self.controller.loop.emoji = (
-                "<:loop_all:1155046704509374534>" if loop_queue else "<:loop_one:1155046706774286366>"
+                "<:loop_all:1294459877447696385>" if loop_queue else "<:loop_one:1294459971014230016>"
             )
             self.controller.loop.style = discord.ButtonStyle.green
             if disable:
@@ -187,14 +187,14 @@ class PlayerController(ui.View):
         self.pause.style = ButtonStyle.gray
         self.loop.style = ButtonStyle.gray
         self.autoplay.style = ButtonStyle.gray
-        self.loop.emoji = "<:loop_all:1155046704509374534>"
+        self.loop.emoji = "<:loop_all:1294459877447696385>"
 
         vc = self.vc
 
         if vc.queue.mode is not QueueMode.normal:
             self.loop.style = ButtonStyle.green
             if vc.queue.mode == QueueMode.loop:
-                self.loop.emoji = "<:loop_one:1155046706774286366>"
+                self.loop.emoji = "<:loop_one:1294459971014230016>"
 
         if vc.autoplay is not AutoPlayMode.disabled:
             self.autoplay.style = ButtonStyle.green
@@ -258,7 +258,7 @@ class PlayerController(ui.View):
             return False
         return True
 
-    @cui.button(cls=PlayerButton, emoji="<:skip_left:1058275414591684689>")
+    @cui.button(cls=PlayerButton, emoji="<:skip_left:1294459900696461364>")
     async def rewind(self, itn: Interaction, _: PlayerButton):
         await self.vc.seek(0)
         if self.vc.paused:
@@ -266,13 +266,13 @@ class PlayerController(ui.View):
         self.ctx.bot.command_usage["seek"] += 1
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:play_or_pause:1155046709274083400>")
+    @cui.button(cls=PlayerButton, emoji="<:play_or_pause:1294459947572138069>")
     async def pause(self, itn: Interaction, _: PlayerButton):
         await self.vc.pause(not self.vc.paused)
         self.ctx.bot.command_usage["pause" if not self.vc.paused else "resume"] += 1
         await self.update(itn)
 
-    @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1058275418987319356>")
+    @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>")
     async def skip(self, itn: Interaction, _: PlayerSkipButton):
         itn.extras = dict(no_invoke=True)
 
@@ -303,7 +303,7 @@ class PlayerController(ui.View):
         self.ctx.bot.command_usage["skip"] += 1
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:shuffle:1155046707990630460>")
+    @cui.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>")
     async def shuffle(self, itn: Interaction, _: PlayerButton):
         vc = self.vc
 
@@ -311,7 +311,7 @@ class PlayerController(ui.View):
         self.ctx.bot.command_usage["queue shuffle"] += 1
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:loop_all:1155046704509374534>")
+    @cui.button(cls=PlayerButton, emoji="<:loop_all:1294459877447696385>")
     async def loop(self, itn: Interaction, button: PlayerButton):
         assert self.vc.current is not None
 
@@ -325,7 +325,7 @@ class PlayerController(ui.View):
         await self.update(itn)
         self.ctx.bot.command_usage["queue loop"] += 1
 
-    @cui.button(cls=PlayerButton, emoji="<:autoplay:1271721832659157032>")
+    @cui.button(cls=PlayerButton, emoji="<:autoplay:1294460017348710420>")
     async def autoplay(self, itn: Interaction, button: PlayerButton):
         state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
         self.vc.autoplay = state

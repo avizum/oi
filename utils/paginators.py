@@ -186,7 +186,7 @@ class Paginator(discord.ui.View):
     async def show_current_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await itn.response.send_modal(SkipPage(self.timeout, self))
 
-    @discord.ui.button(emoji="<:right:1058275417175367762>", style=discord.ButtonStyle.grey)
+    @discord.ui.button(emoji="<:right:1294459762007871611>", style=discord.ButtonStyle.grey)
     async def go_to_next_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await self.show_checked_page(itn, self.current_page + 1)
 
@@ -194,7 +194,7 @@ class Paginator(discord.ui.View):
     async def go_to_last_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await self.show_page(itn, self.source.get_max_pages() - 1)  # type: ignore # can not be None
 
-    @discord.ui.button(label="Stop", emoji="<:stop:1058275420388212736>", style=discord.ButtonStyle.red)
+    @discord.ui.button(label="Stop", emoji="<:stop:1294459644722282577>", style=discord.ButtonStyle.red)
     async def stop_view(self, itn: discord.Interaction, _: discord.ui.Button):
         await itn.response.defer()
         await itn.delete_original_response()

@@ -208,9 +208,9 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         for extension in extensions:
             try:
                 await action(extension)
-                loaded.append(f"<:greentick:968136930208415784> `{extension}`")
+                loaded.append(f"<:green_tick:1294459924218384384> `{extension}`")
             except Exception as exc:
-                failed.append(f"<:redtick:968136831105376326> `{extension}`\n```py\n{exc}\n```")
+                failed.append(f"<:red_tick:1294459715266547742> `{extension}`\n```py\n{exc}\n```")
 
         return (loaded, failed)
 
@@ -423,9 +423,9 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             if files in self.bot.extensions:
                 try:
                     await self.bot.reload_extension(files)
-                    reloaded.append(f"<:greentick:968136930208415784> `{files}`")
+                    reloaded.append(f"<:green_tick:1294459924218384384> `{files}`")
                 except commands.ExtensionError as e:
-                    reloaded.append(f"<:redtick:968136831105376326> `{files}`\n```py\n{e}\n```")
+                    reloaded.append(f"<:red_tick:1294459715266547742> `{files}`\n```py\n{e}\n```")
 
         if reloaded:
             em.add_field(name="Reloaded Extensions", value="\n".join(reloaded))

@@ -374,22 +374,22 @@ class OiHelp(commands.HelpCommand):
         )
         bot_permissions = getattr(command, "bot_permissions", None) or getattr(command, "bot_guild_permissions", None)
 
-        can_run = "Can run: <:greentick:968136930208415784>"
+        can_run = "Can run: <:green_tick:1294459924218384384>"
         member_missing = []
         if member_permissions:
             member_perms = self.context.permissions if command.member_permissions else self.context.guild_permissions
             member_missing = [perm for perm in member_permissions if not getattr(member_perms, perm, False)]
         if member_missing:
-            can_run = "Can run: <:redtick:968136831105376326>"
+            can_run = "Can run: <:red_tick:1294459715266547742>"
 
-        bot_can_run = "Can run: <:greentick:968136930208415784>"
+        bot_can_run = "Can run: <:green_tick:1294459924218384384>"
         bot_missing = []
         if bot_permissions:
             bot_perms = self.context.bot_permissions if command.bot_permissions else self.context.bot_guild_permissions
             bot_missing = [perm for perm in bot_permissions if not getattr(bot_perms, perm, False)]
 
         if bot_missing:
-            bot_can_run = "Can run: <:redtick:968136831105376326>"
+            bot_can_run = "Can run: <:red_tick:1294459715266547742>"
 
         fmt_member = (
             ", ".join(member_permissions).replace("_", " ").replace("guild", "server").title()
