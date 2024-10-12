@@ -174,11 +174,11 @@ class Paginator(discord.ui.View):
         self.message = await self.ctx.send(**kwargs, view=self)
         return self.message
 
-    @discord.ui.button(emoji="<:skip_left:1058275414591684689>", style=discord.ButtonStyle.grey)
+    @discord.ui.button(emoji="<:skip_left:1294459900696461364>", style=discord.ButtonStyle.grey)
     async def go_to_first_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await self.show_page(itn, 0)
 
-    @discord.ui.button(emoji="<:left:1058275415858360360>", style=discord.ButtonStyle.grey)
+    @discord.ui.button(emoji="<:left:1294459831733719100>", style=discord.ButtonStyle.grey)
     async def go_to_previous_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await self.show_checked_page(itn, self.current_page - 1)
 
@@ -190,7 +190,7 @@ class Paginator(discord.ui.View):
     async def go_to_next_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await self.show_checked_page(itn, self.current_page + 1)
 
-    @discord.ui.button(emoji="<:skip_right:1058275418987319356>", style=discord.ButtonStyle.grey)
+    @discord.ui.button(emoji="<:skip_right:1294459785130934293>", style=discord.ButtonStyle.grey)
     async def go_to_last_page(self, itn: discord.Interaction, _: discord.ui.Button):
         await self.show_page(itn, self.source.get_max_pages() - 1)  # type: ignore # can not be None
 
