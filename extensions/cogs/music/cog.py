@@ -334,6 +334,7 @@ class Music(core.Cog):
         if ctx.voice_client:
             await ctx.send(f"Already connected to {ctx.voice_client.channel.mention}")
             vc = ctx.voice_client
+            return
         try:
             vc = Player(ctx=ctx)
             await channel.connect(cls=vc, self_deaf=True)  # type: ignore
