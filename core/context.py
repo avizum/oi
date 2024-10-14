@@ -110,6 +110,7 @@ class Context(commands.Context, Generic[BotT]):
         suppress_embeds: bool = False,
         ephemeral: bool = False,
         silent: bool = False,
+        poll: discord.Poll | None = None,
     ) -> discord.Message:
         if content:
             content = str(content)
@@ -133,7 +134,7 @@ class Context(commands.Context, Generic[BotT]):
 
         if not self.bot_permissions.embed_links:
             if embeds:
-                msg = "*I need the `Embed Links` permission to send embeds.*"
+                msg = "-# *I need the `Embed Links` permission to send embeds. [Why?](https://gist.github.com/avizum/827fd8015a0605e68b5966ff5b2b449f)*"
                 new = "\n".join(embed_to_text(emb) for emb in embeds)
                 content = f"{content}\n{new}\n\n{msg}" if content else f"{new}\n{msg}"
             embeds = None
@@ -160,6 +161,7 @@ class Context(commands.Context, Generic[BotT]):
                 view=view,
                 suppress_embeds=suppress_embeds,
                 silent=silent,
+                poll=poll,
             )  # type: ignore # Implementation supports this
 
         # Convert None to MISSING to appease type remaining implementations
@@ -175,10 +177,11 @@ class Context(commands.Context, Generic[BotT]):
             "suppress_embeds": suppress_embeds,
             "ephemeral": ephemeral,
             "silent": silent,
+            "poll": poll,
         }
 
         if self.interaction and not self.channel.permissions_for(self.me).send_messages:
-            msg = "*Please give the `Send Messages` permission.*"
+            msg = "-# *I need the `Send Messages` permission in this channel. [Why?](https://gist.github.com/avizum/827fd8015a0605e68b5966ff5b2b449f)*"
             kwargs["content"] = f"{kwargs['content']}\n{msg}" if kwargs["content"] else msg
 
         if self.interaction.response.is_done():
