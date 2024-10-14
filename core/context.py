@@ -110,7 +110,7 @@ class Context(commands.Context, Generic[BotT]):
         suppress_embeds: bool = False,
         ephemeral: bool = False,
         silent: bool = False,
-        poll: discord.Poll | None = None,
+        poll: discord.Poll = MISSING,
     ) -> discord.Message:
         if content:
             content = str(content)
