@@ -100,7 +100,6 @@ class Music(core.Cog):
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
         self.next_cooldown = commands.CooldownMapping.from_cooldown(3, 10, type=commands.BucketType.guild)
-        self.lock = asyncio.Lock()
 
     @property
     def display_emoji(self) -> str:
@@ -256,30 +255,26 @@ class Music(core.Cog):
         track = payload.track
         exception = payload.exception
 
-        if not vc:
+        if not vc or vc and vc.locked:
             return
 
-        cooldown = self.next_cooldown.update_rate_limit(vc.ctx)
-        if cooldown and not vc.locked:
-            async with self.lock:
-                vc.locked = True
-                await vc.disconnect()
-                _log.error(f"Player disconnected: Hit ratelimit. Guild ID: {vc.ctx.guild.id}")
-                with contextlib.suppress(discord.HTTPException):
-                    await vc.ctx.send(
-                        "The server is having some issues, so the player has been disconnected. Please try again later."
-                    )
-                vc.locked = False  # allow the controller to update and get disabled.
-
         _log.error(
-            f"Error occured while playing {track.title} ({track.encoded}) in guild ID {vc.ctx.guild.id}\n"
+            f"Lavalink exception occured: {track.title} ({track.source}:{track.identifier}) in guild ID {vc.ctx.guild.id}\n"
             f"Message: {exception.get('message')}\nSeverity: {exception.get('severity')}"
         )
 
-        async with self.lock:
-            if vc.locked:
-                return
-            await vc.ctx.send(f"An unknown error occured while playing {track.extras.hyperlink}.")
+        cooldown = self.next_cooldown.update_rate_limit(vc.ctx)
+        if cooldown:
+            vc.locked = True
+            _log.error(f"Player in guild id {vc.ctx.guild.id} disconnected: exception threshold reached.")
+            with contextlib.suppress(discord.HTTPException):
+                await vc.ctx.send(
+                    "Sorry, your player has been disconnected due to a potential server issue. Please try again later.\n"
+                    f"-# *(You can reconnect the player using {self.connect.mention})*"
+                )
+            await vc.disconnect(force=True)
+            return
+        await vc.ctx.send(f"An error occured while playing {track.extras.hyperlink}.")
 
     @core.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
