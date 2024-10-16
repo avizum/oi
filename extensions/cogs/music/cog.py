@@ -1050,16 +1050,16 @@ class Music(core.Cog):
         """
         vc = ctx.voice_client
 
-        if not search:
+        if not search and not vc:
+            raise commands.BadArgument("No argument provided for search.")
+
+        elif not search:
             if vc and not vc.current:
                 raise commands.BadArgument("There is no song playing. Please enter a search query or play a song.")
 
             assert vc.current is not None
             title = vc.current.title
             lyrics_data = await vc.fetch_current_lyrics()
-
-        elif not search and not vc:
-            raise commands.BadArgument("No argument provided for search.")
 
         else:
             fetch = await Player.fetch_lyrics(search)
