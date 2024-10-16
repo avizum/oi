@@ -263,7 +263,7 @@ class CommandHelpView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(emoji="<:left:1058275415858360360>", label="Back", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(emoji="<:left:1294459831733719100>", label="Back", style=discord.ButtonStyle.secondary)
     async def back(self, itn: discord.Interaction, button: discord.ui.Button) -> None:
         if self.help_view.started:
             await itn.response.edit_message(view=self.help_view, embed=self.previous_embed)
