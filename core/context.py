@@ -19,6 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
+import contextlib
+import random
 import sys
 from typing import Any, Generic, Sequence, TYPE_CHECKING, TypeVar
 
@@ -70,6 +72,91 @@ class ConfirmResult:
         return f"<ConfirmResult result={self.result}>"
 
 
+TIPS: list[list[str]] = [
+    [
+        random.choice(
+            [
+                "Please vote for Oi. \U0001f97a\U0001f97a\U0001f97a",
+                "Oi is free to use, please vote to support Oi. Thank you \U00002764\U0000fe0f.",
+                "<:cr_ztheart:853385258762240041> Voting helps support Oi.",
+                "<:cr_ztheart:853385258762240041> If you vote for Oi, you might get a cookie!",
+                "Please Please Please vote for Oi!!",
+                "Why haven't you voted for Oi? Do it now!",
+            ]
+        ),
+        "Vote Here!",
+        "https://top.gg/bot/867713143366746142/vote",
+    ],
+    [
+        random.choice(
+            [
+                "Join the support server if you need help!",
+                "Need Help? Use `/help` or join the support server!",
+                "Have some feedback for us? Join the support server and send it our way.",
+                "If you need to report a bug, report it in the support server.",
+            ]
+        ),
+        "Support Server",
+        "https://discord.gg/hWhGQ4QHE9",
+    ],
+    [
+        "Oi is made by people on their free time! Check out avizum's page!",
+        "avizum's page",
+        "https://github.com/avizum",
+    ],
+    [
+        "Oi is made by people on their free time! Check out ROLEX's page!",
+        "ROLEX's page",
+        "https://github.com/Shobhits7",
+    ],
+]
+
+
+def get_tip() -> list[str]:
+    tips: list[list[str]] = [
+        [
+            random.choice(
+                [
+                    "Please vote for Oi. \U0001f97a\U0001f97a\U0001f97a",
+                    "Oi is free to use, please vote to support Oi. Thank you \U00002764\U0000fe0f.",
+                    "<:cr_ztheart:853385258762240041> Voting helps support Oi.",
+                    "<:cr_ztheart:853385258762240041> If you vote for Oi, you might get a cookie!",
+                    "Please Please Please vote for Oi!!",
+                    "Why haven't you voted for Oi? Do it now!",
+                ]
+            ),
+            "Vote Here!",
+            "https://top.gg/bot/867713143366746142/vote",
+        ],
+        [
+            random.choice(
+                [
+                    "Join the support server if you need help!",
+                    "Need Help? Use `/help` or join the support server!",
+                    "Have some feedback for us? Join the support server and send it our way.",
+                    "If you need to report a bug, report it in the support server.",
+                ]
+            ),
+            "Support Server",
+            "https://discord.gg/hWhGQ4QHE9",
+        ],
+        [
+            "Oi is made by people on their free time! Check out avizum's page!",
+            "avizum's page",
+            "https://github.com/avizum",
+        ],
+        [
+            "Oi is made by people on their free time! Check out ROLEX's page!",
+            "ROLEX's page",
+            "https://github.com/Shobhits7",
+        ],
+    ]
+    return random.choices(tips, [6, 4, 1, 1], k=1)[0]
+
+
+CHANCE = 1 / 20
+
+
 class Context(commands.Context, Generic[BotT]):
     bot: OiBot
     author: discord.Member
@@ -104,6 +191,7 @@ class Context(commands.Context, Generic[BotT]):
         allowed_mentions: discord.AllowedMentions | None = None,
         reference: discord.Message | discord.MessageReference | discord.PartialMessage | None = None,
         reply: bool = True,
+        no_tips: bool = False,
         mention_author: bool | None = None,
         format_embeds: bool = True,
         view: discord.ui.View | None = None,
@@ -136,7 +224,7 @@ class Context(commands.Context, Generic[BotT]):
             if embeds:
                 msg = "-# *I need the `Embed Links` permission to send embeds. [Why?](https://gist.github.com/avizum/827fd8015a0605e68b5966ff5b2b449f)*"
                 new = "\n".join(embed_to_text(emb) for emb in embeds)
-                content = f"{content}\n{new}\n\n{msg}" if content else f"{new}\n{msg}"
+                content = f"{content}\n{new}\n{msg}" if content else f"{new}\n{msg}"
             embeds = None
             embed = None
 
@@ -144,9 +232,16 @@ class Context(commands.Context, Generic[BotT]):
         if not self.permissions.read_message_history:
             reference = None
 
+        random_float = random.random()
+        fmt_content = content
+        if self.author.id not in self.bot.votes and random_float < CHANCE and not no_tips:
+            message, _, url = get_tip()
+            fmt = f"-# {message} | <{url}>"
+            fmt_content = f"{content}\n{fmt}" if content is not None else fmt
+
         if self.interaction is None or self.interaction.is_expired():
             return await super().send(
-                content=content,
+                content=fmt_content,
                 tts=tts,
                 embed=embed,
                 embeds=embeds,
@@ -192,6 +287,13 @@ class Context(commands.Context, Generic[BotT]):
 
         if delete_after is not None:
             await msg.delete(delay=delete_after)
+
+        with contextlib.suppress():
+            if self.author.id not in self.bot.votes and random_float < CHANCE and not no_tips:
+                message, label, url = get_tip()
+                view = discord.ui.View()
+                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label=label, url=url))
+                await self.interaction.followup.send(message, view=view, ephemeral=True)
 
         return msg
 
