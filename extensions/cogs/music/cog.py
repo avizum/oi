@@ -1058,6 +1058,9 @@ class Music(core.Cog):
             title = vc.current.title
             lyrics_data = await vc.fetch_current_lyrics()
 
+        elif not search and not vc:
+            raise commands.BadArgument("No argument provided for search.")
+
         else:
             fetch = await Player.fetch_lyrics(search)
             if not fetch:

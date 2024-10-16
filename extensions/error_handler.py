@@ -71,7 +71,8 @@ class ErrorHandler(core.Cog):
     async def cog_unload(self) -> None:
         self.bot.tree.on_error = self._original_tree_error
 
-    async def on_tree_error(self, itn: discord.Interaction, error: app_commands.AppCommandError):
+    async def on_tree_error(self, itn: discord.Interaction, exc: app_commands.AppCommandError):
+        error = getattr(exc, "original", exc)
         if isinstance(error, app_commands.CommandNotFound):
             return await itn.response.send_message("This command is unavailable right now.", ephemeral=True)
         else:
