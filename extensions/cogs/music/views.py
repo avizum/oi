@@ -79,7 +79,7 @@ class PlayerButton(ui.Button["PlayerController"]):
             )
             return False
         elif not vc.dj_role:
-            if vc.privileged and vc.privileged == itn.user:
+            if vc.manager and vc.manager == itn.user:
                 return True
             await itn.response.send_message(
                 "You need to be DJ or have `Manage Server` permission to do this.", ephemeral=True
@@ -238,7 +238,7 @@ class PlayerController(ui.View):
 
         self.is_updating = False
 
-    def is_privileged(self, itn: Interaction) -> bool:
+    def is_manager(self, itn: Interaction) -> bool:
 
         vc = self.vc
 
@@ -253,7 +253,7 @@ class PlayerController(ui.View):
                 return True
             return False
         elif not vc.dj_role:
-            if vc.privileged == itn.user:
+            if vc.manager == itn.user:
                 return True
             return False
         return True
@@ -283,7 +283,7 @@ class PlayerController(ui.View):
 
         send = itn.followup.send if itn.response.is_done() else itn.response.send_message
 
-        if self.is_privileged(itn):
+        if self.is_manager(itn):
             await self.vc.skip()
             await send(f"{itn.user} has skipped the track.")
         elif self.vc.current.extras.requester_id == itn.user.id:

@@ -60,7 +60,7 @@ class Player(wavelink.Player):
         super().__init__(*args, **kwargs)
         self.ctx: PlayerContext = ctx
         self.loop_track: Playable | None = None
-        self.privileged: discord.Member | None = None
+        self.manager: discord.Member | None = None
         self.skip_votes = set()
         self.members: list[discord.Member] = []
         self.controller: PlayerController | None = None
@@ -83,7 +83,7 @@ class Player(wavelink.Player):
         self.dj_enabled = settings["dj_enabled"]
         self.dj_role = self.channel.guild.get_role(settings["dj_role"])
         if self.dj_enabled and not self.dj_role:
-            self.privileged = self.ctx.author
+            self.manager = self.ctx.author
 
     async def skip(self) -> Playable | None:
         await super().skip(force=False)
@@ -179,7 +179,7 @@ class Player(wavelink.Player):
         try:
             data: Lyrics = await self.node.send(
                 "GET",
-                path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics?skipTrackSource=true",
+                path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics",
             )
             return data
         except (wavelink.LavalinkException, wavelink.NodeException):

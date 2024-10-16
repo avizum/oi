@@ -40,6 +40,7 @@ import core
 from utils.helpers import format_seconds
 from utils.paginators import Paginator
 
+from .checks import is_in_channel, is_in_voice, is_manager, is_not_deafened
 from .player import Player
 from .views import LyricPageSource, QueuePageSource
 
@@ -104,86 +105,6 @@ class Music(core.Cog):
     @property
     def display_emoji(self) -> str:
         return "\U0001f3b5"
-
-    @staticmethod
-    def in_voice(*, author: bool = True, bot: bool = True):
-        """
-        Checks if a member or bot is in the voice channel
-        """
-
-        def inner(ctx: PlayerContext) -> bool:
-            if author and bot:
-                if ctx.author.voice and ctx.voice_client and ctx.author.voice.channel == ctx.voice_client.channel:
-                    return True
-                elif ctx.voice_client and not ctx.author.voice:
-                    raise commands.CheckFailure(
-                        f"You need to be connected to {ctx.voice_client.channel.mention} to use this command."
-                    )
-                else:
-                    raise commands.CheckFailure("There is no music player connected.")
-            elif author:
-                if ctx.author.voice:
-                    return True
-                raise commands.CheckFailure("You need to be connected to a voice channel to use this command.")
-            elif bot:
-                if ctx.voice_client:
-                    return True
-                raise commands.CheckFailure("There is no music player connected.")
-            raise commands.CheckFailure("Uh oh.")
-
-        return commands.check(inner)
-
-    @staticmethod
-    def in_channel():
-        def inner(ctx: PlayerContext) -> bool:
-            vc = ctx.voice_client
-            if vc and ctx.channel != vc.ctx.channel:
-                raise commands.CheckFailure(f"This command can only be ran in {vc.ctx.channel.mention}, not here.")
-            return True
-
-        return commands.check(inner)
-
-    @staticmethod
-    def not_deafened():
-        def inner(ctx: PlayerContext) -> bool:
-            voice = ctx.author.voice
-            if voice and voice.self_deaf:
-                raise commands.CheckFailure("You can not use this command while deafened.")
-            return True
-
-        return commands.check(inner)
-
-    @staticmethod
-    def is_privileged():
-        """
-        Checks whether a member is DJ or has elevated server permissions.
-
-
-        If DJ is disabled: anyone is privileged
-        If DJ enabled, role: anyone with the role is privileged
-        If DJ enabled, no role: first user is privileged
-        """
-
-        def inner(ctx: PlayerContext) -> bool:
-            vc = ctx.voice_client
-
-            if not vc.dj_enabled or ctx.author.guild_permissions.manage_guild:
-                return True
-
-            if vc.dj_role:
-                if vc.dj_role in ctx.author.roles:
-                    return True
-                raise commands.CheckFailure(
-                    f"You need to have {vc.dj_role.mention} role or have `Manage Server` permissions to do this."
-                )
-            elif not vc.dj_role:
-                if vc.privileged == ctx.author:
-                    return True
-                raise commands.CheckFailure("You need to be DJ or have `Manage Server` permission to do this.")
-
-            return True
-
-        return commands.check(inner)
 
     async def cog_check(self, _: PlayerContext) -> bool:
         try:
@@ -303,14 +224,17 @@ class Music(core.Cog):
         if vc is None or member.bot:
             return
 
+        if before.channel == after.channel:
+            return
+
         if not vc.dj_enabled or vc.dj_role:
             return
 
-        if member == vc.privileged and after.channel != vc.channel or not vc.privileged and after.channel == vc.channel:
-            privileged: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
-            if privileged:
-                await vc.ctx.send(f"The new DJ is {privileged.mention}.", reply=False, allowed_mentions=MENTIONS)
-            vc.privileged = privileged
+        if member == vc.manager and after.channel != vc.channel or not vc.manager and after.channel == vc.channel:
+            manager: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
+            if manager:
+                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS)
+            vc.manager = manager
 
     async def cog_after_invoke(self, ctx: PlayerContext) -> None:
         update_after = ctx.command.extras.get("update_after", False)
@@ -341,8 +265,8 @@ class Music(core.Cog):
         return vc
 
     @core.command()
-    @in_voice(bot=False)
-    @not_deafened()
+    @is_not_deafened()
+    @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
     async def connect(self, ctx: PlayerContext) -> Player | None:
         """
@@ -351,8 +275,8 @@ class Music(core.Cog):
         return await self._connect(ctx)
 
     @core.command()
-    @in_voice()
-    @is_privileged()
+    @is_manager()
+    @is_in_voice()
     async def disconnect(self, ctx: PlayerContext) -> None:
         """
         Disconnects the player from the channel.
@@ -380,9 +304,9 @@ class Music(core.Cog):
             return False
 
     @core.command()
-    @in_voice(author=True, bot=True)
-    @is_privileged()
-    @in_channel()
+    @is_manager()
+    @is_in_channel()
+    @is_in_voice()
     async def reconnect(self, ctx: PlayerContext):
         """
         Reconnects your player without loss of the queue and song position.
@@ -419,8 +343,8 @@ class Music(core.Cog):
             return await ctx.send(f"Could not set data:\n{exc}")
 
     @core.command(extras=EXTRAS)
-    @in_voice(bot=False)
-    @not_deafened()
+    @is_not_deafened()
+    @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
     @core.describe(
         query="What to search for.",
@@ -453,10 +377,10 @@ class Music(core.Cog):
             await ctx.send("No tracks found...")
             return
 
-        await self.in_channel().predicate(ctx)
+        await is_in_channel().predicate(ctx)
 
         if play_now or play_next or shuffle:
-            await self.is_privileged().predicate(ctx)
+            await is_manager().predicate(ctx)
 
         requester = str(ctx.author)
         requester_id = ctx.author.id
@@ -522,10 +446,10 @@ class Music(core.Cog):
             await vc.skip()
 
     @core.command(extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def pause(self, ctx: PlayerContext):
         """
         Pauses playback of the player.
@@ -542,10 +466,10 @@ class Music(core.Cog):
         await ctx.send("Paused the player.")
 
     @core.command(extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def resume(self, ctx: PlayerContext):
         """
         Resumes playback of the player.
@@ -562,9 +486,9 @@ class Music(core.Cog):
         await ctx.send("Unpaused the player.")
 
     @core.command(extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def skip(self, ctx: PlayerContext):
         """
         Skips the song.
@@ -578,7 +502,7 @@ class Music(core.Cog):
             return await ctx.send("There is nothing playing.")
 
         try:
-            await self.is_privileged().predicate(ctx)
+            await is_manager().predicate(ctx)
             await vc.skip()
             await ctx.send(f"{ctx.author} has skipped the track.")
             return
@@ -601,10 +525,10 @@ class Music(core.Cog):
             await ctx.send(f"Voted to skip. ({len(vc.skip_votes)}/{required})", ephemeral=True)
 
     @core.command(extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(time="Where to seek in MM:SS format.")
     async def seek(self, ctx: PlayerContext, time: Time):
         """
@@ -617,11 +541,14 @@ class Music(core.Cog):
 
     @core.group()
     async def queue(self, ctx: PlayerContext):
+        """
+        Queue commands.
+        """
         await ctx.send_help(ctx.command)
 
     @queue.command(name="show")
-    @in_voice(author=False)
-    @in_channel()
+    @is_in_channel()
+    @is_in_voice(author=False)
     async def queue_show(self, ctx: PlayerContext):
         """
         Shows the queue in a paginated format.
@@ -636,10 +563,10 @@ class Music(core.Cog):
         await paginator.start()
 
     @queue.command(name="shuffle", extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def queue_shuffle(self, ctx: PlayerContext):
         """
         Shuffles the queue randomly.
@@ -653,10 +580,10 @@ class Music(core.Cog):
         await ctx.send("Shuffled the queue.")
 
     @queue.command(name="loop", extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def queue_loop(self, ctx: PlayerContext):
         """
         Loops all the songs in the queue.
@@ -667,10 +594,10 @@ class Music(core.Cog):
         await ctx.send("Enabled queue loop.")
 
     @queue.command(name="clear", extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def queue_clear(self, ctx: PlayerContext):
         """
         Clears the queue and the queue history.
@@ -785,7 +712,7 @@ class Music(core.Cog):
         return await ctx.send(message, allowed_mentions=MENTIONS)
 
     @player.command(name="current")
-    @in_voice()
+    @is_in_voice()
     async def player_current(self, ctx: PlayerContext):
         """
         Shows the current song, or move the bound channel to another channel.
@@ -797,7 +724,7 @@ class Music(core.Cog):
 
         if ctx.channel != vc.ctx.channel:
             try:
-                await self.is_privileged().predicate(ctx)
+                await is_manager().predicate(ctx)
                 await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}")
             except commands.CheckFailure:
                 raise commands.CheckFailure(f"This command can only be ran in {vc.ctx.channel.mention}, not here.")
@@ -809,10 +736,10 @@ class Music(core.Cog):
         await vc.invoke_controller(vc.current)
 
     @player.command(name="loop", extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(mode="Whether to loop the queue, track, or disable.")
     async def player_loop(self, ctx: PlayerContext, mode: Literal["track", "queue", "off"]):
         """
@@ -834,10 +761,10 @@ class Music(core.Cog):
             await ctx.send("Disabled Loop.")
 
     @player.command(name="volume")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(volume="The new volume of the player.")
     async def player_volume(self, ctx: PlayerContext, volume: Range[int, 1, 200]):
         """
@@ -849,10 +776,10 @@ class Music(core.Cog):
         await ctx.send(f"Volume set to {volume}%")
 
     @player.command(name="autoplay", extras=EXTRAS)
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(state="Whether to autoplay.")
     async def player_autoplay(self, ctx: PlayerContext, state: bool):
         """
@@ -872,11 +799,11 @@ class Music(core.Cog):
         await ctx.send_help(ctx.command)
 
     @player_filter.command(name="speed")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(speed="The speed multiplier.")
     async def player_filter_speed(self, ctx: PlayerContext, speed: Range[float, 0.25, 3.0]):
         """
@@ -892,11 +819,11 @@ class Music(core.Cog):
         await ctx.send(f"Set Speed filter to {speed}x speed.")
 
     @player_filter.command(name="pitch")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(pitch="How much to change the pitch.")
     async def player_filter_pitch(self, ctx: PlayerContext, pitch: Range[float, 0.1, 5.0]):
         """
@@ -912,11 +839,11 @@ class Music(core.Cog):
         await ctx.send(f"Set Pitch filter to {pitch}.")
 
     @player_filter.command(name="rate")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(rate="How much to change the speed and pitch.")
     async def player_filter_rate(self, ctx: PlayerContext, rate: Range[float, 0.75, 4.5]):
         """
@@ -932,11 +859,11 @@ class Music(core.Cog):
         await ctx.send(f"Set Speed filter to {rate}.")
 
     @player_filter.command(name="tremolo")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(frequency="How frequently the volume should change.", depth="How much the volume should change.")
     async def player_filter_tremolo(
         self, ctx: PlayerContext, frequency: Range[float, 0.1, 100.0], depth: Range[float, 0.1, 1.0]
@@ -954,11 +881,11 @@ class Music(core.Cog):
         await ctx.send(f"Set Tremolo filter to {frequency} frequency and {depth} depth.")
 
     @player_filter.command(name="vibrato")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(frequency="How frequent the the pitch should change.", depth="How much the pitch should change.")
     async def player_filter_vibrato(
         self, ctx: PlayerContext, frequency: Range[float, 0.1, 14.0], depth: Range[float, 0.1, 1.0]
@@ -975,11 +902,11 @@ class Music(core.Cog):
         await ctx.send(f"Set Vibrato filter to {frequency} frequency and {depth} depth.")
 
     @player_filter.command(name="karaoke")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(
         level="How strong the filter should be.",
         mono_level="How strong the filter should be in mono.",
@@ -1006,11 +933,11 @@ class Music(core.Cog):
         await ctx.send("Set Karaoke filter.")
 
     @player_filter.command(name="lowpass")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(smoothing="How much smoothing to apply.")
     async def player_filter_lowpass(self, ctx: PlayerContext, smoothing: Range[float, 0.1, 60.0]):
         """
@@ -1025,11 +952,11 @@ class Music(core.Cog):
         await ctx.send(f"Set Lowpass filter, smoothing set to {smoothing}")
 
     @player_filter.command(name="rotation")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
     @core.has_voted()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def player_filter_rotation(self, ctx: PlayerContext):
         """
         Creates a rotation effect in the player.
@@ -1043,10 +970,10 @@ class Music(core.Cog):
         await ctx.send("Set Rotation filter.")
 
     @player_filter.command(name="reset")
-    @in_voice()
-    @in_channel()
-    @not_deafened()
-    @is_privileged()
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     async def player_filter_reset(self, ctx: PlayerContext):
         """
         Removes all the filters.
@@ -1058,10 +985,10 @@ class Music(core.Cog):
         await ctx.send("Reset all filters.")
 
     @core.command()
-    @in_voice()
-    @in_channel()
-    @not_deafened()
     @core.has_voted()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
     @core.describe(
         text="What to say in the voice channel.",
         voice="Which voice to use.",
@@ -1138,6 +1065,7 @@ class Music(core.Cog):
             title, lyrics_data = fetch
 
         if not lyrics_data or lyrics_data and not lyrics_data["text"]:
+            print(lyrics_data)
             raise commands.BadArgument("No results found matching your search.")
         lyrics = lyrics_data["text"]
         pag = commands.Paginator(max_size=320)
