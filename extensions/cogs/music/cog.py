@@ -323,7 +323,7 @@ class Music(core.Cog):
         await self._reconnect(ctx.voice_client)
         return await ctx.send("Reconnected.")
 
-    @core.command()
+    @core.command(hidden=True)
     @app_commands.guilds(768895735764221982, 866891524319084587)
     @core.has_permissions(ban_members=True)
     @core.is_owner()
@@ -331,16 +331,12 @@ class Music(core.Cog):
         """
         Refreshes the internal tokens used by Lavalink.
         """
-        vc = ctx.voice_client or await self._connect(ctx)
-
-        if vc is None:
-            return await ctx.send("Connect to channel.")
-
         try:
-            await vc.node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
+            node = wavelink.Pool.get_node("OiBot")
+            await node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
             await ctx.send("Set data.")
-        except Exception as exc:
-            return await ctx.send(f"Could not set data:\n{exc}")
+        except (wavelink.LavalinkException, wavelink.NodeException) as exc:
+            await ctx.send(f"Could set data: {exc}")
 
     @core.command(extras=EXTRAS)
     @is_not_deafened()
