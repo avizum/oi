@@ -35,6 +35,16 @@ if TYPE_CHECKING:
     from core import Context, OiBot
 
 
+# This is needed because the bot has no intents.
+# Bot.get_user always returns None.
+MODS = {
+    531179463673774080: "rolex6596",  # Rolex
+    920320601615380552: "rolex4160",  # Rolex alt
+    750135653638865017: "avizum",  # avizum
+    343019667511574528: "crunchyanime",  # Crunchy
+}
+
+
 class Important(core.Cog):
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
@@ -52,7 +62,8 @@ class Important(core.Cog):
         if await self.bot.is_owner(ctx.author):
             return True
         if ctx.author.id in self.bot.blacklisted:
-            raise Blacklisted()
+            entry = self.bot.blacklisted[ctx.author.id]
+            raise Blacklisted(moderator=MODS[entry["moderator"]], reason=entry["reason"], permanent=entry["permanent"])
         if ctx.guild is None:
             raise commands.NoPrivateMessage("Commands can not be used in DMs.")
         if self.bot.maintenance and not await self.bot.is_owner(ctx.author):

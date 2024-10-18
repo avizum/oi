@@ -46,16 +46,6 @@ VOTE_VIEW.add_item(
     )
 )
 
-# This is needed because the bot has no intents.
-# Bot.get_user is always empty.
-MODS = {
-    531179463673774080: "rolex6596",  # Rolex
-    920320601615380552: "rolex4160",  # Rolex alt
-    750135653638865017: "avizum",  # avizum
-    343019667511574528: "crunchyanime",  # Crunchy
-}
-
-
 
 class ErrorHandler(core.Cog):
     def __init__(self, bot: OiBot):
@@ -87,15 +77,14 @@ class ErrorHandler(core.Cog):
 
         if isinstance(error, Blacklisted):
             ratelimited = self.blacklist_cooldown.update_rate_limit(ctx.message)
-            blacklist = self.bot.blacklisted[ctx.author.id]
             embed = discord.Embed(title="You are blacklisted from Oi.", color=discord.Color.red())
             embed.add_field(
-                name=f"Moderator Note from {MODS[blacklist["moderator"]]}:",
-                value=blacklist["reason"],
+                name=f"Moderator Note from {error.moderator}:",
+                value=error.reason,
                 inline=False,
             )
             next_steps = "Moderation actions are done manually, so it is unlikely that this message is an error.\n\n"
-            if blacklist["permanent"]:
+            if error.permanent:
                 next_steps += "This action is **PERMANENT** and can not be appealed in the support server."
             else:
                 next_steps += "You may appeal this blacklist in the support server."

@@ -34,3 +34,8 @@ class Maintenance(commands.CheckFailure):
 
 class Blacklisted(commands.CheckFailure):
     """Raised when a user is blacklisted."""
+
+    def __init__(self, /, *, moderator: str, reason: str, permanent: bool):
+        self.moderator: str = moderator
+        self.reason: str = reason
+        self.permanent: bool = permanent
