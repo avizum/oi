@@ -195,7 +195,9 @@ class Music(core.Cog):
                 )
             await vc.disconnect(force=True)
             return
-        await vc.ctx.send(f"An error occured while playing {track.extras.hyperlink}.")
+        # In some cases, track.hyperlink can possibly be unset when
+        # wavelink_track_exception is called before wavelink_track start.
+        await vc.ctx.send(f"An error occured while playing {track.extras.get("hyperlink", track.title)}.")
 
     @core.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -258,6 +260,9 @@ class Music(core.Cog):
             vc = Player(ctx=ctx)
             await channel.connect(cls=vc, self_deaf=True)  # type: ignore
             await ctx.send(f"Connected to {vc.channel.mention}")
+            if isinstance(channel, discord.StageChannel):
+                with contextlib.suppress(discord.Forbidden):
+                    await ctx.me.edit(suppress=False)
         except wavelink.ChannelTimeoutException:
             await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}")
             return
@@ -336,7 +341,7 @@ class Music(core.Cog):
             await node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
             await ctx.send("Set data.")
         except (wavelink.LavalinkException, wavelink.NodeException) as exc:
-            await ctx.send(f"Could set data: {exc}")
+            await ctx.send(f"Could not set data: {exc}")
 
     @core.command(extras=EXTRAS)
     @is_not_deafened()
