@@ -197,7 +197,7 @@ class Music(core.Cog):
             return
         # In some cases, track.hyperlink can possibly be unset when
         # wavelink_track_exception is called before wavelink_track start.
-        await vc.ctx.send(f"An error occured while playing {track.extras.get("hyperlink", track.title)}.")
+        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, "hyperlink", track.title)}.")
 
     @core.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
