@@ -237,7 +237,7 @@ class Utility(core.Cog):
         path = pathlib.Path("./")
         comments = coros = funcs = classes = lines = imports = files = char = 0
         for item in path.rglob("*.py"):
-            if str(item).startswith("venv"):
+            if str(item).startswith(".env"):
                 continue
             files += 1
             with item.open() as of:
