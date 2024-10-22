@@ -28,6 +28,7 @@ import discord
 import humanize
 import psutil
 import pytz
+from discord import app_commands
 from discord.ext import commands, menus
 from jishaku.math import natural_size
 
@@ -195,6 +196,7 @@ class Utility(core.Cog):
         await ctx.send(embed=embed)
 
     @oi.command()
+    @core.describe(command="The command to show the source of")
     async def source(self, ctx: Context, command: str | None = None):
         """
         View the source of Oi.
@@ -203,8 +205,8 @@ class Utility(core.Cog):
         """
 
         view = discord.ui.View()
-        view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label="Source", url=SOURCE_URL))
         if not command:
+            view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label="Source", url=SOURCE_URL))
             return await ctx.send("Here is the source.", view=view)
 
         if command == "help":
@@ -215,19 +217,27 @@ class Utility(core.Cog):
             return await ctx.send("Could not find command.", view=view)
 
         if isinstance(cmd, commands.HelpCommand):
-            lines, number_one = inspect.getsourcelines(type(command))
+            lines, beginning = inspect.getsourcelines(type(command))
             src = command.__module__
         else:
-            lines, number_one = inspect.getsourcelines(cmd.callback.__code__)
+            lines, beginning = inspect.getsourcelines(cmd.callback.__code__)
             src = cmd.callback.__module__
 
         path = f"{src.replace('.', '/')}.py"
 
-        number_two = number_one + len(lines) - 1
-        link = f"{SOURCE_URL}/blob/main/{path}#L{number_one}-L{number_two}"
-        view.clear_items()
+        end = beginning + len(lines) - 1
+        link = f"{SOURCE_URL}/blob/main/{path}#L{beginning}-L{end}"
+
         view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label=f"Source for {command}", url=link))
         await ctx.send("Here is the source.", view=view)
+
+    @source.autocomplete("command")
+    async def source_command_autocomplete(self, itn: discord.Interaction, current: str) -> list[app_commands.Choice]:
+        return [
+            app_commands.Choice(name=cmd.qualified_name, value=cmd.qualified_name)
+            for cmd in self.bot.walk_commands()
+            if current in cmd.qualified_name
+        ][:25]
 
     @oi.command()
     async def linecount(self, ctx: Context):

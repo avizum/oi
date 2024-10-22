@@ -251,7 +251,7 @@ class CommandSelect(discord.ui.Select["HelpPaginator"]):
 
 
 class CommandHelpView(discord.ui.View):
-    def __init__(self, timeout: float, help: OiHelp, help_view: HelpPaginator, previous_embed: discord.Embed) -> None:
+    def __init__(self, timeout: float | None, help: OiHelp, help_view: HelpPaginator, previous_embed: discord.Embed) -> None:
         super().__init__(timeout=timeout)
         self.help: OiHelp = help
         self.help_view: HelpPaginator = help_view
@@ -491,6 +491,7 @@ class HelpCommandCog(core.Cog):
         self.default = bot.help_command
         bot.help_command = OiHelp(command_attrs={"hidden": True}, verify_checks=False)
         bot.help_command.cog = self
+        self.autocomplete_options: list[str] = []
         super().__init__(bot)
 
     def cog_unload(self) -> None:
@@ -510,6 +511,18 @@ class HelpCommandCog(core.Cog):
                 return await ctx.send("Command not found.", ephemeral=True)
             return await ctx.send_help(cmd)
         return await ctx.send_help()
+
+    @_help.autocomplete("entity")
+    async def _help_autocomplete(
+        self,
+        _: discord.Interaction,
+        current: str,
+    ) -> list[app_commands.Choice[str]]:
+        if not self.autocomplete_options:
+            self.autocomplete_options.extend(cmd.qualified_name for cmd in self.bot.walk_commands() if not cmd.hidden)
+            self.autocomplete_options.extend(cog.qualified_name for cog in self.bot.cogs.values())
+
+        return [app_commands.Choice(name=opt, value=opt) for opt in self.autocomplete_options if current in opt][:25]
 
 
 async def setup(bot: OiBot) -> None:
