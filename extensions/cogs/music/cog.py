@@ -1069,7 +1069,6 @@ class Music(core.Cog):
             title, lyrics_data = fetch
 
         if not lyrics_data or lyrics_data and not lyrics_data["text"]:
-            print(lyrics_data)
             raise commands.BadArgument("No results found matching your search.")
         lyrics = lyrics_data["text"]
         pag = commands.Paginator(max_size=320)
