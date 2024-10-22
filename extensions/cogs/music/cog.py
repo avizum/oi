@@ -292,17 +292,19 @@ class Music(core.Cog):
     async def _reconnect(self, voice_client: Player) -> bool:
         channel = voice_client.channel
         try:
-            await voice_client.disconnect()
-            voice_client.locked = True
+            position = voice_client.position
 
-            await asyncio.sleep(1)
-
-            vc: Player = await channel.connect(cls=Player(ctx=voice_client.ctx))  # type: ignore
+            vc = Player(ctx=voice_client.ctx)
             vc.queue.put(list(voice_client.queue))
             if voice_client.current:
                 vc.queue.put_at(0, voice_client.current)
-                await vc.play(vc.queue.get())
-                await vc.seek(int(voice_client.position) - 1)
+
+            await voice_client.disconnect()
+            await asyncio.sleep(1)
+            await channel.connect(cls=vc)  # type: ignore
+
+            if vc.queue:
+                await vc.play(vc.queue.get(), start=position)
             return True
         except Exception as exc:
             _log.error("Ignoring exception while reconnecting player:", exc_info=exc)
@@ -325,8 +327,9 @@ class Music(core.Cog):
             if failed:
                 return await ctx.send(f"{failed} players failed to reconnect.")
             return await ctx.send("Finished reconnecting all players.")
-        await self._reconnect(ctx.voice_client)
-        return await ctx.send("Reconnected.")
+        async with ctx.typing():
+            await self._reconnect(ctx.voice_client)
+            return await ctx.send("Reconnected.")
 
     @core.command(hidden=True)
     @app_commands.guilds(768895735764221982, 866891524319084587)
@@ -562,6 +565,49 @@ class Music(core.Cog):
         source = QueuePageSource(vc)
         paginator = Paginator(source, ctx=ctx, delete_message_after=True)
         await paginator.start()
+
+    @queue.command(name="remove", extras=EXTRAS)
+    @is_manager()
+    @is_not_deafened()
+    @is_in_channel()
+    @is_in_voice()
+    @core.describe(item="The track to remove from the queue.")
+    async def queue_remove(self, ctx: PlayerContext, item: str):
+        """
+        Removes a song from the queue.
+
+        If there are multiple of the same track, all of them will be removed.
+        """
+        vc = ctx.voice_client
+
+        if not vc.queue:
+            return await ctx.send("There is nothing in the queue.")
+
+        tracks = [track for track in vc.queue if item.lower() == track.title.lower()]
+
+        if not tracks:
+            return await ctx.send("Could not find any tracks with that name.")
+
+        vc.queue.remove(tracks[0], count=len(tracks))
+        all_instances = "all instances of" if len(tracks) > 1 else ""
+        await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
+
+
+    @queue_remove.autocomplete("item")
+    async def queue_remove_autocomplete(self, itn: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+        if not itn.guild:
+            return [app_commands.Choice(name="If you see this, I'm telling on you.", value="crazy stuff")]
+        elif not itn.guild.voice_client:
+            return [app_commands.Choice(name="There is no player connected", value="disconnected")]
+
+        assert isinstance(itn.guild.voice_client, Player)
+
+        return [
+            app_commands.Choice(
+                name=track.title, value=track.title
+            ) for track in itn.guild.voice_client.queue if current.lower() in track.title.lower()
+        ]
+
 
     @queue.command(name="shuffle", extras=EXTRAS)
     @is_manager()

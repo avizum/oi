@@ -25,14 +25,15 @@ from typing import Any, TYPE_CHECKING
 
 import discord
 from discord import ButtonStyle, ui
-from discord.ext import menus
+from discord.ext import commands, menus
 from wavelink import AutoPlayMode, Playable, QueueMode
 
 from core import ui as cui
+from utils.paginators import Paginator
 
 if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
-    from discord.ext.commands import Paginator
+    from discord.ext.commands import Paginator as CPaginator
 
     from .player import Player
     from .types import PlayerContext
@@ -105,6 +106,18 @@ class PlayerSkipButton(PlayerButton):
         return True
 
 
+class PlayerLyricsButton(PlayerButton):
+    async def interaction_check(self, itn: Interaction) -> bool:
+        assert self.view is not None
+        vc = self.view.vc
+
+        if not vc or vc and vc.locked or not vc.current or not vc.connected:
+            await itn.response.defer()
+            return False
+
+        return True
+
+
 class LoopTypeSelect(ui.Select["PlayerController"]):
     def __init__(self, controller: PlayerController):
         self.vc = controller.vc
@@ -164,6 +177,7 @@ class PlayerController(ui.View):
         self.counter: int = -1
         self.is_updating: bool = False
         self.loop_select: LoopTypeSelect | None = None
+        self.lyrics_paginators: dict[int, Paginator] = {}
         super().__init__(timeout=None)
 
     async def disable(self) -> None:
@@ -175,12 +189,9 @@ class PlayerController(ui.View):
             await self.message.edit(view=None)
 
     def set_disabled(self, disabled: bool) -> None:
-        self.rewind.disabled = disabled
-        self.pause.disabled = disabled
-        self.skip.disabled = disabled
-        self.shuffle.disabled = disabled
-        self.loop.disabled = disabled
-        self.autoplay.disabled = disabled
+        for item in self.children:
+            if isinstance(item, PlayerButton):
+                item.disabled = disabled
 
     def update_buttons(self) -> None:
         self.set_disabled(False)
@@ -332,6 +343,40 @@ class PlayerController(ui.View):
         self.ctx.bot.command_usage["player autoplay"] += 1
         await self.update(itn)
 
+    @cui.button(cls=PlayerLyricsButton, emoji="<:lyrics:1297669978635505675>")
+    async def lyrics(self, itn: Interaction, button: PlayerLyricsButton):
+        assert self.vc.current is not None
+
+        self.ctx.bot.command_usage["lyrics"] += 1
+
+        if itn.user.id in self.lyrics_paginators:
+            paginator = self.lyrics_paginators[itn.user.id]
+            assert isinstance(paginator.source, LyricPageSource)
+
+            if paginator.message:
+                with contextlib.suppress(discord.NotFound):
+                    await paginator.message.delete()
+            paginator.stop()
+            del self.lyrics_paginators[itn.user.id]
+
+        await itn.response.defer(thinking=True, ephemeral=True)
+        lyrics_data = await self.vc.fetch_current_lyrics()
+        if not lyrics_data or lyrics_data and not lyrics_data["text"]:
+            await itn.followup.send("Could not find lyrics.", ephemeral=True)
+            return
+        pag = commands.Paginator(max_size=320)
+
+        for line in lyrics_data["text"].splitlines():
+            pag.add_line(line)
+
+        source = LyricPageSource(self.vc.current.title, pag)
+        paginator = LyricsPaginator(
+            source, ctx=self.ctx, delete_message_after=True, timeout=((self.vc.current.length / 1000) * 2)
+        )  # Double the track's length
+
+        await paginator.start(itn)
+        self.lyrics_paginators[itn.user.id] = paginator
+
 
 class QueuePageSource(menus.ListPageSource):
     def __init__(self, player: Player) -> None:
@@ -355,9 +400,29 @@ class QueuePageSource(menus.ListPageSource):
 
 
 class LyricPageSource(menus.ListPageSource):
-    def __init__(self, title: str, paginator: Paginator):
+    def __init__(self, title: str, paginator: CPaginator):
         self.title = title
         super().__init__(paginator.pages, per_page=1)
 
     async def format_page(self, menu: menus.MenuPages, page: str) -> discord.Embed:
         return discord.Embed(title=f"{self.title} lyrics", description=page, color=0x00FFB3)
+
+
+class LyricsPaginator(Paginator):
+    async def interaction_check(self, _: Interaction):
+        # All instances of this paginator are sent ephemerally
+        return True
+
+    async def start(self, itn: Interaction):
+        await self.source._prepare_once()
+        page = await self.source.get_page(self.current_page)
+        kwargs = await self._get_kwargs(page)
+        await self._update(self.current_page)
+
+        if itn.response.is_done():
+            msg = await itn.followup.send(**kwargs, view=self, wait=True, ephemeral=True)
+        else:
+            await itn.response.send_message(**kwargs, view=self, ephemeral=True)
+            msg = await itn.original_response()
+
+        self.message = msg
