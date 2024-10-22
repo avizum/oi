@@ -219,7 +219,7 @@ class PlayerController(ui.View):
         if vc.current is None:
             self.set_disabled(True)
 
-    async def update(self, itn: Interaction | None = None) -> None:
+    async def update(self, itn: Interaction | None = None, /, *, invoke: bool = True) -> None:
         if self.is_updating or self.is_finished() or self.message is None:
             return
 
@@ -236,9 +236,9 @@ class PlayerController(ui.View):
         current = self.vc.current
 
         if self.counter >= 10:
-            invoke_controller = (not itn.extras.get("no_invoke", False)) if itn else False
             await edit(view=None)
-            if invoke_controller and current:
+            if invoke and current:
+                self.message = None
                 self.counter = -1
                 await self.vc.invoke_controller(current)
             self.is_updating = False
@@ -285,8 +285,6 @@ class PlayerController(ui.View):
 
     @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>")
     async def skip(self, itn: Interaction, _: PlayerSkipButton):
-        itn.extras = dict(no_invoke=True)
-
         vc = self.vc
 
         assert self.vc.current is not None
@@ -312,7 +310,7 @@ class PlayerController(ui.View):
                 return
             await send(f"Voted to skip. ({len(self.vc.skip_votes)}/{required})", ephemeral=True)
         self.ctx.bot.command_usage["skip"] += 1
-        await self.update(itn)
+        await self.update(itn, invoke=False)
 
     @cui.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>")
     async def shuffle(self, itn: Interaction, _: PlayerButton):

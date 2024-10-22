@@ -219,6 +219,18 @@ class Music(core.Cog):
             controller.message = None
 
     @core.Cog.listener()
+    async def on_bulk_message_delete(self, messages: list[discord.Message]):
+        for message in messages:
+            if not message.guild or not message.guild.voice_client:
+                continue
+
+            vc = cast(Player, message.guild.voice_client)
+            controller = vc.controller
+            if controller and controller.message and controller.message.id == message.id:
+                controller.message = None
+
+
+    @core.Cog.listener()
     async def on_voice_state_update(
         self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
     ) -> None:
@@ -244,7 +256,8 @@ class Music(core.Cog):
         if not vc:
             return
         if update_after and vc.controller:
-            await vc.controller.update(ctx.interaction)
+            invoke = not ctx.command.qualified_name == "skip"
+            await vc.controller.update(ctx.interaction, invoke=invoke)
         if vc.ctx.interaction and ctx.interaction:
             vc.ctx.interaction = ctx.interaction
 
