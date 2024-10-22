@@ -147,7 +147,7 @@ class Player(wavelink.Player):
 
         return tracks if isinstance(tracks, wavelink.Playlist) else tracks[0]
 
-    async def invoke_controller(self, playable: Playable) -> None:
+    async def invoke_controller(self, playable: Playable | None) -> None:
         if self.locked:
             return
 

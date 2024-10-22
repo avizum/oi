@@ -237,10 +237,12 @@ class PlayerController(ui.View):
 
         if self.counter >= 10:
             await edit(view=None)
-            if invoke and current:
+            if invoke:
                 self.message = None
                 self.counter = -1
                 await self.vc.invoke_controller(current)
+                self.is_updating = False
+                return
             self.is_updating = False
             return
 

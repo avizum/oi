@@ -258,6 +258,7 @@ class Music(core.Cog):
         if update_after and vc.controller:
             invoke = not ctx.command.qualified_name == "skip"
             await vc.controller.update(ctx.interaction, invoke=invoke)
+
         if vc.ctx.interaction and ctx.interaction:
             vc.ctx.interaction = ctx.interaction
 
@@ -359,7 +360,7 @@ class Music(core.Cog):
         except (wavelink.LavalinkException, wavelink.NodeException) as exc:
             await ctx.send(f"Could not set data: {exc}")
 
-    @core.command(extras=EXTRAS)
+    @core.command()
     @is_not_deafened()
     @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
@@ -457,10 +458,14 @@ class Music(core.Cog):
 
         if not vc.current:
             await vc.play(vc.queue.get())
+            return
         elif vc.paused:
             await vc.pause(False)
         elif play_now:
             await vc.skip()
+
+        if vc.controller:
+            await vc.controller.update(ctx.interaction)
 
     @core.command(extras=EXTRAS)
     @is_manager()
