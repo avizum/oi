@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 class SkipPage(discord.ui.Modal, title="Skip to page"):
     to_page = discord.ui.TextInput(label="Place holder")
 
-    def __init__(self, timeout: float, view: Paginator):
+    def __init__(self, timeout: float | None, view: Paginator):
         super().__init__(timeout=timeout)
         self.view = view
         self.to_page.label = f"Enter page number: 1-{self.view.source.get_max_pages()}"
@@ -59,14 +59,12 @@ class SkipPage(discord.ui.Modal, title="Skip to page"):
 
 
 class Paginator(discord.ui.View):
-    timeout: float
-
     def __init__(
         self,
         source: menus.PageSource,
         *,
         ctx: Context,
-        timeout: float = 180.0,
+        timeout: float | None = 180.0,
         check_embeds: bool = True,
         delete_message_after: bool = False,
         remove_view_after: bool = False,
