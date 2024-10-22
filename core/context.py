@@ -114,7 +114,7 @@ def get_tip() -> list[str]:
     return random.choices(tips, [6, 4, 1, 1], k=1)[0]
 
 
-CHANCE = 1 / 20
+CHANCE = 3 / 20
 
 
 class Context(commands.Context, Generic[BotT]):
