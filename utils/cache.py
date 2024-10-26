@@ -59,7 +59,7 @@ class DBCache:
         blacklisted = await pool.fetch("SELECT user_id, reason, moderator, permanent FROM blacklist")
         player_settings = await pool.fetch("SELECT guild_id, dj_role, dj_enabled  FROM player_settings")
         songs = await pool.fetch("SELECT id, identifier, uri, encoded, source, title, artist FROM songs")
-        playlists = await pool.fetch("SELECT id, author, name FROM playlists")
+        playlists = await pool.fetch("SELECT id, author, name, image FROM playlists")
 
         for blacklist in blacklisted:
             self.blacklisted[blacklist["user_id"]] = dict(blacklist)  # type: ignore
