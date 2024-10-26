@@ -30,6 +30,7 @@ from wavelink import AutoPlayMode, Playable, QueueMode
 
 from core import ui as cui
 from utils.paginators import Paginator
+from utils.view import OiView
 
 if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
@@ -426,3 +427,47 @@ class LyricsPaginator(Paginator):
             msg = await itn.original_response()
 
         self.message = msg
+
+
+class PlaylistCreationModal(ui.Modal, title="Create a playlist"):
+    playlist = discord.ui.TextInput(
+        label="Enter a name",
+        style=discord.TextStyle.short,
+        placeholder="My Playlist",
+        required=True,
+        min_length=1,
+        max_length=150,
+    )
+    image = discord.ui.TextInput(
+        label="Enter an image URL",
+        style=discord.TextStyle.short,
+        required=False,
+    )
+
+    def __init__(self) -> None:
+        self.name: str | None = None
+        self.url: str | None = None
+        super().__init__()
+
+    async def on_submit(self, itn: Interaction) -> None:
+        await itn.response.defer()
+        self.name = self.playlist.value
+        self.url = self.image.value
+
+
+class PlaylistCreationModalView(OiView):
+    def __init__(self, *, members: list[discord.Member | discord.User], timeout=180):
+        self.name: str | None = None
+        self.url: str | None = None
+        super().__init__(members=members, timeout=timeout)
+
+    @ui.button(label="Create playlist", style=discord.ButtonStyle.green)
+    async def open_modal(self, itn: Interaction, button: ui.Button) -> None:
+        modal = PlaylistCreationModal()
+        await itn.response.send_modal(modal)
+        await modal.wait()
+        self.name = modal.name
+        self.url = modal.url
+        if self.message:
+            await self.message.edit(view=None)
+        self.stop()
