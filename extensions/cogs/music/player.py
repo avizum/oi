@@ -24,14 +24,19 @@ from typing import Any, TYPE_CHECKING
 
 import discord
 import wavelink
-from wavelink import Playable, Playlist, QueueMode
+from wavelink import ExtrasNamespace as Extras, Playable, Playlist, QueueMode
 
 from core import OiBot
+from utils.helpers import format_seconds
 
 from .types import Lyrics, PlayerContext
 from .views import PlayerController
 
 if TYPE_CHECKING:
+    from wavelink.types.tracks import TrackPayload
+
+    from utils.types import Song
+
     from .cog import SEARCH_TYPES
 
 __all__ = ("Player",)
@@ -65,6 +70,7 @@ class Player(wavelink.Player):
         self.members: list[discord.Member] = []
         self.controller: PlayerController | None = None
         self.locked: bool = False
+        self.bot: OiBot = self.client
 
         self.dj_enabled: bool = False
         self.dj_role: discord.Role | None = None
@@ -84,6 +90,17 @@ class Player(wavelink.Player):
         self.dj_role = self.channel.guild.get_role(settings["dj_role"])
         if self.dj_enabled and not self.dj_role:
             self.manager = self.ctx.author
+
+    def set_extras(self, playable: Playable, *, requester: str, requester_id: int):
+        duration = "LIVE" if playable.is_stream else format_seconds(playable.length / 1000)
+        suffix = f" - {playable.author}" if playable.author not in playable.title else ""
+
+        playable.extras = Extras(
+            requester=requester,
+            requester_id=requester_id,
+            duration=duration,
+            hyperlink=f"[{playable.title}{suffix}](<{playable.uri}>)",
+        )
 
     async def skip(self) -> Playable | None:
         await super().skip(force=False)
@@ -136,9 +153,40 @@ class Player(wavelink.Player):
 
         return embed
 
-    async def fetch_tracks(self, query: str, source: SEARCH_TYPES) -> Playable | Playlist | None:
+    async def save_tracks(self, tracks: wavelink.Search) -> dict[str, Song]:
+        query = """
+                INSERT INTO songs (id, identifier, uri, encoded, source, title, artist)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING *
+                """
+        songs_data: dict[str, Song] = {}
+        for track in tracks:
+            if track.identifier not in self.bot.cache.songs:
+                # soundcloud's track identifier is too long, so the prefix
+                # O:https://api-v2.soundcloud.com/media/ will be removed from all soundcloud tracks.
+                if track.source == "soundcloud":
+                    track._identifier = track._identifier.removeprefix("O:https://api-v2.soundcloud.com/media/")
+
+                gen_id = self.bot.id_generator.generate()
+                song = await self.bot.pool.fetchrow(
+                    query, gen_id, track.identifier, track.uri, track.encoded, track.source, track.title, track.author
+                )
+                self.bot.cache.songs[track.identifier] = dict(song)  # type: ignore
+                songs_data[track.identifier] = dict(song)  # type: ignore
+        return songs_data
+
+    async def decode_track(self, encoded: str) -> Playable | None:
+        try:
+            data: TrackPayload = await self.node.send("GET", path="v4/decodetrack", params={"encodedTrack": encoded})
+            return Playable(data)
+        except wavelink.LavalinkException:
+            return None
+
+    async def fetch_tracks(self, query: str, source: SEARCH_TYPES, save_tracks: bool = True) -> Playable | Playlist | None:
         try:
             tracks = await Playable.search(query, source=source_map.get(source, "ytsearch"))
+            if save_tracks:
+                self.bot.loop.create_task(self.save_tracks(tracks if isinstance(tracks, wavelink.Playlist) else tracks[:1]))
         except wavelink.LavalinkLoadException:
             tracks = None
 
