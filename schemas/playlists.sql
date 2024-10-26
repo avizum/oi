@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS playlists (
     author BIGINT NOT NULL,
     name TEXT NOT NULL,
     image TEXT,
+    UNIQUE (name, author)
 );
 
 CREATE TABLE IF NOT EXISTS playlist_songs (
