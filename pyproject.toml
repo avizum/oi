@@ -5,6 +5,8 @@ line-length = 125
 profile = "black"
 line_length = 125
 force_alphabetical_sort_within_sections = true
+combine_as_imports = true
+
 
 [tool.pyright]
 typeCheckingMode = "basic"
@@ -15,4 +17,4 @@ exclude = [".env"]
 ignore = ["F403", "F405"]
 line-length = 125
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-target-version = "py311"
+target-version = "py312"
