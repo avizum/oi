@@ -323,7 +323,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         """Adds a user to the global blacklist."""
         if user.id in self.bot.owner_ids:
             return await ctx.send("Can not blacklist Owners.")
-        elif user.id in self.bot.blacklisted:
+        elif user.id in self.bot.cache.blacklisted:
             return await ctx.send("User already blacklisted.")
 
         query = """
@@ -331,8 +331,13 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             VALUES ($1, $2, $3, $4)
         """
         await self.bot.pool.execute(query, user.id, flags.reason, ctx.author.id, flags.permanent)
-        data: Blacklist = {"reason": flags.reason, "moderator": ctx.author.id, "permanent": flags.permanent}
-        self.bot.blacklisted[user.id] = data
+        data: Blacklist = {
+            "user_id": user.id,
+            "reason": flags.reason,
+            "moderator": ctx.author.id,
+            "permanent": flags.permanent,
+        }
+        self.bot.cache.blacklisted[user.id] = data
 
         embed = discord.Embed(title="You are now blacklisted from Oi", color=discord.Color.red())
         embed.add_field(
@@ -357,10 +362,10 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
     @Feature.Command(parent="blacklist", name="remove", aliases=["r", "rm"])
     async def blacklist_remove(self, ctx: Context, user: discord.User, *, reason: str):
         """Removes a user from the global blacklist."""
-        if user.id not in self.bot.blacklisted:
+        if user.id not in self.bot.cache.blacklisted:
             return await ctx.send("User is not blacklisted.")
 
-        blacklist = self.bot.blacklisted[user.id]
+        blacklist = self.bot.cache.blacklisted[user.id]
 
         if blacklist["permanent"]:
             conf = await ctx.confirm(
@@ -378,7 +383,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             WHERE user_id = $1
         """
         await self.bot.pool.execute(query, user.id)
-        del self.bot.blacklisted[user.id]
+        del self.bot.cache.blacklisted[user.id]
 
         embed = discord.Embed(title="You are no longer blacklisted from Oi", color=discord.Color.green())
         embed.add_field(name=f"Moderator Note from {ctx.author}", value=reason, inline=False)

@@ -70,7 +70,7 @@ class Player(wavelink.Player):
         self.dj_role: discord.Role | None = None
 
     async def _set_player_settings(self) -> None:
-        settings = self.client.player_settings.get(self.channel.guild.id)
+        settings = self.client.cache.player_settings.get(self.channel.guild.id)
         if not settings:
             query = """
                 INSERT INTO player_settings (guild_id, dj_role, dj_enabled)
@@ -78,7 +78,7 @@ class Player(wavelink.Player):
                 RETURNING *
             """
             settings = await self.client.pool.fetchrow(query, self.channel.guild.id, 0, True)
-            self.client.player_settings[self.channel.guild.id] = settings
+            self.client.cache.player_settings[self.channel.guild.id] = settings
 
         self.dj_enabled = settings["dj_enabled"]
         self.dj_role = self.channel.guild.get_role(settings["dj_role"])

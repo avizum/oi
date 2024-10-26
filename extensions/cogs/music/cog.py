@@ -696,7 +696,7 @@ class Music(core.Cog):
         Enables DJ.
         """
         vc = ctx.voice_client
-        settings = self.bot.player_settings[ctx.guild.id]
+        settings = self.bot.cache.player_settings[ctx.guild.id]
         if settings["dj_enabled"] is True:
             return await ctx.send("DJ is already enabled.")
 
@@ -707,7 +707,7 @@ class Music(core.Cog):
             RETURNING *
         """
         settings = await ctx.bot.pool.fetchrow(query, True, ctx.guild.id)
-        self.bot.player_settings[ctx.guild.id] = settings
+        self.bot.cache.player_settings[ctx.guild.id] = settings
         if vc:
             vc.dj_enabled = True
         return await ctx.send("Enabled DJ.")
@@ -719,7 +719,7 @@ class Music(core.Cog):
         Disables DJ.
         """
         vc = ctx.voice_client
-        settings = self.bot.player_settings[ctx.guild.id]
+        settings = self.bot.cache.player_settings[ctx.guild.id]
         if settings["dj_enabled"] is False:
             return await ctx.send("DJ is already disabled.")
 
@@ -730,7 +730,7 @@ class Music(core.Cog):
             RETURNING *
         """
         settings = await ctx.bot.pool.fetchrow(query, False, ctx.guild.id)
-        self.bot.player_settings[ctx.guild.id] = settings
+        self.bot.cache.player_settings[ctx.guild.id] = settings
         if vc:
             vc.dj_enabled = False
         return await ctx.send("Disabled DJ.")
@@ -743,7 +743,7 @@ class Music(core.Cog):
         Sets the DJ role. If not set, the DJ is whoever calls Oi into the channel first.
         """
         vc = ctx.voice_client
-        settings = self.bot.player_settings[ctx.guild.id]
+        settings = self.bot.cache.player_settings[ctx.guild.id]
         if role and settings["dj_role"] == role.id:
             return await ctx.send(f"DJ is already set to {role.mention}.", allowed_mentions=MENTIONS)
 
@@ -762,7 +762,7 @@ class Music(core.Cog):
             RETURNING *
         """
         settings = await ctx.bot.pool.fetchrow(query, role_id, True, ctx.guild.id)
-        self.bot.player_settings[ctx.guild.id] = settings
+        self.bot.cache.player_settings[ctx.guild.id] = settings
         if vc:
             vc.dj_role = role
             vc.dj_enabled = True
