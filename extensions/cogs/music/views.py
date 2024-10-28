@@ -32,9 +32,13 @@ from core import ui as cui
 from utils.paginators import Paginator
 from utils.view import OiView
 
+from .utils import hyperlink_song
+
 if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
     from discord.ext.commands import Paginator as CPaginator
+
+    from utils.types import Playlist, Song
 
     from .player import Player
     from .types import PlayerContext
@@ -400,6 +404,27 @@ class QueuePageSource(menus.ListPageSource):
         return embed
 
 
+class PlaylistPageSource(menus.ListPageSource):
+    def __init__(self, playlist: Playlist) -> None:
+        self.playlist: Playlist = playlist
+        self.songs: dict[int, Song] = self.playlist["songs"]
+        super().__init__(list(self.songs.keys()), per_page=8)
+
+    async def format_page(self, _: menus.Menu, playlist_ids: list[int]) -> discord.Embed:
+        lines = []
+
+        for p_id in playlist_ids:
+            song = self.songs[p_id]
+            if len(song["title"]) > 90:
+                song["title"] = f"{song["title"][: len(song["artist"])]}..."
+            lines.append(f"{song["position"]}. {hyperlink_song(song)} - {song["artist"]}")
+
+        embed = discord.Embed(title=f"Playlist Info: {self.playlist["name"]}", description="\n".join(lines))
+        embed.set_thumbnail(url=self.playlist.get("image"))
+        embed.set_footer(text=f"{len(self.songs)} songs in {self.playlist["name"]}")
+        return embed
+
+
 class LyricPageSource(menus.ListPageSource):
     def __init__(self, title: str, paginator: CPaginator):
         self.title = title
@@ -429,7 +454,7 @@ class LyricsPaginator(Paginator):
         self.message = msg
 
 
-class PlaylistCreationModal(ui.Modal, title="Create a playlist"):
+class PlaylistInfoModal(ui.Modal):
     playlist = discord.ui.TextInput(
         label="Enter a name",
         style=discord.TextStyle.short,
@@ -444,10 +469,13 @@ class PlaylistCreationModal(ui.Modal, title="Create a playlist"):
         required=False,
     )
 
-    def __init__(self) -> None:
-        self.name: str | None = None
+    def __init__(self, title: str, *, name: str | None = None, image: str | None = None) -> None:
+        self.name: str
         self.url: str | None = None
-        super().__init__()
+
+        self.playlist.default = name
+        self.image.default = image
+        super().__init__(title=title)
 
     async def on_submit(self, itn: Interaction) -> None:
         await itn.response.defer()
@@ -455,15 +483,23 @@ class PlaylistCreationModal(ui.Modal, title="Create a playlist"):
         self.url = self.image.value
 
 
-class PlaylistCreationModalView(OiView):
-    def __init__(self, *, members: list[discord.Member | discord.User], timeout=180):
-        self.name: str | None = None
+class PlaylistModalView(OiView):
+    def __init__(
+        self, *, title: str, playlist: Playlist | None = None, members: list[discord.Member | discord.User], timeout=180
+    ):
+        self.title: str = title
+        self.playlist: Playlist | None = playlist
+        self.name: str
         self.url: str | None = None
-        super().__init__(members=members, timeout=timeout)
 
-    @ui.button(label="Create playlist", style=discord.ButtonStyle.green)
+        super().__init__(members=members, timeout=timeout)
+        self.open_modal.label = title
+
+    @ui.button(style=discord.ButtonStyle.green)
     async def open_modal(self, itn: Interaction, button: ui.Button) -> None:
-        modal = PlaylistCreationModal()
+        name = self.playlist["name"] if self.playlist else None
+        image = self.playlist.get("image") if self.playlist else None
+        modal = PlaylistInfoModal(self.title, name=name, image=image)
         await itn.response.send_modal(modal)
         await modal.wait()
         self.name = modal.name
