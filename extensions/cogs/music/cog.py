@@ -288,18 +288,14 @@ class Music(core.Cog):
     @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
     async def connect(self, ctx: PlayerContext) -> Player | None:
-        """
-        Connects to a voice channel or stage.
-        """
+        """Connects to a voice channel or stage."""
         return await self._connect(ctx)
 
     @core.command()
     @is_manager()
     @is_in_voice()
     async def disconnect(self, ctx: PlayerContext) -> None:
-        """
-        Disconnects the player from the channel.
-        """
+        """Disconnects the player from the channel."""
         await ctx.voice_client.disconnect()
         await ctx.send("Disconnected. Goodbye!")
 
@@ -329,9 +325,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def reconnect(self, ctx: PlayerContext):
-        """
-        Reconnects your player without loss of the queue and song position.
-        """
+        """Reconnects your player without loss of the queue and song position."""
         if await self.bot.is_owner(ctx.author) and not ctx.interaction:
             to_reconnect: list[asyncio.Task] = []
             for vc in self.bot.voice_clients:
@@ -350,9 +344,7 @@ class Music(core.Cog):
     @core.has_permissions(ban_members=True)
     @core.is_owner()
     async def refresh(self, ctx: PlayerContext, po_token: str, visitor_data: str):
-        """
-        Refreshes the internal tokens used by Lavalink.
-        """
+        """Refreshes the internal tokens used by Lavalink."""
         try:
             node = wavelink.Pool.get_node("OiBot")
             await node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
@@ -381,9 +373,7 @@ class Music(core.Cog):
         play_next: bool = False,
         shuffle: bool = False,
     ) -> None:
-        """
-        Play a song from a selected source.
-        """
+        """Play a song from a selected source."""
         vc = ctx.voice_client or await self._connect(ctx)
 
         if vc is None:
@@ -493,9 +483,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def resume(self, ctx: PlayerContext):
-        """
-        Resumes playback of the player.
-        """
+        """Resumes playback of the player."""
         vc = ctx.voice_client
 
         if not vc.current:
@@ -553,9 +541,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(time="Where to seek in MM:SS format.")
     async def seek(self, ctx: PlayerContext, time: Time):
-        """
-        Seek positions in the current track.
-        """
+        """Seek positions in the current track."""
         vc = ctx.voice_client
 
         await vc.seek(time * 1000)
@@ -572,9 +558,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice(author=False)
     async def queue_show(self, ctx: PlayerContext):
-        """
-        Shows the queue in a paginated format.
-        """
+        """Shows the queue in a paginated format."""
         vc = ctx.voice_client
 
         if len(vc.queue) == 0:
@@ -633,9 +617,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def queue_shuffle(self, ctx: PlayerContext):
-        """
-        Shuffles the queue randomly.
-        """
+        """Shuffles the queue randomly."""
         vc = ctx.voice_client
 
         if not vc.queue:
@@ -650,9 +632,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def queue_loop(self, ctx: PlayerContext):
-        """
-        Loops all the songs in the queue.
-        """
+        """Loops all the songs in the queue."""
         vc = ctx.voice_client
 
         vc.queue.mode = QueueMode.loop_all
@@ -664,9 +644,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def queue_clear(self, ctx: PlayerContext):
-        """
-        Clears the queue and the queue history.
-        """
+        """Clears the queue and the queue history."""
         vc = ctx.voice_client
 
         if not vc.queue:
@@ -684,17 +662,13 @@ class Music(core.Cog):
 
     @player.group(name="dj")
     async def player_dj(self, ctx: PlayerContext):
-        """
-        DJ settings commands.
-        """
+        """DJ settings commands."""
         await ctx.send_help(ctx.command)
 
     @player_dj.command(name="enable")
     @core.has_guild_permissions(manage_guild=True)
     async def player_dj_enable(self, ctx: PlayerContext):
-        """
-        Enables DJ.
-        """
+        """Enables DJ."""
         vc = ctx.voice_client
         settings = self.bot.cache.player_settings[ctx.guild.id]
         if settings["dj_enabled"] is True:
@@ -715,9 +689,7 @@ class Music(core.Cog):
     @player_dj.command(name="disable")
     @core.has_guild_permissions(manage_guild=True)
     async def player_dj_disable(self, ctx: PlayerContext):
-        """
-        Disables DJ.
-        """
+        """Disables DJ."""
         vc = ctx.voice_client
         settings = self.bot.cache.player_settings[ctx.guild.id]
         if settings["dj_enabled"] is False:
@@ -739,9 +711,7 @@ class Music(core.Cog):
     @core.has_guild_permissions(manage_guild=True)
     @core.describe(role="The role to set as DJ")
     async def player_dj_role(self, ctx: PlayerContext, role: discord.Role | None):
-        """
-        Sets the DJ role. If not set, the DJ is whoever calls Oi into the channel first.
-        """
+        """Sets the DJ role. If not set, the DJ is whoever calls Oi into the channel first."""
         vc = ctx.voice_client
         settings = self.bot.cache.player_settings[ctx.guild.id]
         if role and settings["dj_role"] == role.id:
@@ -807,9 +777,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(mode="Whether to loop the queue, track, or disable.")
     async def player_loop(self, ctx: PlayerContext, mode: Literal["track", "queue", "off"]):
-        """
-        Options on looping.
-        """
+        """Options on looping."""
         vc = ctx.voice_client
 
         if not vc.current:
@@ -832,9 +800,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(volume="The new volume of the player.")
     async def player_volume(self, ctx: PlayerContext, volume: Range[int, 1, 200]):
-        """
-        Change the volume of the player.
-        """
+        """Change the volume of the player."""
         vc = ctx.voice_client
 
         await vc.set_volume(volume)
@@ -847,9 +813,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(state="Whether to autoplay.")
     async def player_autoplay(self, ctx: PlayerContext, state: bool):
-        """
-        Enable or disable autoplay in this session.
-        """
+        """Enable or disable autoplay in this session."""
         vc = ctx.voice_client
         if state:
             vc.autoplay = wavelink.AutoPlayMode.enabled
@@ -871,9 +835,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(speed="The speed multiplier.")
     async def player_filter_speed(self, ctx: PlayerContext, speed: Range[float, 0.25, 3.0]):
-        """
-        Change the speed of the player.
-        """
+        """Change the speed of the player."""
         vc = ctx.voice_client
 
         filters = vc.filters
@@ -891,9 +853,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(pitch="How much to change the pitch.")
     async def player_filter_pitch(self, ctx: PlayerContext, pitch: Range[float, 0.1, 5.0]):
-        """
-        Change the pitch of the player.
-        """
+        """Change the pitch of the player."""
         vc = ctx.voice_client
 
         filters = vc.filters
@@ -911,9 +871,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(rate="How much to change the speed and pitch.")
     async def player_filter_rate(self, ctx: PlayerContext, rate: Range[float, 0.75, 4.5]):
-        """
-        Change the Speed and the Pitch of the player.
-        """
+        """Change the Speed and the Pitch of the player."""
         vc = ctx.voice_client
 
         filters = vc.filters
@@ -933,9 +891,7 @@ class Music(core.Cog):
     async def player_filter_tremolo(
         self, ctx: PlayerContext, frequency: Range[float, 0.1, 100.0], depth: Range[float, 0.1, 1.0]
     ):
-        """
-        Adds a termolo effect to the player.
-        """
+        """Adds a termolo effect to the player."""
         vc = ctx.voice_client
 
         filters = vc.filters
@@ -955,9 +911,7 @@ class Music(core.Cog):
     async def player_filter_vibrato(
         self, ctx: PlayerContext, frequency: Range[float, 0.1, 14.0], depth: Range[float, 0.1, 1.0]
     ):
-        """
-        Adds a vibrato effect to the player.
-        """
+        """Adds a vibrato effect to the player."""
         vc = ctx.voice_client
         filters = vc.filters
 
@@ -986,9 +940,7 @@ class Music(core.Cog):
         band: float = 220.0,
         width: float = 100.0,
     ):
-        """
-        Adds an effect that will try to remove vocals from the music.
-        """
+        """Adds an effect that will try to remove vocals from the music."""
         vc = ctx.voice_client
         filters = vc.filters
 
@@ -1005,9 +957,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(smoothing="How much smoothing to apply.")
     async def player_filter_lowpass(self, ctx: PlayerContext, smoothing: Range[float, 0.1, 60.0]):
-        """
-        Allows only low frequencies to pass through.
-        """
+        """Allows only low frequencies to pass through."""
         vc = ctx.voice_client
         filters = vc.filters
 
@@ -1023,9 +973,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def player_filter_rotation(self, ctx: PlayerContext):
-        """
-        Creates a rotation effect in the player.
-        """
+        """Creates a rotation effect in the player."""
         vc = ctx.voice_client
         filters = vc.filters
 
@@ -1040,9 +988,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def player_filter_reset(self, ctx: PlayerContext):
-        """
-        Removes all the filters.
-        """
+        """Removes all the filters."""
         vc = ctx.voice_client
 
         await vc.set_filters(None)
@@ -1069,9 +1015,7 @@ class Music(core.Cog):
         translate: bool = False,
         speed: commands.Range[float, 0.5, 10.0] = 1.0,
     ):
-        """
-        Text to speech in voice channel.
-        """
+        """Text to speech in voice channel."""
         vc = ctx.voice_client
 
         if vc.current and not vc.paused:
