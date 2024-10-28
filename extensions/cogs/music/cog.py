@@ -1010,7 +1010,7 @@ class Music(core.Cog):
         self,
         ctx: PlayerContext,
         *,
-        text: commands.Range[str, 1, 2000],
+        text: commands.Range[str, 1, 500],
         voice: str = "Carter",
         translate: bool = False,
         speed: commands.Range[float, 0.5, 10.0] = 1.0,
@@ -1027,7 +1027,7 @@ class Music(core.Cog):
             current = vc.current
             start = vc.position
 
-        text = urllib.parse.quote(text)
+        text = parse.quote(text)
 
         search = await wavelink.Playable.search(
             f"ftts://{text}?voice={voice}&translate={str(translate).lower()}&speed={speed}", source=None
@@ -1039,9 +1039,12 @@ class Music(core.Cog):
         track.extras = Extras(
             requester=str(ctx.author),
             requester_id=ctx.author.id,
-            duration="N/A",
+            duration=format_seconds(track.length),
             hyperlink="TTS query",
         )
+
+        if ctx.interaction:
+            await ctx.send("Sent TTS query to player.", ephemeral=True)
 
         await vc.play(track, add_history=False, paused=False)
         await self.bot.wait_for("wavelink_track_end", check=lambda pl: pl.player.channel == vc.channel)
