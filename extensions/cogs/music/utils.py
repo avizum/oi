@@ -148,7 +148,7 @@ def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.
                     value=song["identifier"],
                 )
             )
-    return options
+    return options[:25]
 
 
 def hyperlink_song(song: SongD) -> str:
