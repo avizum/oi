@@ -33,8 +33,7 @@ import wavelink
 from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Range
-from wavelink import ExtrasNamespace as Extras
-from wavelink import QueueMode
+from wavelink import ExtrasNamespace as Extras, QueueMode
 
 import core
 from utils.helpers import format_seconds
@@ -167,7 +166,7 @@ class Music(core.Cog):
         if not vc:
             return
 
-        await vc.ctx.send("Track got stuck. Skipping.")
+        await vc.ctx.send("Track got stuck. Skipping.", no_tips=True)
         await vc.skip()
 
     @core.Cog.listener()
@@ -191,13 +190,14 @@ class Music(core.Cog):
             with contextlib.suppress(discord.HTTPException):
                 await vc.ctx.send(
                     "Sorry, your player has been disconnected due to a potential server issue. Please try again later.\n"
-                    f"-# *(You can reconnect the player using {self.connect.mention})*"
+                    f"-# *(You can reconnect the player using {self.connect.mention})*",
+                    no_tips=True,
                 )
             await vc.disconnect(force=True)
             return
         # In some cases, track.hyperlink can possibly be unset when
         # wavelink_track_exception is called before wavelink_track start.
-        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, "hyperlink", track.title)}.")
+        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, "hyperlink", track.title)}.", no_tips=True)
 
     @core.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -229,7 +229,6 @@ class Music(core.Cog):
             if controller and controller.message and controller.message.id == message.id:
                 controller.message = None
 
-
     @core.Cog.listener()
     async def on_voice_state_update(
         self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
@@ -247,7 +246,7 @@ class Music(core.Cog):
         if member == vc.manager and after.channel != vc.channel or not vc.manager and after.channel == vc.channel:
             manager: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
             if manager:
-                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS)
+                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS, no_tips=True)
             vc.manager = manager
 
     async def cog_after_invoke(self, ctx: PlayerContext) -> None:
@@ -610,7 +609,6 @@ class Music(core.Cog):
         all_instances = "all instances of" if len(tracks) > 1 else ""
         await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
 
-
     @queue_remove.autocomplete("item")
     async def queue_remove_autocomplete(self, itn: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
         if not itn.guild:
@@ -621,11 +619,10 @@ class Music(core.Cog):
         assert isinstance(itn.guild.voice_client, Player)
 
         return [
-            app_commands.Choice(
-                name=track.title, value=track.title
-            ) for track in itn.guild.voice_client.queue if current.lower() in track.title.lower()
+            app_commands.Choice(name=track.title, value=track.title)
+            for track in itn.guild.voice_client.queue
+            if current.lower() in track.title.lower()
         ]
-
 
     @queue.command(name="shuffle", extras=EXTRAS)
     @is_manager()
@@ -790,7 +787,7 @@ class Music(core.Cog):
         if ctx.channel != vc.ctx.channel:
             try:
                 await is_manager().predicate(ctx)
-                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}")
+                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}", no_tips=True)
             except commands.CheckFailure:
                 raise commands.CheckFailure(f"This command can only be ran in {vc.ctx.channel.mention}, not here.")
 
