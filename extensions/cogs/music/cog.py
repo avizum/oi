@@ -622,13 +622,11 @@ class Music(core.Cog):
         await ctx.send("Cleared the queue.")
 
     @core.group(fallback="show")
-    async def playlist(self, ctx: PlayerContext, playlist: Playlist | None = None):
+    @app_commands.describe(playlist="The playlist to show information of")
+    async def playlist(self, ctx: PlayerContext, playlist: Playlist):
         """
         Shows a playlist.
         """
-        if not playlist:
-            return await ctx.send_help(ctx.command)
-
         source = PlaylistPageSource(playlist)
         paginator = Paginator(source, ctx=ctx, delete_message_after=True)
         await paginator.start()
