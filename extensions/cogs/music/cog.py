@@ -149,7 +149,7 @@ class Music(core.Cog):
         if not vc:
             return
 
-        await vc.ctx.send("Track got stuck. Skipping.")
+        await vc.ctx.send("Track got stuck. Skipping.", no_tips=True)
         await vc.skip()
 
     @core.Cog.listener()
@@ -173,13 +173,14 @@ class Music(core.Cog):
             with contextlib.suppress(discord.HTTPException):
                 await vc.ctx.send(
                     "Sorry, your player has been disconnected due to a potential server issue. Please try again later.\n"
-                    f"-# *(You can reconnect the player using {self.connect.mention})*"
+                    f"-# *(You can reconnect the player using {self.connect.mention})*",
+                    no_tips=True,
                 )
             await vc.disconnect(force=True)
             return
         # In some cases, track.hyperlink can possibly be unset when
         # wavelink_track_exception is called before wavelink_track start.
-        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, "hyperlink", track.title)}.")
+        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, "hyperlink", track.title)}.", no_tips=True)
 
     @core.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -230,7 +231,7 @@ class Music(core.Cog):
         if member == vc.manager and after.channel != vc.channel or not vc.manager and after.channel == vc.channel:
             manager: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
             if manager:
-                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS)
+                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS, no_tips=True)
             vc.manager = manager
 
     async def cog_after_invoke(self, ctx: PlayerContext) -> None:
@@ -1035,7 +1036,7 @@ class Music(core.Cog):
         if ctx.channel != vc.ctx.channel:
             try:
                 await is_manager().predicate(ctx)
-                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}")
+                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}", no_tips=True)
             except commands.CheckFailure:
                 raise commands.CheckFailure(f"This command can only be ran in {vc.ctx.channel.mention}, not here.")
 
