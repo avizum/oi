@@ -139,7 +139,7 @@ def format_option_name(song: SongD) -> str:
     title = song["title"]
 
     if len(title) > max_title_length:
-        title = f"{title[:max_title_length + 3]}..."
+        title = f"{title[:max_title_length - 3]}..."
     return f"{title}{suffix}"
 
 
