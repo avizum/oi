@@ -21,42 +21,52 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import datetime
 import logging
 import math
-import urllib
-import urllib.parse
-from typing import Annotated, cast, Literal, TYPE_CHECKING
+from collections import defaultdict
+from typing import cast, Literal, TYPE_CHECKING
+from urllib import parse
 
 import discord
 import wavelink
+from asyncpg import UniqueViolationError
 from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Range
-from wavelink import ExtrasNamespace as Extras
-from wavelink import QueueMode
+from rapidfuzz import process
+from wavelink import ExtrasNamespace as Extras, QueueMode
 
 import core
 from utils.helpers import format_seconds
 from utils.paginators import Paginator
+from utils.types import Playlist as PlaylistD, Song as SongD
 
-from .checks import is_in_channel, is_in_voice, is_manager, is_not_deafened
 from .player import Player
-from .views import LyricPageSource, QueuePageSource
+from .utils import (
+    find_song_matches,
+    hyperlink_song,
+    is_in_channel,
+    is_in_voice,
+    is_manager,
+    is_not_deafened,
+    Playlist,
+    Song,
+    Time,
+)
+from .views import LyricPageSource, PlaylistInfoModal, PlaylistModalView, PlaylistPageSource, QueuePageSource
 
 if TYPE_CHECKING:
     from core import OiBot
 
     from .types import PlayerContext, TrackEnd, TrackException, TrackStart, TrackStuck
 
-
 __all__ = ("Music",)
+
 _log = logging.getLogger("oi.music")
 
 
 MENTIONS = discord.AllowedMentions.none()
 EXTRAS = dict(update_after=True)
-
 
 SEARCH_TYPES = Literal[
     "YouTube",
@@ -68,29 +78,7 @@ SEARCH_TYPES = Literal[
 ]
 
 
-class ConvertTime(app_commands.Transformer):
-    def base(self, ctx: PlayerContext, argument: int | str) -> int:
-        with contextlib.suppress(ValueError):
-            argument = int(argument)
-        if isinstance(argument, int):
-            return argument
-        if isinstance(argument, str):
-            try:
-                time_ = datetime.datetime.strptime(argument, "%M:%S")
-                delta = time_ - datetime.datetime(1900, 1, 1)
-                return int(delta.total_seconds())
-            except ValueError as e:
-                raise commands.BadArgument("Time must be in MM:SS format.") from e
-
-    async def convert(self, ctx: PlayerContext, argument: int | str) -> int:
-        return self.base(ctx, argument)
-
-    async def transform(self, itn: discord.Interaction, argument: int | str) -> int:
-        ctx = itn._baton
-        return self.base(ctx, argument)
-
-
-Time = Annotated[int, ConvertTime]
+type Interaction = discord.Interaction[OiBot]
 
 
 class Music(core.Cog):
@@ -149,15 +137,9 @@ class Music(core.Cog):
         self.bot.songs_played += 1
 
         track = payload.original
+
         if vc.autoplay == wavelink.AutoPlayMode.enabled and not getattr(track.extras, "requester", None):
-            duration = "LIVE" if track.is_stream else format_seconds(track.length / 1000)
-            suffix = f" - {track.author}" if track.author not in track.title else ""
-            track.extras = Extras(
-                requester="Suggested",
-                requester_id=0,
-                duration=duration,
-                hyperlink=f"[{track.title}{suffix}](<{track.uri}>)",
-            )
+            vc.set_extras(track, requester="Suggested", requester_id=0)
         await vc.invoke_controller(payload.original)
 
     @core.Cog.listener()
@@ -208,31 +190,32 @@ class Music(core.Cog):
         if vc.controller:
             vc.controller.counter += 2 if message.author.bot else 1
 
-    @core.Cog.listener()
-    async def on_message_delete(self, message: discord.Message) -> None:
+    @core.Cog.listener("on_message_delete")
+    @core.Cog.listener("on_bulk_message_delete")
+    async def message_delete(self, messages: discord.Message | list[discord.Message]) -> None:
+        message = messages[0] if isinstance(messages, list) else messages
         if message.guild is None or not message.guild.voice_client:
             return
 
         vc = cast(Player, message.guild.voice_client)
-        controller = vc.controller
-        if controller and controller.message and controller.message.id == message.id:
-            controller.message = None
 
-    @core.Cog.listener()
-    async def on_bulk_message_delete(self, messages: list[discord.Message]):
-        for message in messages:
-            if not message.guild or not message.guild.voice_client:
-                continue
+        if not vc.controller:
+            return
+        elif vc.controller and vc.controller.message is not None:
+            if isinstance(messages, list):
+                message_deleted = discord.utils.get(messages, id=vc.controller.message.id) is not None
+            else:
+                message_deleted = vc.controller.message.id == message.id
 
-            vc = cast(Player, message.guild.voice_client)
-            controller = vc.controller
-            if controller and controller.message and controller.message.id == message.id:
-                controller.message = None
-
+            if message_deleted:
+                vc.controller.message = None
 
     @core.Cog.listener()
     async def on_voice_state_update(
-        self, member: discord.Member, before: discord.VoiceState, after: discord.VoiceState
+        self,
+        member: discord.Member,
+        before: discord.VoiceState,
+        after: discord.VoiceState,
     ) -> None:
         vc = cast(Player, member.guild.voice_client)
         if vc is None or member.bot:
@@ -395,14 +378,8 @@ class Music(core.Cog):
 
         if isinstance(search, wavelink.Playlist):
             for track in search:
-                suffix = f" - {track.author}" if track.author not in track.title else ""
-                duration = "LIVE" if track.is_stream else format_seconds(track.length / 1000)
-                track.extras = Extras(
-                    requester=requester,
-                    requester_id=requester_id,
-                    duration=duration,
-                    hyperlink=f"[{track.title}{suffix}](<{track.uri}>)",
-                )
+                vc.set_extras(track, requester=requester, requester_id=requester_id)
+
             if play_now or play_next:
                 search.tracks.reverse()
                 added = 0
@@ -421,14 +398,8 @@ class Music(core.Cog):
                 description=f"Added {hyperlink} with {added} tracks to the {end}",
             )
         else:
-            suffix = f" - {search.author}" if search.author not in search.title else ""
-            duration = "LIVE" if search.is_stream else format_seconds(search.length / 1000)
-            search.extras = Extras(
-                requester=requester,
-                requester_id=requester_id,
-                duration=duration,
-                hyperlink=f"[{search.title}{suffix}](<{search.uri}>)",
-            )
+            vc.set_extras(search, requester=requester, requester_id=requester_id)
+
             if play_now or play_next:
                 vc.queue.put_at(0, search)
                 end = "beginning of the queue."
@@ -463,9 +434,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def pause(self, ctx: PlayerContext):
-        """
-        Pauses playback of the player.
-        """
+        """Pauses playback of the player."""
         vc = ctx.voice_client
 
         if not vc.current:
@@ -594,9 +563,8 @@ class Music(core.Cog):
         all_instances = "all instances of" if len(tracks) > 1 else ""
         await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
 
-
     @queue_remove.autocomplete("item")
-    async def queue_remove_autocomplete(self, itn: discord.Interaction, current: str) -> list[app_commands.Choice[str]]:
+    async def queue_remove_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
         if not itn.guild:
             return [app_commands.Choice(name="If you see this, I'm telling on you.", value="crazy stuff")]
         elif not itn.guild.voice_client:
@@ -605,11 +573,10 @@ class Music(core.Cog):
         assert isinstance(itn.guild.voice_client, Player)
 
         return [
-            app_commands.Choice(
-                name=track.title, value=track.title
-            ) for track in itn.guild.voice_client.queue if current.lower() in track.title.lower()
-        ]
-
+            app_commands.Choice(name=track.title, value=track.title)
+            for track in itn.guild.voice_client.queue
+            if current.lower() in track.title.lower()
+        ][:25]
 
     @queue.command(name="shuffle", extras=EXTRAS)
     @is_manager()
@@ -652,6 +619,314 @@ class Music(core.Cog):
 
         vc.queue.reset()
         await ctx.send("Cleared the queue.")
+
+    @core.group(fallback="show")
+    async def playlist(self, ctx: PlayerContext, playlist: Playlist | None = None):
+        """
+        Shows a playlist.
+        """
+        if not playlist:
+            return await ctx.send_help(ctx.command)
+
+        source = PlaylistPageSource(playlist)
+        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        await paginator.start()
+
+    @playlist.command(name="play")
+    @core.describe(playlist="The playlist to show information of.")
+    @is_not_deafened()
+    @is_in_voice(bot=False)
+    @core.bot_has_guild_permissions(connect=True, speak=True)
+    @core.describe(
+        playlist="The playlist to play.",
+        play_now="Whether to start playing the playlist now.",
+        play_next="Whether to play the playlist next.",
+        shuffle="Whether to shuffle the queue.",
+    )
+    async def playlist_play(
+        self,
+        ctx: PlayerContext,
+        *,
+        playlist: Playlist,
+        play_now: bool = False,
+        play_next: bool = False,
+        shuffle: bool = False,
+    ):
+        """
+        Adds a playlist to the queue.
+
+        This command is similar to the play command.
+        """
+        vc = ctx.voice_client or await self._connect(ctx)
+
+        if vc is None:
+            await ctx.send(f"Could not join your channel. Use {self.connect.mention} to continue.")
+            return
+
+        tracks: list[wavelink.Playable] = []
+        for song in playlist["songs"].values():
+            track = await vc.decode_track(song["encoded"])
+            if track:
+                vc.set_extras(track, requester=str(ctx.author), requester_id=ctx.author.id)
+                tracks.append(track)
+
+        if play_now or play_next:
+            tracks.reverse()
+            added = 0
+            for track in tracks:
+                vc.queue.put_at(0, track)
+                added += 1
+            end = "beginning of the queue."
+        else:
+            added = vc.queue.put(tracks)
+            end = "queue."
+
+        embed = discord.Embed(
+            title="Enqueued Personal Playlist", description=f"Added {playlist['name']} with {added} tracks to the {end}"
+        )
+        image = playlist["image"] or tracks[0].artwork
+        embed.set_thumbnail(url=image)
+
+        await ctx.send(embed=embed)
+
+        if shuffle:
+            vc.queue.shuffle()
+
+        if not vc.current:
+            await vc.play(vc.queue.get())
+            return
+        elif vc.paused:
+            await vc.pause(False)
+        elif play_now:
+            await vc.skip()
+
+        if vc.controller:
+            await vc.controller.update()
+
+    async def send_playlist_modal(
+        self, *, ctx: PlayerContext, playlist: PlaylistD | None = None
+    ) -> tuple[discord.Message | None, str, str]:
+        title = f"Edit playlist {playlist["name"]}" if playlist else "Create a Playlist"
+        message: discord.Message | None = None
+        if not ctx.interaction:
+            action = "edit your" if playlist else "create a"
+            view = PlaylistModalView(title=title, playlist=playlist, members=[ctx.author])
+            message = await ctx.send(f"Click the button below to {action} playlist.", view=view)
+            view.message = message
+            await view.wait()
+            url = view.url if view.url else ""
+            return (message, view.name, url)
+        name = playlist["name"] if playlist else None
+        image = playlist.get("image") if playlist else None
+        modal = PlaylistInfoModal(title=title, name=name, image=image)
+        await ctx.interaction.response.send_modal(modal)
+        await modal.wait()
+        url = modal.url if modal.url else ""
+        return (message, modal.name, url)
+
+    @playlist.command(name="create")
+    @core.describe(name="The name for your playlist.", image="The cover image that will be used for your playlist.")
+    async def playlist_create(self, ctx: PlayerContext, name: Range[str, 1, 100] | None = None, image: str = ""):
+        """Creates a playlist."""
+        message: discord.Message | None = None
+        if not name:
+            message, name, image = await self.send_playlist_modal(ctx=ctx)
+
+        if image:
+            res = parse.urlparse(image)
+            if not all([res.scheme, res.netloc]):
+                raise commands.BadArgument("Image URL provided is invalid.")
+
+        query = """
+            INSERT INTO playlists (id, name, author, image)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+        """
+
+        # Because Playlists can be searched for with ID or name, they can not contain only digits.
+        if name.isdigit():
+            raise commands.BadArgument("Playlist names can not be only digits. Try adding a letter.")
+
+        if ctx.interaction and not ctx.interaction.response.is_done():
+            await ctx.interaction.response.defer()
+
+        gen_id = self.bot.id_generator.generate()
+        try:
+            playlist = await self.bot.pool.fetchrow(query, gen_id, name, ctx.author.id, image)
+        except UniqueViolationError as exc:
+            raise commands.BadArgument("You already have a playlist with that name.") from exc
+
+        playlist_data: PlaylistD = dict(playlist)  # type: ignore
+        playlist_data["songs"] = {}
+        self.bot.cache.playlists[gen_id] = playlist_data  # type: ignore
+
+        success = (
+            f"Created playlist named: {name}\nUse {self.playlist_songs_add.mention} to add some songs to your playlist."
+        )
+
+        if message:
+            return await message.edit(content=success)
+        return await ctx.send(success)
+
+    @playlist.group(name="songs")
+    async def playlist_songs(self, ctx: PlayerContext, playlist: Playlist | None = None):
+        """
+        Shows a playlist's songs.
+        """
+        if not playlist:
+            return await ctx.send_help(ctx.command)
+
+        await ctx.invoke(self.playlist, playlist)
+
+    @playlist_songs.command(name="add")
+    @core.describe(
+        playlist="The playlist to add a song to.",
+        song="The song to add to the playlist.",
+        source="The source to use to search if song is not saved by Oi.",
+    )
+    async def playlist_songs_add(
+        self, ctx: PlayerContext, playlist: Playlist, song: Song, source: SEARCH_TYPES = "YouTube Music"
+    ):
+        """
+        Adds a song to one of your playlists.
+
+        Connect the player to search for tracks that Oi hasn't saved.
+        """
+        vc = ctx.voice_client
+
+        if isinstance(song, str) and not vc:
+            raise commands.CheckFailure(f"{self.connect.mention} to search for more songs.")
+
+        if isinstance(song, str):
+            search = await vc.fetch_tracks(song, source, save_tracks=False)
+            if not search:
+                return await ctx.send("No tracks found...")
+            elif isinstance(search, wavelink.Playlist):
+                return await ctx.send("Only individual songs can be added to a playlist.")
+            song = (await vc.save_tracks([search]))[search.identifier]
+
+        if song["id"] in playlist["songs"]:
+            return await ctx.send(f"{hyperlink_song(song)} is already in the playlist.")
+
+        query = """
+            INSERT INTO playlist_songs (playlist_id, song_id, position)
+            VALUES ($1,$2,$3)
+        """
+        position = len(playlist["songs"]) + 1
+        await self.bot.pool.execute(query, playlist["id"], song["id"], position)
+        song["position"] = position
+        playlist["songs"][song["id"]] = song
+
+        embed = discord.Embed(
+            title="Added song to playlist",
+            description=(
+                f"{hyperlink_song(song)} was added to playlist {playlist["name"]}\n"
+                f"There are now {len(playlist["songs"])} songs now in your playlist."
+            ),
+        )
+        embed.set_thumbnail(url=playlist["image"])
+
+        await ctx.send(embed=embed)
+
+    @playlist_songs_add.autocomplete("song")
+    async def playlist_add_song_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
+        songs: dict[str, list[SongD]] = defaultdict(list)
+        for song in itn.client.cache.songs.values():
+            songs[song["title"].lower()].append(song)
+
+        return find_song_matches(songs, current)
+
+    @playlist_songs.command(name="remove")
+    @core.describe(
+        playlist="The playlist to remove a song from.",
+        song="The song to add to the playlist.",
+    )
+    async def playlist_songs_remove(self, ctx: PlayerContext, playlist: Playlist, song: Song):
+        """Removes a song from one of your playlists."""
+        if isinstance(song, str):
+            raise commands.BadArgument(f"Could not find song named {song}.")
+
+        if song["id"] not in playlist["songs"]:
+            raise commands.BadArgument(f"{hyperlink_song(song)} is not in playlist {playlist["name"]}.")
+
+        query = """
+            DELETE FROM playlist_songs
+            WHERE playlist_id = $1 AND song_id = $2
+        """
+
+        await self.bot.pool.execute(query, playlist["id"], song["id"])
+        del playlist["songs"][song["id"]]
+
+        await ctx.send(f"Removed {hyperlink_song(song)} from playlist {playlist["name"]}")
+
+    @playlist_songs_remove.autocomplete("song")
+    async def playlist_remove_song_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
+        songs: list[SongD] = []
+        for playlist in itn.client.cache.playlists.values():
+            if playlist["author"] == itn.user.id:
+                songs.extend(playlist["songs"].values())
+
+        songs_d: dict[str, list[SongD]] = defaultdict(list)
+        for song in songs:
+            songs_d[song["title"].lower()].append(song)
+
+        return find_song_matches(songs_d, current)
+
+    @playlist.command(name="delete")
+    @core.describe(playlist="The playlist to delete.")
+    async def playlist_delete(self, ctx: PlayerContext, playlist: Playlist):
+        """Deletes one of your playlists."""
+        query = "DELETE FROM playlists WHERE id = $1"
+        async with ctx.typing():
+            await self.bot.pool.execute(query, playlist["id"])
+            del self.bot.cache.playlists[playlist["id"]]
+        await ctx.send(f"Deleted playlist named {playlist["name"]}.")
+
+    @playlist.command(name="edit")
+    @core.describe(
+        playlist="The playlist to edit.", name="The new name for the playlist", image="The new image for the playlist."
+    )
+    async def playlist_edit(self, ctx: PlayerContext, playlist: Playlist, name: str | None = None, image: str = ""):
+        """Edit an existing playlist."""
+        message: discord.Message | None = None
+        if not name:
+            message, name, image = await self.send_playlist_modal(ctx=ctx, playlist=playlist)
+
+        if image:
+            res = parse.urlparse(image)
+            if not all([res.scheme, res.netloc]):
+                raise commands.BadArgument("Image URL provided is invalid.")
+
+        query = """
+            UPDATE playlists
+            SET name = $1, image = $2
+            WHERE id = $3
+        """
+        await self.bot.pool.execute(query, name, image, playlist["id"])
+        self.bot.cache.playlists[playlist["id"]].update({"name": name, "image": image})
+        if message:
+            return await message.edit(content="Edited playlist.", view=None)
+        return await ctx.send("Edited playlist.")
+
+    @playlist_play.autocomplete("playlist")
+    @playlist_songs_add.autocomplete("playlist")
+    @playlist_songs_remove.autocomplete("playlist")
+    @playlist_delete.autocomplete("playlist")
+    @playlist.autocomplete("playlist")
+    @playlist_edit.autocomplete("playlist")
+    async def playlist_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
+        choices = []
+        playlists = {
+            playlist["name"].lower(): playlist
+            for playlist in itn.client.cache.playlists.values()
+            if playlist["author"] == itn.user.id
+        }
+        matches = process.extract(current.lower(), playlists.keys(), limit=25)
+        for match in matches:
+            name, _, _ = match
+            playlist = playlists[name]
+            choices.append(app_commands.Choice(name=playlist["name"], value=str(playlist["id"])))
+        return choices[:25]
 
     @core.group()
     async def player(self, ctx: PlayerContext):
@@ -1010,10 +1285,10 @@ class Music(core.Cog):
         self,
         ctx: PlayerContext,
         *,
-        text: commands.Range[str, 1, 500],
+        text: Range[str, 1, 500],
         voice: str = "Carter",
         translate: bool = False,
-        speed: commands.Range[float, 0.5, 10.0] = 1.0,
+        speed: Range[float, 0.5, 10.0] = 1.0,
     ):
         """Text to speech in voice channel."""
         vc = ctx.voice_client
