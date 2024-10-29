@@ -485,7 +485,7 @@ class PlaylistInfoModal(ui.Modal):
 
 class PlaylistModalView(OiView):
     def __init__(
-        self, *, title: str, playlist: Playlist | None = None, members: list[discord.Member | discord.User], timeout=1
+        self, *, title: str, playlist: Playlist | None = None, members: list[discord.Member | discord.User], timeout=180
     ):
         self.title: str = title
         self.playlist: Playlist | None = playlist
