@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import random
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 import discord
 from discord import app_commands
@@ -83,18 +83,21 @@ class Image(core.Cog):
     def display_emoji(self) -> str:
         return "\U0001f5bc\U0000fe0f"
 
-    async def get_animal(self, animal: str) -> discord.File:
+    async def get_animal(self, animal: str) -> dict[str, Any]:
         resp = await self.bot.session.get(f"https://some-random-api.com/animal/{animal}")
-        img = await resp.json()
-        return discord.File(
-            BytesIO(await (await self.bot.session.get(img["image"])).read()),
+        json = await resp.json()
+        img = await self.bot.session.get(json["image"])
+        embed = discord.Embed(title=animal.title(), description=json["fact"])
+        if img.host != "cdn.some-random-api.com":
+            embed.set_image(url=str(img.url))
+            return {"embed": embed}
+        img_bytes = await (await self.bot.session.get(json["image"])).read()
+        img_file = discord.File(
+            BytesIO(img_bytes),
             filename=f"{animal}.png",
         )
-
-    async def get_animu(self, animu: str) -> discord.File:
-        async with self.bot.session.get(f"https://some-random-api.com/animu/{animu}") as resp:
-            json = await resp.json()
-            return json["link"]
+        embed.set_image(url=f"attachment://{img_file.filename}")
+        return {"embed": embed, "file": img_file}
 
     async def get_tenor(self, query: str) -> str:
         async with self.bot.session.get(
@@ -165,7 +168,7 @@ class Image(core.Cog):
         Images from https://tenor.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title=f"{ctx.author.name} bonks {member.name}!")
+            embed = discord.Embed(title=f"{ctx.author.name} kisses {member.name}!")
             img = await self.get_tenor("anime-kiss")
             embed.set_image(url=img)
             await ctx.send(embed=embed)
@@ -191,11 +194,12 @@ class Image(core.Cog):
         """
         Smh my head.
 
-        Images are from https://some-random-api.com
+        Images are from https://tenor.com
         """
         async with ctx.typing():
             embed = discord.Embed(title="Face Palm")
-            embed.set_image(url=await self.get_animu("face-palm"))
+            img = await self.get_tenor("anime-face-palm")
+            embed.set_image(url=img)
             await ctx.send(embed=embed)
 
     @images.command()
@@ -205,11 +209,12 @@ class Image(core.Cog):
         """
         Hug someone. Very nice.
 
-        Images are from https://some-random-api.com
+        Images are from https://tenor.com
         """
         async with ctx.typing():
             embed = discord.Embed(title=f"{ctx.author.name} hugs {member.name}!")
-            embed.set_image(url=await self.get_animu(ctx.command.name))
+            img = await self.get_tenor("anime-hug")
+            embed.set_image(url=img)
             await ctx.send(embed=embed)
 
     @images.command()
@@ -219,11 +224,12 @@ class Image(core.Cog):
         """
         Pat someone.
 
-        Images are from https://some-random-api.com
+        Images are from https://tenor.com
         """
         async with ctx.typing():
             embed = discord.Embed(title=f"{ctx.author.name} pats {member.name}")
-            embed.set_image(url=await self.get_animu(ctx.command.name))
+            img = await self.get_tenor("anime-pat")
+            embed.set_image(url=img)
             await ctx.send(embed=embed)
 
     @images.command()
@@ -233,11 +239,12 @@ class Image(core.Cog):
         """
         Wink at someone.
 
-        Images are from https://some-random-api.com
+        Images are fromhttps://tenor.com
         """
         async with ctx.typing():
             embed = discord.Embed(title=f"{ctx.author.name} winks at {member.name}")
-            embed.set_image(url=await self.get_animu(ctx.command.name))
+            img = await self.get_tenor("anime-wink")
+            embed.set_image(url=img)
             await ctx.send(embed=embed)
 
     @images.command()
@@ -272,10 +279,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Bird")
-            embed.set_image(url="attachment://bird.png")
-            bird = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=bird)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -286,10 +291,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Cat")
-            embed.set_image(url="attachment://cat.png")
-            cat = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=cat)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -300,10 +303,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Dog")
-            embed.set_image(url="attachment://dog.png")
-            dog = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=dog)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -314,10 +315,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Fox")
-            embed.set_image(url="attachment://fox.png")
-            fox = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=fox)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -328,10 +327,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Kangaroo")
-            embed.set_image(url="attachment://kangaroo.png")
-            kangaroo = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=kangaroo)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -342,10 +339,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Koala")
-            embed.set_image(url="attachment://koala.png")
-            koala = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=koala)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -356,10 +351,8 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Panda")
-            embed.set_image(url="attachment://panda.png")
-            panda = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=panda)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
@@ -370,25 +363,14 @@ class Image(core.Cog):
         Images are from https://some-random-api.com
         """
         async with ctx.typing():
-            embed = discord.Embed(title="Raccoon")
-            embed.set_image(url="attachment://raccoon.png")
-            raccoon = await self.get_animal(ctx.command.name)
-            await ctx.send(embed=embed, file=raccoon)
+            kwargs = await self.get_animal(ctx.command.name)
+            await ctx.send(**kwargs)
 
-    @core.group()
-    async def waifu(self, ctx: Context):
-        """
-        Get images of waifus.
-
-        Images are from https://waifu.im
-        """
-        await ctx.send_help(ctx.command)
-
-    @waifu.command(name="sfw")
+    @core.group(fallback="sfw")
     @app_commands.choices(tag=SFW_TAGS)
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(tag="Type to image to search for.")
-    async def waifu_sfw(self, ctx: Context, tag: app_commands.Choice[str]):
+    async def waifu(self, ctx: Context, tag: app_commands.Choice[str]):
         """
         Get images of waifus.
 
