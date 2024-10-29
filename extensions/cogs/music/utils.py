@@ -140,7 +140,7 @@ def format_option_name(song: SongD) -> str:
 
     if len(title) > max_title_length:
         title = f"{title[:max_title_length + 3]}..."
-    return title
+    return f"{title}{suffix}"
 
 
 def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.Choice[str]]:
