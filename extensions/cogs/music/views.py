@@ -461,7 +461,7 @@ class PlaylistInfoModal(ui.Modal):
         placeholder="My Playlist",
         required=True,
         min_length=1,
-        max_length=150,
+        max_length=100,
     )
     image = discord.ui.TextInput(
         label="Enter an image URL",
