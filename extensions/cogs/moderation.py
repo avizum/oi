@@ -298,7 +298,7 @@ class Moderation(core.Cog):
         msgs = await self.do_removal(ctx, limit=amount, before=ctx.message.created_at)
         await ctx.send(embed=await self.show_results(ctx, msgs), ephemeral=True)
 
-    @core.group(invoke_without_command=True)
+    @core.group()
     @core.has_permissions(manage_channels=True)
     @core.bot_has_permissions(manage_channels=True)
     async def channel(self, ctx: Context):
@@ -402,7 +402,7 @@ class Moderation(core.Cog):
         await target.edit(nick=nickname, reason=reason)
         await ctx.send(f"Changed {target.mention}'s nickname.", ephemeral=True)
 
-    @core.group(invoke_without_command=True)
+    @core.group()
     @core.has_permissions(manage_roles=True)
     @core.bot_has_permissions(manage_roles=True)
     async def role(self, ctx: Context):

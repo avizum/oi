@@ -113,7 +113,7 @@ class Utility(core.Cog):
             embed.description = "You already voted, thank you for voting for Oi!"
         await ctx.send(embed=embed, view=view)
 
-    @core.group(invoke_without_command=True)
+    @core.group()
     async def oi(self, ctx: Context):
         """
         Oi's informational commands.
@@ -385,16 +385,9 @@ class Utility(core.Cog):
             embed.add_field(name="Can't Run", value=f"{nl.join(cant_run)}", inline=False)
         await ctx.send(embed=embed)
 
-    @core.group(invoke_without_command=True)
-    async def user(self, ctx: Context):
-        """
-        Information commands about a user.
-        """
-        await ctx.send_help(ctx.command)
-
-    @user.command()
-    @core.describe(user="The user to get information about.")
-    async def info(self, ctx: Context, user: discord.Member | discord.User = commands.Author):
+    @core.group(fallback="info", aliases=["userinfo"])
+    @core.describe(user="The user to get informations about.")
+    async def user(self, ctx: Context, user: discord.Member | discord.User = commands.Author):
         """
         Shows some information about a user.
         """
