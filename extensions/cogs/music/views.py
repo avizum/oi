@@ -485,15 +485,23 @@ class PlaylistInfoModal(ui.Modal):
 
 class PlaylistModalView(OiView):
     def __init__(
-        self, *, title: str, playlist: Playlist | None = None, members: list[discord.Member | discord.User], timeout=180
+        self, *, title: str, playlist: Playlist | None = None, members: list[discord.Member | discord.User], timeout=1
     ):
         self.title: str = title
         self.playlist: Playlist | None = playlist
-        self.name: str
+        self.name: str = ""
         self.url: str | None = None
+        if playlist:
+            self.name = playlist["name"]
+            self.url = playlist["image"]
 
         super().__init__(members=members, timeout=timeout)
         self.open_modal.label = title
+
+    async def on_timeout(self):
+        if self.message and not self.name:
+            self.open_modal.disabled = True
+            await self.message.edit(content="Timed out.", view=self)
 
     @ui.button(style=discord.ButtonStyle.green)
     async def open_modal(self, itn: Interaction, button: ui.Button) -> None:
@@ -504,6 +512,4 @@ class PlaylistModalView(OiView):
         await modal.wait()
         self.name = modal.name
         self.url = modal.url
-        if self.message:
-            await self.message.edit(view=None)
         self.stop()

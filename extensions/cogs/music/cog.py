@@ -707,7 +707,15 @@ class Music(core.Cog):
     async def send_playlist_modal(
         self, *, ctx: PlayerContext, playlist: PlaylistD | None = None
     ) -> tuple[discord.Message | None, str, str]:
-        title = f"Edit playlist {playlist["name"]}" if playlist else "Create a Playlist"
+        if playlist:
+            prefix = "Edit playlist "
+            name = playlist["name"]
+            title = f"{prefix}{name}"
+            if len(name) > 31:  # 45 (max title length) - 13 (length of prefix)
+                title = f"{prefix}{name[:28]}..."
+        else:
+            title = "Create a playlist"
+
         message: discord.Message | None = None
         if not ctx.interaction:
             action = "edit your" if playlist else "create a"
@@ -732,6 +740,11 @@ class Music(core.Cog):
         message: discord.Message | None = None
         if not name:
             message, name, image = await self.send_playlist_modal(ctx=ctx)
+
+            if not name:
+                # Name is an empty string when PlaylistModalView is sent and it times out.
+                # At this point, we assume the user did not mean use the command and ignore it.
+                return
 
         if image:
             res = parse.urlparse(image)
@@ -897,6 +910,12 @@ class Music(core.Cog):
             res = parse.urlparse(image)
             if not all([res.scheme, res.netloc]):
                 raise commands.BadArgument("Image URL provided is invalid.")
+
+        if name == playlist["name"] and image == playlist["image"]:
+
+            if message:
+                return await message.edit(content="Playlist was not edited.", view=None)
+            return await ctx.send("Playlist was not edited.")
 
         query = """
             UPDATE playlists
