@@ -132,6 +132,17 @@ SOURCES: dict[str, str] = {
 }
 
 
+def format_option_name(song: SongD) -> str:
+    suffix = f" - {song["artist"]} ({SOURCES[song["source"]]})"
+    max_title_length = 100 - len(suffix)
+
+    title = song["title"]
+
+    if len(title) > max_title_length:
+        title = f"{title[:max_title_length + 3]}..."
+    return title
+
+
 def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.Choice[str]]:
     matches = process.extract(current.lower(), items.keys(), limit=25, score_cutoff=60)
 
@@ -139,12 +150,9 @@ def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.
     for match in matches:
         title, _, _ = match
         for song in items[title]:
-            source = SOURCES[song["source"]]
-
-            title_artist = f"{song["title"]} - {song["artist"]}"[: 100 - (len(source) + 3)]
             options.append(
                 app_commands.Choice(
-                    name=f"{title_artist} ({source})",
+                    name=format_option_name(song),
                     value=song["identifier"],
                 )
             )
