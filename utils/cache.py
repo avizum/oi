@@ -9,8 +9,15 @@ License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
 
+from __future__ import annotations
+
 import time
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core import OiBot
+
+    from .types import Blacklist, PlayerSettings, Playlist, Song
 
 
 class ExpiringCache(dict):
@@ -35,3 +42,60 @@ class ExpiringCache(dict):
 
     def __setitem__(self, key: str | int, value: Any):
         super().__setitem__(key, (value, time.monotonic()))
+
+
+class DBCache:
+    def __init__(self, bot: OiBot) -> None:
+        self.bot: OiBot = bot
+
+        self.blacklisted: dict[int, Blacklist] = {}
+        self.player_settings: dict[int, PlayerSettings] = {}
+        self.songs: dict[str, Song] = {}
+        self.playlists: dict[int, Playlist] = {}
+
+    async def populate(self) -> None:
+        pool = self.bot.pool
+
+        blacklisted = await pool.fetch("SELECT user_id, reason, moderator, permanent FROM blacklist")
+        player_settings = await pool.fetch("SELECT guild_id, dj_role, dj_enabled  FROM player_settings")
+        songs = await pool.fetch("SELECT id, identifier, uri, encoded, source, title, artist FROM songs")
+        playlists = await pool.fetch("SELECT id, author, name, image FROM playlists")
+
+        for blacklist in blacklisted:
+            self.blacklisted[blacklist["user_id"]] = dict(blacklist)  # type: ignore
+
+        for setting in player_settings:
+            self.player_settings[setting["guild_id"]] = dict(setting)  # type: ignore
+
+        for song in songs:
+            self.songs[song["identifier"]] = dict(song)  # type: ignore
+
+        for playlist in playlists:
+            self.playlists[playlist["id"]] = dict(playlist)  # type: ignore
+            self.playlists[playlist["id"]]["songs"] = {}
+
+        query = """
+                SELECT
+                    s.id AS id,
+                    s.identifier AS identifier,
+                    s.uri AS uri,
+                    s.encoded AS encoded,
+                    s.source AS source,
+                    s.title AS title,
+                    s.artist AS artist,
+                    ps.position AS position
+                FROM
+                    playlist_songs ps
+                JOIN
+                    songs s ON ps.song_id = s.id
+                WHERE
+                    ps.playlist_id = $1
+                ORDER BY
+                    ps.position
+                """
+
+        for playlist_id in self.playlists.keys():
+            playlist_songs = await self.bot.pool.fetch(query, playlist_id)
+
+            for song in playlist_songs:
+                self.playlists[playlist_id]["songs"][song["id"]] = dict(song)  # type: ignore

@@ -41,8 +41,8 @@ from topgg.webhook import WebhookManager
 from waifuim import Client as WaifiImClient
 
 from extensions.logger import WebhookHandler
-from utils.cache import ExpiringCache
-from utils.types import Blacklist, PlayerSettings
+from utils.cache import DBCache, ExpiringCache
+from utils.id_generator import IDGenerator
 
 from .commands import Bot, Cog, HybridCommand
 
@@ -84,8 +84,8 @@ class OiBot(Bot):
         self.maintenance_cogs: list[Cog] = []
         self.launched_at: datetime = datetime.now(tz=dt.timezone.utc)
         self.command_usage: dict[str, int] = {}
-        self.blacklisted: dict[int, Blacklist] = {}
-        self.player_settings: dict[int, PlayerSettings] = {}
+        self.cache: DBCache = DBCache(self)
+        self.id_generator: IDGenerator = IDGenerator(1)
         self.songs_played: int = 0
         self.support_server: str = "https://discord.gg/hWhGQ4QHE9"
         self.invite_url: str = discord.utils.oauth_url(867713143366746142, permissions=discord.Permissions(1644942454270))
@@ -194,15 +194,8 @@ class OiBot(Bot):
 
     async def create_pool(self) -> asyncpg.Pool:
         pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["POSTGRESQL"])  # type: ignore
-        blacklisted = await pool.fetch("SELECT * FROM blacklist")
-        for data in blacklisted:
-            self.blacklisted[data["user_id"]] = dict(data)  # type: ignore
-
-        player_settings = await pool.fetch("SELECT * FROM player_settings")
-        for data in player_settings:
-            self.player_settings[data["guild_id"]] = dict(data)  # type: ignore
-
         self.pool = pool
+        await self.cache.populate()
         return pool
 
     def setup_logging(self) -> None:

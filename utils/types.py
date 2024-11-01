@@ -17,6 +17,8 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
+from __future__ import annotations
+
 from typing import NotRequired, TypedDict
 
 
@@ -88,6 +90,7 @@ class UrbanData(TypedDict):
 
 
 class Blacklist(TypedDict):
+    user_id: int
     reason: str
     moderator: int
     permanent: bool
@@ -97,3 +100,22 @@ class PlayerSettings(TypedDict):
     guild_id: int
     dj_role: int
     dj_enabled: bool
+
+
+class Song(TypedDict):
+    id: int
+    identifier: str
+    uri: str | None
+    encoded: str
+    source: str
+    title: str
+    artist: str
+    position: int  # position is set during runtime
+
+
+class Playlist(TypedDict):
+    id: int
+    author: int
+    name: str
+    image: str
+    songs: dict[int, Song]  # songs is set during runtime

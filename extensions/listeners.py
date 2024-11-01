@@ -61,8 +61,8 @@ class Important(core.Cog):
     async def bot_check(self, ctx: Context) -> bool:
         if await self.bot.is_owner(ctx.author):
             return True
-        if ctx.author.id in self.bot.blacklisted:
-            entry = self.bot.blacklisted[ctx.author.id]
+        if ctx.author.id in self.bot.cache.blacklisted:
+            entry = self.bot.cache.blacklisted[ctx.author.id]
             raise Blacklisted(moderator=MODS[entry["moderator"]], reason=entry["reason"], permanent=entry["permanent"])
         if ctx.guild is None:
             raise commands.NoPrivateMessage("Commands can not be used in DMs.")

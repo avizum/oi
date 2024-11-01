@@ -23,7 +23,7 @@ import discord
 class OiView(discord.ui.View):
     def __init__(self, *, members: list[discord.Member | discord.User], timeout: int | None = 180):
         self.members: list[discord.Member | discord.User] = members
-        self.message: discord.Message | None
+        self.message: discord.Message | None = None
         super().__init__(timeout=timeout)
 
     async def interaction_check(self, interaction: discord.Interaction):
