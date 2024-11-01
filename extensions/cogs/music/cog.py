@@ -830,12 +830,19 @@ class Music(core.Cog):
         if song["id"] in playlist["songs"]:
             return await ctx.send(f"{hyperlink_song(song)} is already in the playlist.")
 
-        query = """
+        next_position = """
+            SELECT COALESCE(MAX(position), 0) + 1
+            FROM playlist_songs
+            WHERE playlist_id = $1
+        """
+
+        insert_query = """
             INSERT INTO playlist_songs (playlist_id, song_id, position)
             VALUES ($1,$2,$3)
         """
-        position = len(playlist["songs"]) + 1
-        await self.bot.pool.execute(query, playlist["id"], song["id"], position)
+
+        position = await self.bot.pool.fetchval(next_position, playlist["id"])
+        await self.bot.pool.execute(insert_query, playlist["id"], song["id"], position)
         song["position"] = position
         playlist["songs"][song["id"]] = song
 
