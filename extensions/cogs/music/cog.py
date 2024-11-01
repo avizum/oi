@@ -457,10 +457,10 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.current:
-            return await ctx.send("There is nothing playing.")
+            return await ctx.send("There is nothing playing.", ephemeral=True)
 
         if not vc.paused:
-            return await ctx.send("Player is not paused.")
+            return await ctx.send("Player is not paused.", ephemeral=True)
 
         await vc.pause(False)
         await ctx.send("Unpaused the player.")
@@ -479,7 +479,7 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.current:
-            return await ctx.send("There is nothing playing.")
+            return await ctx.send("There is nothing playing.", ephemeral=True)
 
         try:
             await is_manager().predicate(ctx)
@@ -517,22 +517,15 @@ class Music(core.Cog):
         await vc.seek(time * 1000)
         await ctx.send(f"Seeked to {format_seconds(time)}.")
 
-    @core.group()
-    async def queue(self, ctx: PlayerContext):
-        """
-        Queue commands.
-        """
-        await ctx.send_help(ctx.command)
-
-    @queue.command(name="show")
+    @core.group(fallback="show")
     @is_in_channel()
     @is_in_voice(author=False)
-    async def queue_show(self, ctx: PlayerContext):
+    async def queue(self, ctx: PlayerContext):
         """Shows the queue in a paginated format."""
         vc = ctx.voice_client
 
-        if len(vc.queue) == 0:
-            return await ctx.send("Nothing is in the queue.")
+        if not vc.queue:
+            return await ctx.send("The queue is empty", ephemeral=True)
 
         source = QueuePageSource(vc)
         paginator = Paginator(source, ctx=ctx, delete_message_after=True)
@@ -553,7 +546,7 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.queue:
-            return await ctx.send("There is nothing in the queue.")
+            return await ctx.send("There is nothing in the queue.", ephemeral=True)
 
         tracks = [track for track in vc.queue if item.lower() == track.title.lower()]
 
@@ -589,7 +582,7 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.queue:
-            return await ctx.send("The queue is empty.")
+            return await ctx.send("The queue is empty.", ephemeral=True)
 
         vc.queue.shuffle()
         await ctx.send("Shuffled the queue.")
@@ -616,7 +609,7 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.queue:
-            return await ctx.send("The queue is empty.")
+            return await ctx.send("The queue is empty.", ephemeral=True)
 
         vc.queue.reset()
         await ctx.send("Cleared the queue.")
@@ -1078,7 +1071,7 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.current:
-            return await ctx.send("There is nothing playing.")
+            return await ctx.send("There is nothing playing.", ephemeral=True)
 
         if ctx.channel != vc.ctx.channel:
             try:
@@ -1104,7 +1097,7 @@ class Music(core.Cog):
         vc = ctx.voice_client
 
         if not vc.current:
-            return await ctx.send("There is nothing playing.")
+            return await ctx.send("There is nothing playing.", ephemeral=True)
 
         if mode == "track":
             vc.queue.mode = QueueMode.loop
