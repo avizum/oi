@@ -275,6 +275,8 @@ class Moderation(core.Cog):
 
     @core.command()
     @core.bot_has_permissions(manage_messages=True, read_message_history=True)
+    @commands.cooldown(1, 5, commands.BucketType.channel)
+    @commands.max_concurrency(1, commands.BucketType.channel)
     @core.describe(amount="The amount of messages to delete.")
     async def cleanup(self, ctx: Context, amount: commands.Range[int, 1, 100] = 15):
         """
@@ -290,6 +292,8 @@ class Moderation(core.Cog):
     @core.command()
     @core.has_permissions(manage_messages=True)
     @core.bot_has_permissions(manage_messages=True, read_message_history=True)
+    @commands.cooldown(1, 15, commands.BucketType.channel)
+    @commands.max_concurrency(1, commands.BucketType.channel)
     @core.describe(amount="The amount of messages to delete.")
     async def purge(self, ctx: Context, amount: commands.Range[int, 1, 100]):
         """
