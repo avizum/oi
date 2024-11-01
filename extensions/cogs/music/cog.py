@@ -662,12 +662,22 @@ class Music(core.Cog):
             await ctx.send(f"Could not join your channel. Use {self.connect.mention} to continue.")
             return
 
+        if not playlist["songs"]:
+            await ctx.send(
+                f"{playlist["name"]} does not have any songs. To add some songs, use {self.playlist_songs_add}.",
+                ephemeral=True,
+            )
+            return
+
         tracks: list[wavelink.Playable] = []
         for song in playlist["songs"].values():
             track = await vc.decode_track(song["encoded"])
             if track:
                 vc.set_extras(track, requester=str(ctx.author), requester_id=ctx.author.id)
                 tracks.append(track)
+
+        if not tracks:
+            await ctx.send("Could not load any of the tracks in this playlist. Please try again later", ephemeral=True)
 
         if play_now or play_next:
             tracks.reverse()
