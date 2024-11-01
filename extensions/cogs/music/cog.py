@@ -678,6 +678,7 @@ class Music(core.Cog):
 
         if not tracks:
             await ctx.send("Could not load any of the tracks in this playlist. Please try again later", ephemeral=True)
+            return
 
         if play_now or play_next:
             tracks.reverse()
@@ -878,13 +879,25 @@ class Music(core.Cog):
         if song["id"] not in playlist["songs"]:
             raise commands.BadArgument(f"{hyperlink_song(song)} is not in playlist {playlist["name"]}.")
 
-        query = """
+        delete_query = """
             DELETE FROM playlist_songs
             WHERE playlist_id = $1 AND song_id = $2
+            RETURNING position
         """
 
-        await self.bot.pool.execute(query, playlist["id"], song["id"])
+        reposition_query = """
+            UPDATE playlist_songs
+            SET position = position - 1
+            WHERE playlist_id = $1 AND position > $2
+        """
+
+        position = await self.bot.pool.fetchval(delete_query, playlist["id"], song["id"])
+        await self.bot.pool.execute(reposition_query, playlist["id"], position)
         del playlist["songs"][song["id"]]
+
+        for pl_song in playlist["songs"].values():
+            if pl_song["position"] > position:
+                pl_song["position"] = pl_song["position"] - 1
 
         await ctx.send(f"Removed {hyperlink_song(song)} from playlist {playlist["name"]}")
 
