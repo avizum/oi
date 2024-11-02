@@ -14,10 +14,20 @@ from __future__ import annotations
 import time
 from typing import Any, TYPE_CHECKING
 
+from .types import (
+    Blacklist,
+    BlacklistRecord,
+    PlayerSettings,
+    PlayerSettingsRecord,
+    Playlist,
+    PlaylistRecord,
+    PlaylistSongRecord,
+    Song,
+    SongRecord,
+)
+
 if TYPE_CHECKING:
     from core import OiBot
-
-    from .types import Blacklist, PlayerSettings, Playlist, Song
 
 
 class ExpiringCache(dict):
@@ -56,23 +66,31 @@ class DBCache:
     async def populate(self) -> None:
         pool = self.bot.pool
 
-        blacklisted = await pool.fetch("SELECT user_id, reason, moderator, permanent FROM blacklist")
-        player_settings = await pool.fetch("SELECT guild_id, dj_role, dj_enabled  FROM player_settings")
-        songs = await pool.fetch("SELECT id, identifier, uri, encoded, source, title, artist FROM songs")
-        playlists = await pool.fetch("SELECT id, author, name, image FROM playlists")
+        blacklisted: list[BlacklistRecord] = await pool.fetch(
+            "SELECT user_id, reason, moderator, permanent FROM blacklist", record_class=BlacklistRecord
+        )
+        player_settings: list[PlayerSettingsRecord] = await pool.fetch(
+            "SELECT guild_id, dj_role, dj_enabled  FROM player_settings", record_class=PlayerSettingsRecord
+        )
+        songs: list[SongRecord] = await pool.fetch(
+            "SELECT id, identifier, uri, encoded, source, title, artist FROM songs", record_class=SongRecord
+        )
+        playlists: list[PlaylistRecord] = await pool.fetch(
+            "SELECT id, author, name, image FROM playlists", record_class=PlaylistRecord
+        )
 
         for blacklist in blacklisted:
-            self.blacklisted[blacklist["user_id"]] = dict(blacklist)  # type: ignore
+            self.blacklisted[blacklist.user_id] = dict(blacklist)  # type: ignore
 
         for setting in player_settings:
-            self.player_settings[setting["guild_id"]] = dict(setting)  # type: ignore
+            self.player_settings[setting.guild_id] = dict(setting)  # type: ignore
 
         for song in songs:
-            self.songs[song["identifier"]] = dict(song)  # type: ignore
+            self.songs[song.identifier] = dict(song)  # type: ignore
 
         for playlist in playlists:
-            self.playlists[playlist["id"]] = dict(playlist)  # type: ignore
-            self.playlists[playlist["id"]]["songs"] = {}
+            self.playlists[playlist.id] = dict(playlist)  # type: ignore
+            self.playlists[playlist.id]["songs"] = {}
 
         query = """
                 SELECT
@@ -95,7 +113,9 @@ class DBCache:
                 """
 
         for playlist_id in self.playlists.keys():
-            playlist_songs = await self.bot.pool.fetch(query, playlist_id)
+            playlist_songs: list[PlaylistSongRecord] = await self.bot.pool.fetch(
+                query, playlist_id, record_class=PlaylistSongRecord
+            )
 
             for song in playlist_songs:
-                self.playlists[playlist_id]["songs"][song["id"]] = dict(song)  # type: ignore
+                self.playlists[playlist_id]["songs"][song.id] = dict(song)  # type: ignore

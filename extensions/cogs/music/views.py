@@ -38,7 +38,7 @@ if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
     from discord.ext.commands import Paginator as CPaginator
 
-    from utils.types import Playlist, Song
+    from utils.types import Playlist, PlaylistSong
 
     from .player import Player
     from .types import PlayerContext
@@ -407,7 +407,7 @@ class QueuePageSource(menus.ListPageSource):
 class PlaylistPageSource(menus.ListPageSource):
     def __init__(self, playlist: Playlist) -> None:
         self.playlist: Playlist = playlist
-        self.songs: dict[int, Song] = self.playlist["songs"]
+        self.songs: dict[int, PlaylistSong] = self.playlist["songs"]
         super().__init__(list(self.songs.keys()), per_page=8)
 
     async def format_page(self, _: menus.Menu, playlist_ids: list[int]) -> discord.Embed:

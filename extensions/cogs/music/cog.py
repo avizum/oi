@@ -39,7 +39,7 @@ from wavelink import ExtrasNamespace as Extras, QueueMode
 import core
 from utils.helpers import format_seconds
 from utils.paginators import Paginator
-from utils.types import Playlist as PlaylistD, Song as SongD
+from utils.types import PlayerSettingsRecord, Playlist as PlaylistD, PlaylistRecord, PlaylistSong, Song as SongD
 
 from .player import Player
 from .utils import (
@@ -756,7 +756,7 @@ class Music(core.Cog):
         query = """
             INSERT INTO playlists (id, name, author, image)
             VALUES ($1, $2, $3, $4)
-            RETURNING *
+            RETURNING id, name, author, image
         """
 
         # Because Playlists can be searched for with ID or name, they can not contain only digits.
@@ -768,7 +768,7 @@ class Music(core.Cog):
 
         gen_id = self.bot.id_generator.generate()
         try:
-            playlist = await self.bot.pool.fetchrow(query, gen_id, name, ctx.author.id, image)
+            playlist = await self.bot.pool.fetchrow(query, gen_id, name, ctx.author.id, image, record_class=PlaylistRecord)
         except UniqueViolationError as exc:
             raise commands.BadArgument("You already have a playlist with that name.") from exc
 
@@ -837,6 +837,7 @@ class Music(core.Cog):
 
         position = await self.bot.pool.fetchval(next_position, playlist["id"])
         await self.bot.pool.execute(insert_query, playlist["id"], song["id"], position)
+        song = cast(PlaylistSong, song)
         song["position"] = position
         playlist["songs"][song["id"]] = song
 
@@ -942,9 +943,10 @@ class Music(core.Cog):
             UPDATE playlists
             SET name = $1, image = $2
             WHERE id = $3
+            RETURNING id, author, name, image
         """
-        await self.bot.pool.execute(query, name, image, playlist["id"])
-        self.bot.cache.playlists[playlist["id"]].update({"name": name, "image": image})
+        playlist_row = await self.bot.pool.fetchrow(query, name, image, playlist["id"], record_class=PlaylistRecord)
+        self.bot.cache.playlists[playlist_row.id] = dict(playlist_row)  # type: ignore
         if message:
             return await message.edit(content="Edited playlist.", view=None)
         return await ctx.send("Edited playlist.")
@@ -994,10 +996,12 @@ class Music(core.Cog):
             UPDATE player_settings
             SET dj_enabled=$1
             WHERE guild_id=$2
-            RETURNING *
+            RETURNING guild_id, dj_role, dj_enabled
         """
-        settings = await ctx.bot.pool.fetchrow(query, True, ctx.guild.id)
-        self.bot.cache.player_settings[ctx.guild.id] = settings
+        settings_row: PlayerSettingsRecord = await ctx.bot.pool.fetchrow(
+            query, True, ctx.guild.id, record_class=PlayerSettingsRecord
+        )
+        self.bot.cache.player_settings[ctx.guild.id] = dict(settings_row)  # type: ignore
         if vc:
             vc.dj_enabled = True
         return await ctx.send("Enabled DJ.")
@@ -1015,7 +1019,7 @@ class Music(core.Cog):
             UPDATE player_settings
             SET dj_enabled=$1
             WHERE guild_id=$2
-            RETURNING *
+            RETURNING guild_id, dj_role, dj_enabled
         """
         settings = await ctx.bot.pool.fetchrow(query, False, ctx.guild.id)
         self.bot.cache.player_settings[ctx.guild.id] = settings
@@ -1045,7 +1049,7 @@ class Music(core.Cog):
             UPDATE player_settings
             SET dj_role=$1, dj_enabled=$2
             WHERE guild_id=$3
-            RETURNING *
+            RETURNING guild_id, dj_role, dj_enabled
         """
         settings = await ctx.bot.pool.fetchrow(query, role_id, True, ctx.guild.id)
         self.bot.cache.player_settings[ctx.guild.id] = settings

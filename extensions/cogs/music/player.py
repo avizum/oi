@@ -28,6 +28,7 @@ from wavelink import ExtrasNamespace as Extras, Playable, Playlist, QueueMode
 
 from core import OiBot
 from utils.helpers import format_seconds
+from utils.types import PlayerSettingsRecord, SongRecord
 
 from .types import Lyrics, PlayerContext
 from .views import PlayerController
@@ -81,10 +82,12 @@ class Player(wavelink.Player):
             query = """
                 INSERT INTO player_settings (guild_id, dj_role, dj_enabled)
                 VALUES ($1, $2, $3)
-                RETURNING *
+                RETURNING guild_id, dj_role, dj_enabled
             """
-            settings = await self.client.pool.fetchrow(query, self.channel.guild.id, 0, True)
-            self.client.cache.player_settings[self.channel.guild.id] = settings
+            settings = await self.client.pool.fetchrow(
+                query, self.channel.guild.id, 0, True, record_class=PlayerSettingsRecord
+            )
+            self.client.cache.player_settings[self.channel.guild.id] = dict(settings)  # type: ignore
 
         self.dj_enabled = settings["dj_enabled"]
         self.dj_role = self.channel.guild.get_role(settings["dj_role"])
@@ -157,7 +160,7 @@ class Player(wavelink.Player):
         query = """
                 INSERT INTO songs (id, identifier, uri, encoded, source, title, artist)
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING *
+                RETURNING id, identifier, uri, encoded, source, title, artist
                 """
         songs_data: dict[str, Song] = {}
         for track in tracks:
@@ -169,7 +172,15 @@ class Player(wavelink.Player):
 
                 gen_id = self.bot.id_generator.generate()
                 song = await self.bot.pool.fetchrow(
-                    query, gen_id, track.identifier, track.uri, track.encoded, track.source, track.title, track.author
+                    query,
+                    gen_id,
+                    track.identifier,
+                    track.uri,
+                    track.encoded,
+                    track.source,
+                    track.title,
+                    track.author,
+                    record_class=SongRecord,
                 )
                 self.bot.cache.songs[track.identifier] = dict(song)  # type: ignore
                 songs_data[track.identifier] = dict(song)  # type: ignore

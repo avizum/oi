@@ -19,7 +19,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-from typing import NotRequired, TypedDict
+from typing import Any, NotRequired, TypedDict
+
+from asyncpg import Record as PGRecord
 
 
 class ErrorDict(TypedDict):
@@ -89,6 +91,45 @@ class UrbanData(TypedDict):
     thumbs_down: int
 
 
+class Record(PGRecord):
+    def __getattr__(self, attr: str) -> Any:
+        return self[attr]
+
+
+class BlacklistRecord(Record):
+    user_id: int
+    reason: str
+    moderator: int
+    permanent: bool
+
+
+class PlayerSettingsRecord(Record):
+    guild_id: int
+    dj_role: int
+    dj_enabled: bool
+
+
+class SongRecord(Record):
+    id: int
+    identifier: str
+    uri: str | None
+    encoded: str
+    source: str
+    title: str
+    artist: str
+
+
+class PlaylistRecord(Record):
+    id: int
+    author: int
+    name: str
+    image: str
+
+
+class PlaylistSongRecord(SongRecord):
+    position: str
+
+
 class Blacklist(TypedDict):
     user_id: int
     reason: str
@@ -110,7 +151,10 @@ class Song(TypedDict):
     source: str
     title: str
     artist: str
-    position: int  # position is set during runtime
+
+
+class PlaylistSong(Song):
+    position: int
 
 
 class Playlist(TypedDict):
@@ -118,4 +162,4 @@ class Playlist(TypedDict):
     author: int
     name: str
     image: str
-    songs: dict[int, Song]  # songs is set during runtime
+    songs: dict[int, PlaylistSong]  # songs are set during runtime

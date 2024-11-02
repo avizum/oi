@@ -44,9 +44,10 @@ from jishaku.math import natural_size
 from jishaku.modules import package_version
 from jishaku.repl import AsyncCodeExecutor
 
+from utils.types import BlacklistRecord
+
 if TYPE_CHECKING:
     from core import Command, Context, OiBot
-    from utils.types import Blacklist
 
 
 class ExtensionConverter(commands.Converter):
@@ -329,15 +330,12 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         query = """
             INSERT INTO blacklist (user_id, reason, moderator, permanent)
             VALUES ($1, $2, $3, $4)
+            RETURNING user_id, reason, moderator, permanent
         """
-        await self.bot.pool.execute(query, user.id, flags.reason, ctx.author.id, flags.permanent)
-        data: Blacklist = {
-            "user_id": user.id,
-            "reason": flags.reason,
-            "moderator": ctx.author.id,
-            "permanent": flags.permanent,
-        }
-        self.bot.cache.blacklisted[user.id] = data
+        data = await self.bot.pool.fetchrow(
+            query, user.id, flags.reason, ctx.author.id, flags.permanent, record_class=BlacklistRecord
+        )
+        self.bot.cache.blacklisted[user.id] = dict(data)  # type: ignore
 
         embed = discord.Embed(title="You are now blacklisted from Oi", color=discord.Color.red())
         embed.add_field(
@@ -396,7 +394,6 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             failed = "Notifying the user failed."
 
         await conf.message.edit(content=f"{user} remove from the blacklist. {failed}", view=None)
-
 
     @Feature.Command(parent="jsk", name="gitsync", aliases=["gs"])
     async def gitsync(self, ctx: Context):
