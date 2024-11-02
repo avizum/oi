@@ -144,18 +144,13 @@ def format_option_name(song: SongD) -> str:
 
 
 def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.Choice[str]]:
-    matches = process.extract(current.lower(), items.keys(), limit=25, score_cutoff=60)
+    matches = process.extract(current.lower(), items.keys(), limit=25, score_cutoff=65.0)
 
     options: list[app_commands.Choice[str]] = []
     for match in matches:
         title, _, _ = match
         for song in items[title]:
-            options.append(
-                app_commands.Choice(
-                    name=format_option_name(song),
-                    value=song["identifier"],
-                )
-            )
+            options.append(app_commands.Choice(name=format_option_name(song), value=song["identifier"]))
     return options[:25]
 
 

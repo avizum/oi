@@ -50,6 +50,7 @@ from .utils import (
     is_manager,
     is_not_deafened,
     Playlist,
+    PlaylistConverter,
     Song,
     Time,
 )
@@ -763,9 +764,7 @@ class Music(core.Cog):
         if name.isdigit():
             raise commands.BadArgument("Playlist names can not be only digits. Try adding a letter.")
 
-        if ctx.interaction and not ctx.interaction.response.is_done():
-            await ctx.interaction.response.defer()
-
+        await ctx.defer()
         gen_id = self.bot.id_generator.generate()
         try:
             playlist = await self.bot.pool.fetchrow(query, gen_id, name, ctx.author.id, image, record_class=PlaylistRecord)
@@ -835,11 +834,12 @@ class Music(core.Cog):
             VALUES ($1,$2,$3)
         """
 
-        position = await self.bot.pool.fetchval(next_position, playlist["id"])
-        await self.bot.pool.execute(insert_query, playlist["id"], song["id"], position)
-        song = cast(PlaylistSong, song)
-        song["position"] = position
-        playlist["songs"][song["id"]] = song
+        async with ctx.typing():
+            position = await self.bot.pool.fetchval(next_position, playlist["id"])
+            await self.bot.pool.execute(insert_query, playlist["id"], song["id"], position)
+            song = cast(PlaylistSong, song)
+            song["position"] = position
+            playlist["songs"][song["id"]] = song
 
         embed = discord.Embed(
             title="Added song to playlist",
@@ -885,27 +885,36 @@ class Music(core.Cog):
             WHERE playlist_id = $1 AND position > $2
         """
 
-        position = await self.bot.pool.fetchval(delete_query, playlist["id"], song["id"])
-        await self.bot.pool.execute(reposition_query, playlist["id"], position)
-        del playlist["songs"][song["id"]]
+        async with ctx.typing():
+            position = await self.bot.pool.fetchval(delete_query, playlist["id"], song["id"])
+            await self.bot.pool.execute(reposition_query, playlist["id"], position)
+            del playlist["songs"][song["id"]]
 
-        for pl_song in playlist["songs"].values():
-            if pl_song["position"] > position:
-                pl_song["position"] = pl_song["position"] - 1
+            for pl_song in playlist["songs"].values():
+                if pl_song["position"] > position:
+                    pl_song["position"] = pl_song["position"] - 1
 
         await ctx.send(f"Removed {hyperlink_song(song)} from playlist {playlist["name"]}")
 
     @playlist_songs_remove.autocomplete("song")
     async def playlist_remove_song_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
         songs: list[SongD] = []
-        for playlist in itn.client.cache.playlists.values():
-            if playlist["author"] == itn.user.id:
-                songs.extend(playlist["songs"].values())
+        try:
+            ctx: PlayerContext = await itn.client.get_context(itn)  # type: ignore
+            playlist = await PlaylistConverter().convert(ctx, itn.namespace.playlist)
+            songs.extend(playlist["songs"].values())
+        except commands.CommandError:
+            playlist = None
+
+        if not playlist:
+            for playlist_d in itn.client.cache.playlists.values():
+                if playlist_d["author"] == itn.user.id:
+                    songs.extend(playlist_d["songs"].values())
 
         songs_d: dict[str, list[SongD]] = defaultdict(list)
+
         for song in songs:
             songs_d[song["title"].lower()].append(song)
-
         return find_song_matches(songs_d, current)
 
     @playlist.command(name="delete")
@@ -945,6 +954,8 @@ class Music(core.Cog):
             WHERE id = $3
             RETURNING id, author, name, image
         """
+
+        await ctx.defer()
         playlist_row = await self.bot.pool.fetchrow(query, name, image, playlist["id"], record_class=PlaylistRecord)
         self.bot.cache.playlists[playlist_row.id] = dict(playlist_row)  # type: ignore
         if message:
