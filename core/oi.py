@@ -19,14 +19,12 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import asyncio
 import datetime as dt
 import logging
 import re
 from datetime import datetime
 
 import aiohttp
-import async_timeout
 import asyncpg
 import discord
 import jishaku
@@ -122,13 +120,14 @@ class OiBot(Bot):
     async def start_wavelink_nodes(self) -> None:
         await self.wait_until_ready()
 
-        try:
-            with async_timeout.timeout(15):
-                nodes: list[wavelink.Node] = [wavelink.Node(**self.config["LAVALINK"])]
-                await wavelink.Pool.connect(nodes=nodes, client=self)
-                _log.info("Started Lavalink node.")
-        except asyncio.TimeoutError:
-            _log.exception("Creating a Lavalink node timed out.")
+        nodes: dict[str, wavelink.Node] = await wavelink.Pool.connect(
+            nodes=[wavelink.Node(**self.config["LAVALINK"], retries=5)], client=self
+        )
+        for node in nodes.values():
+            if node.status == wavelink.NodeStatus.DISCONNECTED:
+                _log.warning(f"Node {node.identifier} failed to connect.")
+            else:
+                _log.info(f"Node {node.identifier} connected.")
 
     async def start_waifuim(self) -> None:
         await self.wait_until_ready()
