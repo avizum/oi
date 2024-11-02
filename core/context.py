@@ -289,6 +289,12 @@ class Context(commands.Context, Generic[BotT]):
             await msg.edit(view=None)
         return ConfirmResult(msg, view.value)
 
+    async def defer(self, *, ephemeral: bool = False):
+        if self.interaction:
+            if self.interaction.response.is_done():
+                return
+            await self.interaction.response.defer(ephemeral=ephemeral)
+
 
 async def setup(bot: OiBot) -> None:
     bot.context = Context
