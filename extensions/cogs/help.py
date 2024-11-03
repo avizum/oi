@@ -30,6 +30,8 @@ import core
 from utils.paginators import Paginator
 
 if TYPE_CHECKING:
+    from discord.ext.commands.hybrid import HybridAppCommand
+
     from core import Context, OiBot
 
 COLOR = 0x00FFB3
@@ -125,7 +127,7 @@ class CogHelpPages(menus.ListPageSource):
         commands = cog.get_commands()
         super().__init__(commands, per_page=5)
 
-    async def format_page(self, menu: menus.Menu, commands: list[core.Command]) -> discord.Embed:
+    async def format_page(self, menu: menus.Menu, commands: list[core.HybridCommand]) -> discord.Embed:
         cog = self.cog
         embed = discord.Embed(
             title=f"{cog.qualified_name} Commands",
@@ -140,19 +142,29 @@ class CogHelpPages(menus.ListPageSource):
         embed.set_footer(text="Use the dropdown menus to select a command or module.")
         return embed
 
-    async def get_page(self, page_number: int) -> list[core.Command]:
+    async def get_page(self, page_number: int) -> list[core.HybridCommand]:
         base = page_number * self.per_page
         return list(self.entries[base : base + self.per_page])
 
 
 class GroupHelpPages(menus.ListPageSource):
-    def __init__(self, help: OiHelp, group: core.Group):
+    def __init__(self, help: OiHelp, group: core.HybridGroup):
         self.help: OiHelp = help
-        self.group: core.Group = group
-        commands = list(group.commands)
+        self.group: core.HybridGroup = group
+        commands = []
+        if self.group.fallback:
+            # If the group has a fallback, it means the group command has functionality, so we need to display a help page
+            # with `create_command_help_embed`. Without a fallback, the base group command only serves to hold
+            # subcommands and has no other functionality besides showing a help message for the group.
+            # To easily show a "front page" for the group command, we just append numbers and check for it in `format_page`.
+            commands.extend([1, 2, 3, 4, 5])
+        commands.extend(group.commands)
         super().__init__(commands, per_page=5)
 
-    async def format_page(self, menu: menus.Menu, group_commands: list[core.Command]) -> discord.Embed:
+    async def format_page(self, menu: menus.Menu, group_commands: list[core.HybridGroup]) -> discord.Embed:
+        if isinstance(group_commands[0], int):
+            embed = self.help.create_command_help_embed(self.group)
+            return embed
         embed = discord.Embed(
             title=f"Command Group: {self.group.qualified_name}",
             description=self.group.help or "No description provided.",
@@ -170,7 +182,7 @@ class GroupHelpPages(menus.ListPageSource):
 
         return embed
 
-    async def get_page(self, page_number: int) -> list[core.Command]:
+    async def get_page(self, page_number: int) -> list[core.HybridCommand]:
         base = page_number * self.per_page
         return list(self.entries[base : base + self.per_page])
 
@@ -192,7 +204,7 @@ class CogSelect(discord.ui.Select["HelpPaginator"]):
         )
         super().__init__(
             options=options,
-            placeholder="Select a module",
+            placeholder="Select a module...",
             min_values=1,
             max_values=1,
         )
@@ -206,28 +218,40 @@ class CogSelect(discord.ui.Select["HelpPaginator"]):
             await self.view.switch(Home(self.help.context, self.help), itn)
         else:
             cog: core.Cog | None = self.help.context.bot.get_cog(self.values[0])  # type: ignore
+
             if cog is None:
                 return await itn.response.send_message("This module is unavailable.", ephemeral=True)
+
             menu = CogHelpPages(self.help, cog)
-            self.view.add_item(CommandSelect(self.help, await menu.get_page(0)))
+            commands = await menu.get_page(0)
+            self.view.add_item(CommandSelect(self.help, commands))
             await self.view.switch(menu, itn)
 
 
 class CommandSelect(discord.ui.Select["HelpPaginator"]):
-    def __init__(self, help: OiHelp, commands: list[core.Command]) -> None:
+    def __init__(self, help: OiHelp, commands: list[core.HybridCommand]) -> None:
         self.help: OiHelp = help
-        self.commands: list[core.Command] = commands
-        options = [
-            discord.SelectOption(
-                label=command.qualified_name,
-                description=command.short_doc or "No help provided.",
-            )
-            for command in commands
-        ]
-        super().__init__(options=options, placeholder="Select a command", min_values=1, max_values=1)
+        self.commands: list[core.HybridCommand] = commands
+        self.dummy: discord.SelectOption = discord.SelectOption(label="Command", value="Command")
+        disabled: bool = False
 
-    def _update(self, commands: list[core.Command]) -> None:
+        if isinstance(commands[0], int):
+            options = [self.dummy]
+            disabled = True
+        else:
+            options = [
+                discord.SelectOption(label=command.qualified_name, description=command.short_doc or "No help provided.")
+                for command in commands
+            ]
+        super().__init__(options=options, placeholder="Select a command...", min_values=1, max_values=1, disabled=disabled)
+
+    def _update(self, commands: list[core.HybridCommand]) -> None:
         self.options.clear()
+        self.disabled = False
+        if isinstance(commands[0], int):
+            self.options.append(self.dummy)
+            self.disabled = True
+            return
         for command in commands:
             self.options.append(
                 discord.SelectOption(label=command.qualified_name, description=command.short_doc or "No help provided.")
@@ -235,12 +259,14 @@ class CommandSelect(discord.ui.Select["HelpPaginator"]):
 
     async def callback(self, itn: discord.Interaction) -> None:
         assert self.view is not None
-        command: core.Command | None = self.help.context.bot.get_command(self.values[0])  # type: ignore
+        command: core.HybridCommand | None = self.help.context.bot.get_command(self.values[0])  # type: ignore
+        self.selected = command
         if command is None:
             return await itn.response.send_message("This command is unavailable.", ephemeral=True)
-        if isinstance(command, core.Group):
+        if isinstance(command, core.HybridGroup):
             menu = GroupHelpPages(self.help, command)
-            self.view.add_item(CommandSelect(self.help, await menu.get_page(0)))
+            commands = await menu.get_page(0)
+            self.view.add_item(CommandSelect(self.help, commands))
             return await self.view.switch(menu, itn)
         embed = self.help.create_command_help_embed(command)
         previous = itn.message or self.view.message
@@ -278,16 +304,13 @@ class HelpPaginator(Paginator):
         source: menus.PageSource,
         *,
         ctx: Context,
+        cogs: list[core.Cog],
+        help: OiHelp,
         message: discord.Message | None = None,
     ) -> None:
-        super().__init__(
-            source,
-            ctx=ctx,
-            timeout=120.0,
-            check_embeds=True,
-            delete_message_after=True,
-            message=message,
-        )
+        super().__init__(source, ctx=ctx, timeout=120.0, check_embeds=True, delete_message_after=True, message=message)
+        self.help: OiHelp = help
+        self.cogs: list[core.Cog] = cogs
         self.started: bool = False
 
     async def _update(self, index: int) -> None:
@@ -320,7 +343,18 @@ class HelpPaginator(Paginator):
         await self._update(0)
         await itn.response.edit_message(**kwargs, view=self)
 
-    async def start(self, entity: discord.Interaction | discord.Message | None = None) -> discord.Message:
+    async def _prepare(self) -> None:
+        self.clear_items()
+        self.add_item(CogSelect(self.help, self.cogs))
+        commands = await self.source.get_page(0)
+        self.add_item(CommandSelect(self.help, commands))
+        self._fill_items()
+
+    async def start(
+        self, entity: discord.Interaction | discord.Message | None = None, prepare: bool = True
+    ) -> discord.Message:
+        if prepare:
+            await self._prepare()
         await self.source._prepare_once()
         page = await self.source.get_page(self.current_page)
         kwargs = await self._get_kwargs(page)
@@ -341,23 +375,34 @@ class HelpPaginator(Paginator):
 class OiHelp(commands.HelpCommand):
     context: Context
 
-    def get_parameter_info(self, entity: core.Command[Any, ..., Any], /) -> list[CommandParameter] | None:
+    def get_parameter_info(
+        self, entity: core.HybridCommand[Any, ..., Any] | core.HybridGroup[Any, ..., Any], /
+    ) -> list[CommandParameter] | None:
         if not getattr(entity, "__commands_is_hybrid__", None):
             return None
         else:
-            app_command = getattr(entity, "app_command", None)
+            app_command: HybridAppCommand | app_commands.Group | None = getattr(entity, "app_command", None)
         if app_command is None:
             return None
         info = []
-        for param in app_command.parameters:
+
+        if isinstance(app_command, app_commands.Group):
+            assert isinstance(entity, core.HybridGroup)
+            command: app_commands.Command | None = app_command.get_command(entity.fallback or "")  # type: ignore
+            if not command:
+                return None
+        else:
+            command = app_command
+
+        for param in command.parameters:
             text_cmd = entity.clean_params[param.name].converter
             greedy = isinstance(text_cmd, commands.Greedy)
             if isinstance(param.default, _CallableDefault):
                 default = entity.params[param.name].displayed_default or None
             else:
                 default = param.default
-            if param.description == "...":
-                description = "No description."
+            if param.description == "…":
+                description = "No description provided."
             else:
                 description = param.description
             info.append(
@@ -368,7 +413,7 @@ class OiHelp(commands.HelpCommand):
 
         return info
 
-    def get_command_permissions(self, command: core.Command | core.Group, /) -> tuple[str, str]:
+    def get_command_permissions(self, command: core.HybridCommand | core.HybridGroup, /) -> tuple[str, str]:
         member_permissions = getattr(command, "member_permissions", None) or getattr(
             command, "member_guild_permissions", None
         )
@@ -406,14 +451,23 @@ class OiHelp(commands.HelpCommand):
 
         return final_member, final_bot
 
-    def create_command_help_embed(self, command: core.Command, /) -> discord.Embed:
+    def create_command_help_embed(self, command: core.HybridCommand | core.HybridGroup, /) -> discord.Embed:
+        command_or_group = "Command" if isinstance(command, core.HybridCommand) else "Command Group"
         embed = discord.Embed(
-            title=f"Command: {command.qualified_name}",
+            title=f"{command_or_group}: {command.qualified_name}",
             description=command.help or "No command description provided.",
             color=COLOR,
         )
 
-        embed.add_field(name="Usage", value=f"`/{command.qualified_name} {command.signature}`", inline=False)
+        value = f"`@{self.context.me.display_name} {command.qualified_name} {command.signature}`"
+        if isinstance(command, core.HybridGroup):
+            usage = f"`/{command.qualified_name} {command.fallback} {command.signature}`"
+            value = usage if self.context.interaction else f"{usage}\n{value}"
+        else:
+            usage = f"`/{command.qualified_name} {command.signature}`"
+            value = usage if self.context.interaction else f"{usage}\n{value}"
+
+        embed.add_field(name="Usage", value=value, inline=False)
 
         params = self.get_parameter_info(command)
         if params:
@@ -427,7 +481,7 @@ class OiHelp(commands.HelpCommand):
         return embed
 
     async def filter_cogs(
-        self, mapping: Mapping[core.Cog | None, list[core.Command[Any, (...), Any]]] | None = None, /
+        self, mapping: Mapping[core.Cog | None, list[core.HybridCommand[Any, (...), Any]]] | None = None, /
     ) -> list[core.Cog]:
         cogs = []
         new_mapping = mapping or self.get_bot_mapping()
@@ -443,43 +497,31 @@ class OiHelp(commands.HelpCommand):
     async def send_error_message(self, error: str, /) -> None:
         await self.context.send(error, ephemeral=True)
 
-    async def send_bot_help(self, mapping: Mapping[core.Cog | None, list[core.Command[Any, (...), Any]]], /) -> None:
+    async def send_bot_help(self, mapping: Mapping[core.Cog | None, list[core.HybridCommand[Any, (...), Any]]], /) -> None:
         cogs = await self.filter_cogs(mapping)
         menu = Home(self.context, self)
-        paginator = HelpPaginator(menu, ctx=self.context)
+        paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
         paginator.clear_items()
         paginator.add_item(CogSelect(self, cogs))
         paginator._fill_items()
-        await paginator.start()
+        await paginator.start(prepare=False)
 
     async def send_cog_help(self, cog: core.Cog, /) -> None:
         menu = CogHelpPages(self, cog)
         cogs = await self.filter_cogs()
-        paginator = HelpPaginator(menu, ctx=self.context)
-        paginator.clear_items()
-        paginator.add_item(CogSelect(self, cogs))
-        paginator.add_item(CommandSelect(self, await menu.get_page(0)))
-        paginator._fill_items()
+        paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
         await paginator.start()
 
-    async def send_group_help(self, group: core.Group, /) -> None:
+    async def send_group_help(self, group: core.HybridGroup, /) -> None:
         menu = GroupHelpPages(self, group)
         cogs = await self.filter_cogs()
-        paginator = HelpPaginator(menu, ctx=self.context)
-        paginator.clear_items()
-        paginator.add_item(CogSelect(self, cogs))
-        paginator.add_item(CommandSelect(self, await menu.get_page(0)))
-        paginator._fill_items()
+        paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
         await paginator.start()
 
-    async def send_command_help(self, command: core.Command, /) -> None:
+    async def send_command_help(self, command: core.HybridCommand, /) -> None:
         menu = CogHelpPages(self, command.cog)
         cogs = await self.filter_cogs()
-        paginator = HelpPaginator(menu, ctx=self.context)
-        paginator.clear_items()
-        paginator.add_item(CogSelect(self, cogs))
-        paginator.add_item(CommandSelect(self, await menu.get_page(0)))
-        paginator._fill_items()
+        paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
         command_view = CommandHelpView(
             paginator.timeout, self, paginator, await menu.format_page(menu, await menu.get_page(0))  # type: ignore
         )
@@ -491,7 +533,7 @@ class HelpCommandCog(core.Cog):
         self.default = bot.help_command
         bot.help_command = OiHelp(command_attrs={"hidden": True}, verify_checks=False)
         bot.help_command.cog = self
-        self.autocomplete_options: list[str] = []
+        self.autocomplete_options: list[app_commands.Choice[str]] = []
         super().__init__(bot)
 
     def cog_unload(self) -> None:
@@ -517,10 +559,20 @@ class HelpCommandCog(core.Cog):
         current: str,
     ) -> list[app_commands.Choice[str]]:
         if not self.autocomplete_options:
-            self.autocomplete_options.extend(cmd.qualified_name for cmd in self.bot.walk_commands() if not cmd.hidden)
-            self.autocomplete_options.extend(cog.qualified_name for cog in self.bot.cogs.values())
+            for cmd in self.bot.walk_commands():
+                if cmd.hidden:
+                    continue
+                if isinstance(cmd, core.HybridGroup) and cmd.fallback:
+                    self.autocomplete_options.append(
+                        app_commands.Choice(name=f"{cmd.qualified_name} {cmd.fallback}", value=cmd.qualified_name)
+                    )
+                else:
+                    self.autocomplete_options.append(app_commands.Choice(name=cmd.qualified_name, value=cmd.qualified_name))
+            self.autocomplete_options.extend(
+                app_commands.Choice(name=cog.qualified_name, value=cog.qualified_name) for cog in self.bot.cogs.values()
+            )
 
-        return [app_commands.Choice(name=opt, value=opt) for opt in self.autocomplete_options if current in opt][:25]
+        return [choice for choice in self.autocomplete_options if current in choice.name][:25]
 
 
 async def setup(bot: OiBot) -> None:
