@@ -75,9 +75,7 @@ class WaifuPaginator(menus.ListPageSource):
 
 
 class Image(core.Cog):
-    """
-    Image commands.
-    """
+    """Image commands."""
 
     @property
     def display_emoji(self) -> str:
@@ -108,17 +106,14 @@ class Image(core.Cog):
 
     @core.group()
     async def images(self, ctx: Context):
-        """
-        Some image commands.
-        """
+        """Some image commands."""
         await ctx.send_help(ctx.command)
 
     @images.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to slap.")
     async def slap(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Slaps someone. Very violent, be careful.
+        """Slaps someone. Very violent, be careful.
 
         Images from https://tenor.com
         """
@@ -132,8 +127,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to poke.")
     async def poke(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Poke someone. Be careful, may poke eyes out.
+        """Poke someone. Be careful, may poke eyes out.
 
         Images from https://tenor.com
         """
@@ -147,8 +141,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to bonk.")
     async def bonk(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Bonk someone. Can hurt someone, don't bonk with force!
+        """Bonk someone. Can hurt someone, don't bonk with force!
 
         Images from https://tenor.com
         """
@@ -162,8 +155,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to kiss (ooooh!)")
     async def kiss(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Kiss someone. NICE!
+        """Kiss someone. NICE!
 
         Images from https://tenor.com
         """
@@ -177,8 +169,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to bully.")
     async def bully(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Bully someone. Can hurt somone's feelings. Use with care.
+        """Bully someone. Can hurt somone's feelings. Use with care.
 
         Images from https://tenor.com
         """
@@ -191,8 +182,7 @@ class Image(core.Cog):
     @images.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def facepalm(self, ctx: Context):
-        """
-        Smh my head.
+        """Smh my head.
 
         Images are from https://tenor.com
         """
@@ -206,8 +196,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to hug.")
     async def hug(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Hug someone. Very nice.
+        """Hug someone. Very nice.
 
         Images are from https://tenor.com
         """
@@ -221,8 +210,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to pat.")
     async def pat(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Pat someone.
+        """Pat someone.
 
         Images are from https://tenor.com
         """
@@ -236,8 +224,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(member="The person to wink at ;)")
     async def wink(self, ctx: Context, member: discord.Member = commands.Author):
-        """
-        Wink at someone.
+        """Wink at someone.
 
         Images are fromhttps://tenor.com
         """
@@ -250,9 +237,7 @@ class Image(core.Cog):
     @images.command()
     @core.describe(code="The http code to get an image of like: 404, 403, 200.")
     async def httpcat(self, ctx: Context, code: commands.Range[int, 100, 599]):
-        """
-        Get an image from https://http.cat
-        """
+        """Get an image of an HTTP code from https://http.cat"""
         async with ctx.typing():
             s = await self.bot.session.get(f"https://http.cat/{code}")
             if s.status != 200:
@@ -263,8 +248,7 @@ class Image(core.Cog):
 
     @images.group()
     async def animals(self, ctx: Context):
-        """
-        Get some images of aniamls.
+        """Get some images of aniamls.
 
         Images are from https://some-random-api.com
         """
@@ -273,8 +257,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def bird(self, ctx: Context):
-        """
-        Send a random image of a bird.
+        """Send a random image of a bird.
 
         Images are from https://some-random-api.com
         """
@@ -285,8 +268,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def cat(self, ctx: Context):
-        """
-        Send a random image of a cat.
+        """Send a random image of a cat.
 
         Images are from https://some-random-api.com
         """
@@ -297,8 +279,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def dog(self, ctx: Context):
-        """
-        Send a random image of a dog.
+        """Send a random image of a dog.
 
         Images are from https://some-random-api.com
         """
@@ -309,8 +290,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def fox(self, ctx: Context):
-        """
-        Send a random image of a fox.
+        """Send a random image of a fox.
 
         Images are from https://some-random-api.com
         """
@@ -321,8 +301,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def kangaroo(self, ctx: Context):
-        """
-        Send a random image of a kangaroo.
+        """Send a random image of a kangaroo.
 
         Images are from https://some-random-api.com
         """
@@ -333,8 +312,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def koala(self, ctx: Context):
-        """
-        Send a random image of a koala.
+        """Send a random image of a koala.
 
         Images are from https://some-random-api.com
         """
@@ -345,8 +323,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def panda(self, ctx: Context):
-        """
-        Send a random image of a panda.
+        """Send a random image of a panda.
 
         Images are from https://some-random-api.com
         """
@@ -357,8 +334,7 @@ class Image(core.Cog):
     @animals.command()
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def raccoon(self, ctx: Context):
-        """
-        Send a random image of a raccoon.
+        """Send a random image of a raccoon.
 
         Images are from https://some-random-api.com
         """
@@ -371,8 +347,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(tag="Type to image to search for.")
     async def waifu(self, ctx: Context, tag: app_commands.Choice[str]):
-        """
-        Get images of waifus.
+        """Get images of waifus.
 
         Images are from https://waifu.im
         """
@@ -386,8 +361,7 @@ class Image(core.Cog):
     @commands.cooldown(1, 5, commands.BucketType.user)
     @core.describe(tag="Type to image to search for.")
     async def waifu_nsfw(self, ctx: Context, tag: app_commands.Choice[str]):
-        """
-        Get some NSFW images of waifus.
+        """Get some NSFW images of waifus.
 
         This command only works in NSFW channels.
         Images are from https://waifu.im

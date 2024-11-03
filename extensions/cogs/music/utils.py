@@ -211,8 +211,7 @@ def is_not_deafened():
 
 
 def is_manager():
-    """
-    Checks if a member is a player "manager".
+    """Checks if a member is a player "manager".
 
     Manager is determined as follows:
     - If DJ is disabled, anyone is a manager.

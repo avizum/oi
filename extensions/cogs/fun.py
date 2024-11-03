@@ -190,9 +190,7 @@ class UrbanSource(menus.ListPageSource):
 
 
 class Fun(core.Cog):
-    """
-    Some fun commands and games for very great fun.
-    """
+    """Some fun commands and games for very great fun."""
 
     @property
     def display_emoji(self) -> str:
@@ -200,18 +198,14 @@ class Fun(core.Cog):
 
     @core.group()
     async def games(self, ctx: Context) -> None:
-        """
-        Games for you and your friends to play.
-        """
+        """Games for you and your friends to play."""
         await ctx.send_help(ctx.command)
 
     @games.command()
     @core.has_voted()
     @core.describe(opponent="Who to play against.")
     async def rockpaperscissors(self, ctx: Context, opponent: discord.Member | None = None):
-        """
-        Play rock paper scissors with someone.
-        """
+        """Play rock paper scissors with someone."""
         if opponent and opponent.bot:
             return await ctx.send("You can't play against a bot.")
         elif opponent == ctx.author:
@@ -241,26 +235,20 @@ class Fun(core.Cog):
 
     @games.command()
     async def guess(self, ctx: Context):
-        """
-        Try to guess the number.
-        """
+        """Try to guess the number."""
         view = GuessView(ctx=ctx, number=random.randint(1, 50))
         msg = await ctx.send("Guess the number between 1 and 50!", view=view)
         view.message = msg
 
     @core.group()
     async def fun(self, ctx: Context) -> None:
-        """
-        Some fun commands.
-        """
+        """Some fun commands."""
         await ctx.send_help(ctx.command)
 
     @fun.command()
     @core.describe(question="The question to ask the magic eight-ball.")
     async def eightball(self, ctx: Context, *, question: str):
-        """
-        Ask the magic eight-ball a question.
-        """
+        """Ask the magic eight-ball a question."""
         responses = [
             "It is certain",
             "Without a doubt",
@@ -291,26 +279,20 @@ class Fun(core.Cog):
 
     @fun.command()
     async def coinflip(self, ctx: Context):
-        """
-        Flip a coin.
-        """
+        """Flip a coin."""
         await ctx.send(random.choice(["I got heads!", "I got tails!"]))
 
     @fun.command()
     @core.describe(type="The type of dice to roll.")
     async def roll(self, ctx: Context, type: Literal["D4", "D6", "D8", "D10", "D12", "D20"] = "D6"):
-        """
-        Roll a dice.
-        """
+        """Roll a dice."""
         await ctx.send(f"{type}: a {random.randint(1, int(type[1:]))} was rolled")
 
     @fun.command()
     @core.has_voted()
     @core.describe(query="The query to search the Urban Dictionary for.")
     async def urban(self, ctx: Context, *, query: str):
-        """
-        Search the Urban Dictionary.
-        """
+        """Search the Urban Dictionary."""
         response = await self.bot.session.get("http://api.urbandictionary.com/v0/define", params={"term": query})
         if response.status != 200:
             return await ctx.send(f"An error occured: [{response.status}] {response.reason}")
@@ -324,23 +306,17 @@ class Fun(core.Cog):
     @fun.command()
     @core.describe(text="The text to repeat.")
     async def echo(self, ctx: Context, *, text: str):
-        """
-        Repeat some text.
-        """
+        """Repeat some text."""
         await ctx.send(text)
 
     @core.group()
     async def random(self, ctx: Context):
-        """
-        Some random stuff.
-        """
+        """Some random stuff."""
         await ctx.send_help(ctx.command)
 
     @random.command()
     async def uselessfact(self, ctx: Context):
-        """
-        Get a random fact.
-        """
+        """Get a random fact."""
         async with ctx.typing():
             resp = await self.bot.session.get("https://uselessfacts.jsph.pl/random.json?language=en")
             json = await resp.json()
@@ -348,9 +324,7 @@ class Fun(core.Cog):
 
     @random.command()
     async def dogfact(self, ctx: Context):
-        """
-        Get a random fact about dogs.
-        """
+        """Get a random fact about dogs."""
         async with ctx.typing():
             resp = await self.bot.session.get("https://dogapi.dog/api/v2/facts")
             json = await resp.json()
@@ -359,9 +333,7 @@ class Fun(core.Cog):
 
     @random.command()
     async def catfact(self, ctx: Context):
-        """
-        Get a random fact about cats.
-        """
+        """Get a random fact about cats."""
         async with ctx.typing():
             resp = await self.bot.session.get("https://catfact.ninja/fact")
             json = await resp.json()
@@ -370,9 +342,7 @@ class Fun(core.Cog):
 
     @random.command()
     async def activity(self, ctx: Context, safe: bool = True):
-        """
-        Get a random activity.
-        """
+        """Get a random activity."""
         async with ctx.typing():
             resp = await self.bot.session.get("https://bored-api.appbrewery.com/random")
             json = await resp.json()

@@ -38,9 +38,7 @@ SUPPORT_SERVER = 866891524319084587
 
 
 class SupportServer(core.Cog, command_attrs=dict(hidden=True)):
-    """
-    Support Server utilities.
-    """
+    """Support Server utilities."""
 
     @core.Cog.listener()
     async def on_thread_create(self, thread: discord.Thread) -> None:
@@ -68,9 +66,7 @@ class SupportServer(core.Cog, command_attrs=dict(hidden=True)):
     @app_commands.guilds(SUPPORT_SERVER)
     @in_help()
     async def close(self, ctx: Context):
-        """
-        Closes and marks a help thread as Resolved.
-        """
+        """Closes and marks a help thread as resolved."""
         assert isinstance(ctx.channel, discord.Thread)
         assert isinstance(ctx.channel.parent, discord.ForumChannel)
 

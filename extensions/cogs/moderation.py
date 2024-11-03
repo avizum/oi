@@ -201,9 +201,7 @@ DefaultReason = commands.parameter(
 
 
 class Moderation(core.Cog):
-    """
-    Moderation related commands.
-    """
+    """Moderation related commands."""
 
     @property
     def display_emoji(self) -> str:
@@ -233,9 +231,7 @@ class Moderation(core.Cog):
     @core.bot_has_permissions(kick_members=True)
     @core.describe(target="The member to kick.", reason="The reason that will show up in the audit log.")
     async def kick(self, ctx: Context, target: Target, *, reason: Reason = DefaultReason):
-        """
-        Kick a member from the server.
-        """
+        """Kick a member from the server."""
         await ctx.guild.kick(user=target, reason=reason)
         await ctx.send(f"Kicked {target}.", ephemeral=True)
 
@@ -244,9 +240,7 @@ class Moderation(core.Cog):
     @core.bot_has_permissions(ban_members=True)
     @core.describe(target="The member to ban.", reason="The reason that will show up in the audit log.")
     async def ban(self, ctx: Context, target: Target, *, reason: Reason = DefaultReason):
-        """
-        Ban a member from the server.
-        """
+        """Ban a member from the server."""
         await ctx.guild.ban(user=target, reason=reason)
         await ctx.send(f"Banned {target}.", ephemeral=True)
 
@@ -255,9 +249,7 @@ class Moderation(core.Cog):
     @core.bot_has_permissions(ban_members=True)
     @core.describe(target="The user to unban.", reason="The reason that will show up in the audit log.")
     async def unban(self, ctx: Context, target: BanEntry, *, reason: Reason = DefaultReason):
-        """
-        Unban a member from the server.
-        """
+        """Unban a member from the server."""
         await ctx.guild.unban(user=target, reason=reason)
         await ctx.send(f"Unbanned {target}.", ephemeral=True)
 
@@ -266,9 +258,7 @@ class Moderation(core.Cog):
     @core.bot_has_permissions(kick_members=True)
     @core.describe(target="The member to softban.", reason="The reason that will show up in the audit log.")
     async def softban(self, ctx: Context, target: Target, *, reason: Reason = DefaultReason):
-        """
-        Softban a member from the server.
-        """
+        """Softban a member from the server."""
         await ctx.guild.ban(user=target, reason=reason)
         await ctx.guild.unban(user=target, reason=reason)
         await ctx.send(f"Softbanned {target}.", ephemeral=True)
@@ -279,8 +269,7 @@ class Moderation(core.Cog):
     @commands.max_concurrency(1, commands.BucketType.channel)
     @core.describe(amount="The amount of messages to delete.")
     async def cleanup(self, ctx: Context, amount: commands.Range[int, 1, 100] = 15):
-        """
-        Deletes messages sent by the bot in the channel.
+        """Deletes messages sent by the bot in the channel.
 
         If user does not have sufficient permissions, a maximum of 10 messages can be deleted.
         """
@@ -296,9 +285,7 @@ class Moderation(core.Cog):
     @commands.max_concurrency(1, commands.BucketType.channel)
     @core.describe(amount="The amount of messages to delete.")
     async def purge(self, ctx: Context, amount: commands.Range[int, 1, 100]):
-        """
-        Bulk delete messages in the channel.
-        """
+        """Bulk delete messages in the channel."""
         msgs = await self.do_removal(ctx, limit=amount, before=ctx.message.created_at)
         await ctx.send(embed=await self.show_results(ctx, msgs), ephemeral=True)
 
@@ -306,9 +293,7 @@ class Moderation(core.Cog):
     @core.has_permissions(manage_channels=True)
     @core.bot_has_permissions(manage_channels=True)
     async def channel(self, ctx: Context):
-        """
-        Manage channels.
-        """
+        """Manage channels."""
         await ctx.send_help(ctx.command)
 
     @channel.command(name="lock")
@@ -318,8 +303,7 @@ class Moderation(core.Cog):
     async def channel_lock(
         self, ctx: Context, channel: discord.TextChannel | discord.VoiceChannel, *, reason: Reason = DefaultReason
     ):
-        """
-        Lock a channel.
+        """Lock a channel.
 
         This will deny the @everyone role from sending messages in the channel, creating threads,
         and sending messages in threads.
@@ -344,8 +328,7 @@ class Moderation(core.Cog):
     async def channel_unlock(
         self, ctx: Context, channel: discord.TextChannel | discord.VoiceChannel, *, reason: Reason = DefaultReason
     ):
-        """
-        Unlock a channel.
+        """Unlock a channel.
 
         Reverses the effects of the lock command.
         """
@@ -376,9 +359,7 @@ class Moderation(core.Cog):
         delay: Time = 0,
         reason: Reason = DefaultReason,
     ):
-        """
-        Change a channel's slowmode.
-        """
+        """Change a channel's slowmode."""
         if delay > 21600:
             raise commands.BadArgument("Slowmode delay cannot be more than 6 hours.")
 
@@ -400,9 +381,7 @@ class Moderation(core.Cog):
     async def nick(
         self, ctx: Context, target: Target, *, nickname: commands.Range[str, None, 32], reason: Reason = DefaultReason
     ):
-        """
-        Change a member's nickname.
-        """
+        """Change a member's nickname."""
         await target.edit(nick=nickname, reason=reason)
         await ctx.send(f"Changed {target.mention}'s nickname.", ephemeral=True)
 
@@ -410,9 +389,7 @@ class Moderation(core.Cog):
     @core.has_permissions(manage_roles=True)
     @core.bot_has_permissions(manage_roles=True)
     async def role(self, ctx: Context):
-        """
-        Manage roles.
-        """
+        """Manage roles."""
         await ctx.send_help(ctx.command)
 
     @role.command(name="create")
@@ -433,9 +410,7 @@ class Moderation(core.Cog):
         *,
         reason: Reason = DefaultReason,
     ):
-        """
-        Create a role.
-        """
+        """Create a role."""
         await ctx.guild.create_role(name=name, hoist=hoist, color=color, reason=reason)
         await ctx.send(f"Created role {name}.", ephemeral=True)
 
@@ -447,9 +422,7 @@ class Moderation(core.Cog):
         reason="The reason that will show up in the audit log.",
     )
     async def role_delete(self, ctx: Context, role: TargetRole, *, reason: Reason = DefaultReason):
-        """
-        Delete a role.
-        """
+        """Delete a role."""
         try:
             await role.delete(reason=reason)
         except discord.Forbidden as e:
@@ -467,9 +440,7 @@ class Moderation(core.Cog):
     async def role_add(
         self, ctx: Context, target: Target, roles: commands.Greedy[discord.Role], *, reason: Reason = DefaultReason
     ):
-        """
-        Add a role to a member.
-        """
+        """Add a role to a member."""
         errors = []
         for role in roles:
             if role > ctx.me.top_role:
@@ -514,9 +485,7 @@ class Moderation(core.Cog):
     async def role_remove(
         self, ctx: Context, target: Target, roles: commands.Greedy[discord.Role], *, reason: Reason = DefaultReason
     ):
-        """
-        Remove roles from a member.
-        """
+        """Remove roles from a member."""
         errors = []
         for role in roles:
             if role > ctx.me.top_role:
@@ -559,8 +528,7 @@ class Moderation(core.Cog):
         reason="Reason that will show up in the audit log.",
     )
     async def timeout(self, ctx: Context, target: Target, duration: Time, *, reason: Reason = DefaultReason):
-        """
-        Timeout a member in the server.
+        """Timeout a member in the server.
 
         Minimum 1 minute, maximum 28 days.
         """
@@ -579,9 +547,7 @@ class Moderation(core.Cog):
     @core.bot_has_permissions(moderate_members=True)
     @core.describe()
     async def untimeout(self, ctx: Context, target: Target, *, reason: Reason = DefaultReason):
-        """
-        Remove a timeout from a member.
-        """
+        """Remove a timeout from a member."""
         if not target.is_timed_out():
             raise commands.BadArgument("Member is not timed out.")
         await target.timeout(None, reason=reason)

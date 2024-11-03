@@ -205,9 +205,7 @@ class GroupCog(commands.GroupCog):
 
 
 class Bot(commands.AutoShardedBot):
-    """
-    Normal bot class but with command and group decorators changed to HybridCommand and HybridGroup.
-    """
+    """Normal bot class but with command and group decorators changed to HybridCommand and HybridGroup."""
 
     def command(self, name: str = MISSING, **kwargs) -> Callable[..., HybridCommand]:
         def decorator(func) -> HybridCommand:

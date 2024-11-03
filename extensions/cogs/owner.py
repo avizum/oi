@@ -72,9 +72,7 @@ class BlacklistFlags(commands.FlagConverter):
 
 
 class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
-    """
-    Jishaku and Developer commands.
-    """
+    """Jishaku and Developer commands."""
 
     bot: OiBot
     load_time: datetime.datetime
@@ -94,8 +92,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(name="jishaku", aliases=["jsk", "developer", "dev", "d"], invoke_without_command=True)
     async def jsk(self, ctx: Context):
-        """
-        The Jishaku debug and diagnostic commands.
+        """The Jishaku debug and diagnostic commands.
 
         This command on its own gives a status brief.
         All other functionality is within its subcommands.
@@ -217,9 +214,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="py", aliases=["python"])
     async def jsk_python(self, ctx: Context, *, argument: codeblock_converter):  # type: ignore
-        """
-        Direct evaluation of Python code.
-        """
+        """Direct evaluation of Python code."""
         arg_dict, convertables = self.jsk_python_get_convertables(ctx)
         message_reference = getattr(ctx.message.reference, "resolved", None)
         voice_client = ctx.voice_client
@@ -257,9 +252,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="load", aliases=["l"])
     async def jsk_load(self, ctx: Context, *extensions: str):
-        """
-        Loads extensions.
-        """
+        """Loads extensions."""
         loaded, failed = await self.do_extension(ctx, self.bot.load_extension, list(extensions))
 
         fmtd = "\n".join(loaded + failed)
@@ -268,9 +261,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="unload", aliases=["u"])
     async def jsk_unload(self, ctx: Context, *, extensions: Annotated[list[str], ExtensionConverter]):
-        """
-        Unloads extensions.
-        """
+        """Unloads extensions."""
         loaded, failed = await self.do_extension(ctx, self.bot.unload_extension, extensions)
 
         fmtd = "\n".join(loaded + failed)
@@ -279,9 +270,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="reload", aliases=["r"])
     async def jsk_reload(self, ctx: Context, *, extensions: Annotated[list[str], ExtensionConverter]):
-        """
-        Reloads extensions.
-        """
+        """Reloads extensions."""
         loaded, failed = await self.do_extension(ctx, self.bot.reload_extension, extensions)
 
         fmtd = "\n".join(loaded + failed)
@@ -290,14 +279,13 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="maintenance")
     async def jsk_maintenance(self, ctx: Context, enabled: bool):
-        """
-        Enable/disable maintenance.
-        """
+        """Enables or disables global maintenance mode."""
         self.bot.maintenance = enabled
         await ctx.send(f"Maintenance Enabled: {enabled}")
 
     @Feature.Command(parent="jsk_maintenance", name="cog", aliases=["extension", "ext", "module"])
     async def jsk_maintenance_cog(self, ctx: Context, cog: str):
+        """Enables or disables maintenace mode for a certain cog."""
         get_cog = self.bot.get_cog(cog)
         if not get_cog:
             return await ctx.send("Could not find cog.")
@@ -305,9 +293,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="news")
     async def jsk_news(self, ctx: Context, *, news: str):
-        """
-        Changes the news of the bot.
-        """
+        """Changes the news of the bot."""
         self.bot.news = news
         toml_data = toml.load("config.toml")
         with open("config.toml", "w") as f:
@@ -397,9 +383,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
     @Feature.Command(parent="jsk", name="gitsync", aliases=["gs"])
     async def gitsync(self, ctx: Context):
-        """
-        Syncs with github repo and tries to reload changed extensions.
-        """
+        """Syncs with github repo and tries to reload changed extensions."""
         proc = await asyncio.create_subprocess_shell(
             "git pull", stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
         )

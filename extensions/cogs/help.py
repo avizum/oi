@@ -501,9 +501,7 @@ class HelpCommandCog(core.Cog):
     @app_commands.guild_only()
     @core.describe(entity="What you need help with.")
     async def _help(self, itn: discord.Interaction, entity: str | None = None):
-        """
-        Shows help for commands or modules.
-        """
+        """Shows help for commands or modules."""
         ctx = await self.bot.get_context(itn)
         if entity is not None:
             cmd = self.bot.get_command(entity) or self.bot.get_cog(entity)

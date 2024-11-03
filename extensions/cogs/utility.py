@@ -59,9 +59,7 @@ class UsagePageSource(menus.ListPageSource):
 
 
 class Utility(core.Cog):
-    """
-    Utility related commands.
-    """
+    """Utility related commands."""
 
     def __init__(self, bot: OiBot) -> None:
         super().__init__(bot)
@@ -73,9 +71,7 @@ class Utility(core.Cog):
 
     @core.command()
     async def ping(self, ctx: core.Context):
-        """
-        Check the bot's latencies.
-        """
+        """Check the bot's latencies."""
         description = f"Bot Latency: `{(self.bot.latency * 1000):.2f}ms`"
         embed = discord.Embed(
             title="Pong!",
@@ -90,9 +86,7 @@ class Utility(core.Cog):
 
     @core.command()
     async def vote(self, ctx: Context):
-        """
-        Vote for Oi!
-        """
+        """Vote for Oi!"""
         embed = discord.Embed(
             title="Vote for Oi", description="Your support for Oi is greatly appreciated. Thank you!", color=0x00FFB3
         )
@@ -115,30 +109,22 @@ class Utility(core.Cog):
 
     @core.group()
     async def oi(self, ctx: Context):
-        """
-        Oi's informational commands.
-        """
+        """Oi's informational commands."""
         return await ctx.send_help(ctx.command)
 
     @oi.command()
     async def invite(self, ctx: Context):
-        """
-        Get Oi's invite link.
-        """
+        """Get Oi's invite link."""
         await ctx.send(self.bot.invite_url)
 
     @oi.command()
     async def support(self, ctx: Context):
-        """
-        Get Oi's support server invite link.
-        """
+        """Get Oi's support server invite link."""
         await ctx.send(self.bot.support_server)
 
     @oi.command()
     async def information(self, ctx: Context):
-        """
-        Get information about Oi.
-        """
+        """Get information about Oi."""
         embed = discord.Embed(title="Oi Information", color=0x00FFB3)
 
         embed.add_field(
@@ -198,8 +184,7 @@ class Utility(core.Cog):
     @oi.command()
     @core.describe(command="The command to show the source of")
     async def source(self, ctx: Context, command: str | None = None):
-        """
-        View the source of Oi.
+        """View the source of Oi.
 
         Typing a command will send the source of the command.
         """
@@ -241,9 +226,7 @@ class Utility(core.Cog):
 
     @oi.command()
     async def linecount(self, ctx: Context):
-        """
-        Check how many lines of code the bot has.
-        """
+        """Check how many lines of code the bot has."""
         path = pathlib.Path("./")
         comments = coros = funcs = classes = lines = imports = files = char = 0
         for item in path.rglob("*.py"):
@@ -284,17 +267,13 @@ class Utility(core.Cog):
 
     @oi.command()
     async def uptime(self, ctx: Context):
-        """
-        Check Oi's uptime.
-        """
+        """Check Oi's uptime."""
         delta_uptime = datetime.datetime.now(tz=datetime.timezone.utc) - self.bot.launched_at
         await ctx.send(f"Oi has been up for {humanize.precisedelta(delta_uptime, format='%.2g')}")
 
     @oi.command()
     async def shards(self, ctx: Context):
-        """
-        Shows informations about the shards.
-        """
+        """Shows informations about the shards."""
         shard_list = []
         for shard_id, shard in self.bot.shards.items():
             guilds = [g for g in self.bot.guilds if g.shard_id == shard_id]
@@ -324,9 +303,7 @@ class Utility(core.Cog):
     @oi.command()
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def usage(self, ctx: Context):
-        """
-        Shows all seen and edits seen count from last reboot!
-        """
+        """Shows the command usage stats from last reboot."""
         usage = self.bot.command_usage
         most_use = dict(reversed(sorted(usage.items(), key=lambda item: item[1])))
 
@@ -346,9 +323,7 @@ class Utility(core.Cog):
     @commands.cooldown(1, 60, commands.BucketType.user)
     @core.describe(message="The message to send to the support server.")
     async def report(self, ctx: Context, *, message: str):
-        """
-        Send a report to the support server.
-        """
+        """Send a report to the support server."""
         if len(message) > 1000:
             return await ctx.send("Your message is too long!")
         await self.report_webhook.send(content=f"**{ctx.author}**:\n{message}\n")
@@ -357,9 +332,7 @@ class Utility(core.Cog):
     @oi.command()
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def diagnose(self, ctx: Context):
-        """
-        Check which commands can't be ran by the bot.
-        """
+        """Check which commands can't be ran by the bot."""
         cant_run = []
         bot_commands: set[core.Command] = {
             c for c in self.bot.walk_commands() if c.parent != self.bot.get_command("jishaku")
@@ -379,7 +352,7 @@ class Utility(core.Cog):
         if cant_run:
             embed.description = (
                 f"I can run {len(bot_commands) - len(cant_run)} out of {len(bot_commands)} commands.\n"
-                f"Please [reinvite]({self.bot.invite_url}) me to fix this."
+                f"Please [reauthorize]({self.bot.invite_url}) me to fix this."
             )
             nl = "\n"
             embed.add_field(name="Can't Run", value=f"{nl.join(cant_run)}", inline=False)

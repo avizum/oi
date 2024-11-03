@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 
 def embed_to_text(embed: discord.Embed) -> str:
-    """
-    Converts an embed to a string.
+    """Converts an embed to a string.
+
     Only provides the title, description, fields, footer, and image.
 
     """
@@ -53,9 +53,7 @@ def embed_to_text(embed: discord.Embed) -> str:
 
 
 def _format_embeds(ctx: Context, embeds: Sequence[discord.Embed]) -> Sequence[discord.Embed]:
-    """
-    Formats embeds so that they all look uniform. Changes the color of all embeds.
-    """
+    """Formats embeds so that they all look uniform. Changes the color of all embeds."""
     for embed in embeds:
         if not embed.color:
             embed.color = 0x00FFB3
@@ -64,8 +62,7 @@ def _format_embeds(ctx: Context, embeds: Sequence[discord.Embed]) -> Sequence[di
 
 # from https://github.com/Axelancerr/Life/blob/508e1e9c5b02f56f76a53a2cfd9b521ddacdd8f3/Life/utilities/utils.py#L51-L64
 def format_seconds(seconds: float, *, friendly: bool = False) -> str:
-    """
-    Converts time in seconds to a readable string.
+    """Converts time in seconds to a readable string.
 
     Ex: 300 -> 05:00 or 5m 0s if friendly is True
     """

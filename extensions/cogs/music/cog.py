@@ -83,9 +83,7 @@ type Interaction = discord.Interaction[OiBot]
 
 
 class Music(core.Cog):
-    """
-    Music commands for your server.
-    """
+    """Music commands for your server."""
 
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
@@ -471,8 +469,7 @@ class Music(core.Cog):
     @is_in_channel()
     @is_in_voice()
     async def skip(self, ctx: PlayerContext):
-        """
-        Skips the song.
+        """Skips the song.
 
         If you are a DJ or track requester, the track will be skipped.
         Otherwise, a vote will be added in order to skip.
@@ -539,8 +536,7 @@ class Music(core.Cog):
     @is_in_voice()
     @core.describe(item="The track to remove from the queue.")
     async def queue_remove(self, ctx: PlayerContext, item: str):
-        """
-        Removes a song from the queue.
+        """Removes a song from the queue.
 
         If there are multiple of the same track, all of them will be removed.
         """
@@ -618,9 +614,7 @@ class Music(core.Cog):
     @core.group(fallback="show")
     @app_commands.describe(playlist="The playlist to show information of")
     async def playlist(self, ctx: PlayerContext, playlist: Playlist):
-        """
-        Shows a playlist.
-        """
+        """Shows a playlist."""
         source = PlaylistPageSource(playlist)
         paginator = Paginator(source, ctx=ctx, delete_message_after=True)
         await paginator.start()
@@ -645,8 +639,7 @@ class Music(core.Cog):
         play_next: bool = False,
         shuffle: bool = False,
     ):
-        """
-        Adds a playlist to the queue.
+        """Adds a playlist to the queue.
 
         This command is similar to the play command.
         """
@@ -785,9 +778,7 @@ class Music(core.Cog):
 
     @playlist.group(name="songs")
     async def playlist_songs(self, ctx: PlayerContext, playlist: Playlist | None = None):
-        """
-        Shows a playlist's songs.
-        """
+        """Shows a playlist's songs."""
         if not playlist:
             return await ctx.send_help(ctx.command)
 
@@ -802,8 +793,7 @@ class Music(core.Cog):
     async def playlist_songs_add(
         self, ctx: PlayerContext, playlist: Playlist, song: Song, source: SEARCH_TYPES = "YouTube Music"
     ):
-        """
-        Adds a song to one of your playlists.
+        """Adds a song to one of your playlists.
 
         Connect the player to search for tracks that Oi hasn't saved.
         """
@@ -984,9 +974,7 @@ class Music(core.Cog):
 
     @core.group()
     async def player(self, ctx: PlayerContext):
-        """
-        Music player commands.
-        """
+        """Music player commands."""
         await ctx.send_help(ctx.command)
 
     @player.group(name="dj")
@@ -1042,7 +1030,10 @@ class Music(core.Cog):
     @core.has_guild_permissions(manage_guild=True)
     @core.describe(role="The role to set as DJ")
     async def player_dj_role(self, ctx: PlayerContext, role: discord.Role | None):
-        """Sets the DJ role. If not set, the DJ is whoever calls Oi into the channel first."""
+        """Sets the DJ role.
+
+        If not set, the DJ is whoever calls Oi into the channel first.
+        """
         vc = ctx.voice_client
         settings = self.bot.cache.player_settings[ctx.guild.id]
         if role and settings["dj_role"] == role.id:
@@ -1080,9 +1071,7 @@ class Music(core.Cog):
     @player.command(name="current")
     @is_in_voice()
     async def player_current(self, ctx: PlayerContext):
-        """
-        Shows the current song, or move the bound channel to another channel.
-        """
+        """Shows the current song, or move the bound channel to another channel."""
         vc = ctx.voice_client
 
         if not vc.current:
@@ -1386,8 +1375,7 @@ class Music(core.Cog):
     @core.has_voted()
     @core.describe(search="The song to search for.")
     async def lyrics(self, ctx: PlayerContext, *, search: str | None = None):
-        """
-        Gets the lyrics for a song.
+        """Gets the lyrics for a song.
 
         If no query is provided, the lyrics for the current song (if any) will be shown.
         """
