@@ -20,8 +20,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Callable, Concatenate, Generator, ParamSpec, TYPE_CHECKING, TypeVar
+from typing import Any, Callable, Concatenate, Generator, ParamSpec, TYPE_CHECKING, TypeVar, Union
 
+import discord
 from discord import app_commands
 from discord.ext import commands
 from discord.utils import MISSING
@@ -73,6 +74,58 @@ class Command(commands.Command[CogT, P, T]):
 
     def __repr__(self) -> str:
         return f"<Command name={self.name}>"
+
+    @property
+    def signature(self) -> str:
+        params = self.clean_params
+        if not params:
+            return ""
+
+        result = []
+        for param in params.values():
+            name = param.displayed_name or param.name
+
+            greedy = isinstance(param.converter, commands.Greedy)
+            optional = False
+
+            annotation: Any = param.converter.converter if greedy else param.converter
+            origin = getattr(annotation, "__origin__", None)
+            if not greedy and origin is Union:
+                none_cls = type(None)
+                union_args = annotation.__args__
+                optional = union_args[-1] is none_cls
+                if len(union_args) == 2 and optional:
+                    annotation = union_args[0]
+                    origin = getattr(annotation, "__origin__", None)
+
+            if annotation is discord.Attachment:
+                if optional:
+                    result.append(f"[{name} (upload a file)]")
+                elif greedy:
+                    result.append(f"[{name} (upload files)]")
+                else:
+                    result.append(f"<{name} (upload a file)>")
+                continue
+
+            # Original implementation shows union arguments, we don't need it.
+            # It also shows displayed defaults, but we don't need it because
+            # it is shown elsewhere (in the help command).
+            if not param.required:
+                result.append(f"[{name}]")
+
+            elif param.kind == param.VAR_POSITIONAL:
+                if self.require_var_positional:
+                    result.append(f"<{name}...>")
+                else:
+                    result.append(f"[{name}...]")
+            elif greedy:
+                result.append(f"[{name}]...")
+            elif optional:
+                result.append(f"[{name}]")
+            else:
+                result.append(f"<{name}>")
+
+        return " ".join(result)
 
 
 class Group(commands.Group, Command[CogT, P, T]):
