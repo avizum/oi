@@ -95,6 +95,17 @@ class Player(wavelink.Player):
             self.manager = self.ctx.author
 
     def set_extras(self, playable: Playable, *, requester: str, requester_id: int):
+        """Sets the `Playable.extras` attribute.
+
+        Parameters
+        ----------
+        playable: `Playable`
+            The playable to set the extras of.
+        requester: `str`
+            The name of the requester.
+        requester_id: `str`
+            The user ID of the requester.
+        """
         duration = "LIVE" if playable.is_stream else format_seconds(playable.length / 1000)
         suffix = f" - {playable.author}" if playable.author not in playable.title else ""
 
@@ -106,14 +117,23 @@ class Player(wavelink.Player):
         )
 
     async def skip(self) -> Playable | None:
+        """Stops the currently playing track.
+
+        Returns
+        -------
+        Playable | None
+            The track that was stopped. None if there was no track playing.
+        """
         await super().skip(force=False)
 
     async def disconnect(self, **kwargs: Any) -> None:
+        """Disconnects and disables the player's controller if there is one."""
         if self.controller:
             await self.controller.disable()
         return await super().disconnect(**kwargs)
 
     def create_now_playing(self, track: Playable | None = None) -> discord.Embed:
+        """Creates an embed for the now playing screen."""
         assert self.guild is not None
 
         nothing = f"Nothing is in the queue. Add some songs with {self.ctx.cog.play.mention}."
@@ -157,11 +177,13 @@ class Player(wavelink.Player):
         return embed
 
     async def save_tracks(self, tracks: wavelink.Search) -> dict[str, Song]:
+        """Saves a search to the database, and then caches the search."""
+
         query = """
-                INSERT INTO songs (id, identifier, uri, encoded, source, title, artist)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
-                RETURNING id, identifier, uri, encoded, source, title, artist
-                """
+            INSERT INTO songs (id, identifier, uri, encoded, source, title, artist)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING id, identifier, uri, encoded, source, title, artist
+        """
         songs_data: dict[str, Song] = {}
         for track in tracks:
             if track.identifier not in self.bot.cache.songs:
@@ -187,6 +209,7 @@ class Player(wavelink.Player):
         return songs_data
 
     async def decode_track(self, encoded: str) -> Playable | None:
+        """Builds a track from a track's encoded information."""
         try:
             data: TrackPayload = await self.node.send("GET", path="v4/decodetrack", params={"encodedTrack": encoded})
             return Playable(data)
@@ -194,6 +217,22 @@ class Player(wavelink.Player):
             return None
 
     async def fetch_tracks(self, query: str, source: SEARCH_TYPES, save_tracks: bool = True) -> Playable | Playlist | None:
+        """Searches a source for tracks.
+
+        Parameters
+        ----------
+        query: `str`
+            The item to search for.
+        source: `SEARCH_TYPES`
+            Where to search for tracks.
+        save_tracks: `bool`
+            Whether to save the tracks to the database. Defualts to `True`
+
+        Returns
+        -------
+        Playable | Playlist | None
+            The results returned by Lavalink.
+        """
         try:
             tracks = await Playable.search(query, source=source_map.get(source, "ytsearch"))
             if save_tracks:
@@ -207,6 +246,13 @@ class Player(wavelink.Player):
         return tracks if isinstance(tracks, wavelink.Playlist) else tracks[0]
 
     async def invoke_controller(self, playable: Playable | None) -> None:
+        """Invokes the controller.
+
+        Parameter
+        ---------
+        playable: `Playable` | `None`
+            The playable to invoke the controller with
+        """
         if self.locked:
             return
 
@@ -237,6 +283,7 @@ class Player(wavelink.Player):
         await controller.update()
 
     async def fetch_current_lyrics(self) -> Lyrics | None:
+        """Searches for the lyrics of the current song."""
         try:
             data: Lyrics = await self.node.send(
                 "GET",
@@ -248,6 +295,7 @@ class Player(wavelink.Player):
 
     @classmethod
     async def fetch_lyrics(cls, query: str) -> tuple[str, Lyrics] | None:
+        """Searches YouTube for lyrics."""
         try:
             tracks = await Playable.search(query, source="ytmsearch")
             if isinstance(tracks, Playlist) or not tracks:

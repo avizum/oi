@@ -31,7 +31,6 @@ def embed_to_text(embed: discord.Embed) -> str:
     """Converts an embed to a string.
 
     Only provides the title, description, fields, footer, and image.
-
     """
     output = []
     if embed.title:
@@ -47,7 +46,7 @@ def embed_to_text(embed: discord.Embed) -> str:
         output.append(f"\n{embed.image.url}")
 
     if embed.footer:
-        output.append(f"\n{embed.footer.text}")
+        output.append(f"\n-# {embed.footer.text}")
 
     return "\n".join(output)
 

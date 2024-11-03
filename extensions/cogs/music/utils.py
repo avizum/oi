@@ -52,6 +52,8 @@ type Interaction = discord.Interaction[OiBot]
 
 
 class TimeConverter(app_commands.Transformer):
+    """Converts a time `MM:SS` to an `int`"""
+
     def base(self, ctx: PlayerContext, argument: int | str) -> int:
         with contextlib.suppress(ValueError):
             argument = int(argument)
@@ -74,6 +76,8 @@ class TimeConverter(app_commands.Transformer):
 
 
 class PlaylistConverter(app_commands.Transformer):
+    """Converts to a `Playlist`."""
+
     def base(self, ctx: PlayerContext, playlist_id: str) -> PlaylistD:
         try:
             query = int(playlist_id)
@@ -100,6 +104,8 @@ class PlaylistConverter(app_commands.Transformer):
 
 
 class SongConverter(app_commands.Transformer):
+    """Converts to a `Song`"""
+
     async def base(self, ctx: PlayerContext, song_id: str) -> SongD | str:
         song = ctx.bot.cache.songs.get(song_id)
         if song:
@@ -133,6 +139,10 @@ SOURCES: dict[str, str] = {
 
 
 def format_option_name(song: SongD) -> str:
+    """Formats a `Song` like so: `SONG NAME - ARTIST (SOURCE)`
+
+    If the total length is longer than 100 characters,the song name will be truncated.
+    """
     suffix = f" - {song["artist"]} ({SOURCES[song["source"]]})"
     max_title_length = 100 - len(suffix)
 
@@ -144,6 +154,20 @@ def format_option_name(song: SongD) -> str:
 
 
 def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.Choice[str]]:
+    """Matches a string to the items provided.
+
+    Parameters
+    ----------
+    items: `dict[str, Any]`
+        The items to match.
+    current: `str`
+        The string to match against the items.
+
+    Returns
+    -------
+    list[app_commands.Choice[str]]
+        A list of choices that matched the items.
+    """
     matches = process.extract(current.lower(), items.keys(), limit=25, score_cutoff=65.0)
 
     options: list[app_commands.Choice[str]] = []
@@ -155,6 +179,7 @@ def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.
 
 
 def hyperlink_song(song: SongD) -> str:
+    """Creates a hyperlink from `Song`"""
     if song["uri"]:
         return f"[{song["title"]}](<{song["uri"]}>)"
     return song["title"]
