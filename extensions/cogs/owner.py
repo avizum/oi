@@ -44,7 +44,7 @@ from jishaku.math import natural_size
 from jishaku.modules import package_version
 from jishaku.repl import AsyncCodeExecutor
 
-from utils.types import BlacklistRecord
+from utils import BlacklistRecord
 
 if TYPE_CHECKING:
     from core import Command, Context, OiBot

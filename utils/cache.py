@@ -1,12 +1,30 @@
 """
-MPL-2.0 LICENSE
-
-The contents of this file are taken from:
+Lines 57-78 of this file is from a project under the Mozilla Public License, Version 2.0 (MPL-2.0)
 https://github.com/Rapptz/RoboDanny/blob/582804d238c8ae302ab9aed6a1b5b8d928ba837f/cogs/utils/cache.py#L34-L68
+
+
+MPL-2.0 LICENSE
 
 This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
+GPL-3.0 LICENSE
+
+Copyright (C) 2021-2024  Shobhits7, avizum
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 from __future__ import annotations
@@ -29,7 +47,13 @@ from .types import (
 if TYPE_CHECKING:
     from core import OiBot
 
+__all__ = (
+    "ExpiringCache",
+    "DBCache",
+)
 
+# fmt: off
+# Begin MPL 2.0 licensed code
 class ExpiringCache(dict):
     def __init__(self, seconds: float):
         self.__ttl: float = seconds
@@ -52,6 +76,8 @@ class ExpiringCache(dict):
 
     def __setitem__(self, key: str | int, value: Any):
         super().__setitem__(key, (value, time.monotonic()))
+# End MPL 2.0 licensed code
+# fmt: on
 
 
 class DBCache:

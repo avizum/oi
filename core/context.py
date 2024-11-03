@@ -28,8 +28,8 @@ import discord
 from discord.ext import commands
 from discord.utils import MISSING
 
-from utils.helpers import _format_embeds, embed_to_text
-from utils.view import OiView
+from utils import embed_to_text, OiView
+from utils.helpers import _format_embeds
 
 if TYPE_CHECKING:
     from .commands import Command

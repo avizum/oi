@@ -28,6 +28,8 @@ from discord.ext import menus
 if TYPE_CHECKING:
     from core import Context
 
+__all__ = ("Paginator",)
+
 
 class SkipPage(discord.ui.Modal, title="Skip to page"):
     to_page = discord.ui.TextInput(label="Place holder")

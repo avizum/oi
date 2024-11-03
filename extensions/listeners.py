@@ -28,8 +28,7 @@ import humanize
 from discord.ext import commands, tasks
 
 import core
-from utils.exceptions import Blacklisted, Maintenance
-from utils.helpers import embed_to_text
+from utils import Blacklisted, embed_to_text, Maintenance
 
 if TYPE_CHECKING:
     from core import Context, OiBot

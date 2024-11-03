@@ -28,7 +28,7 @@ from discord import app_commands
 from discord.ext import commands
 from rapidfuzz import process
 
-from utils.types import Playlist as PlaylistD, Song as SongD
+from utils import Playlist as PlaylistD, Song as SongD
 
 if TYPE_CHECKING:
     from core import OiBot

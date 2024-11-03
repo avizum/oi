@@ -33,11 +33,11 @@ from discord.ext import commands, menus
 from jishaku.math import natural_size
 
 import core
-from utils.paginators import Paginator
+from utils import Paginator
 
 if TYPE_CHECKING:
     from core import Context, OiBot
-    from utils.types import WeatherDict
+    from utils import WeatherDict
 
 
 NORMAL_PERMISSONS = discord.Permissions(1644942454270)

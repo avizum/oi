@@ -26,6 +26,11 @@ import discord
 if TYPE_CHECKING:
     from core import Context
 
+__all__ = (
+    "embed_to_text",
+    "format_seconds",
+)
+
 
 def embed_to_text(embed: discord.Embed) -> str:
     """Converts an embed to a string.

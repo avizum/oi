@@ -30,7 +30,7 @@ from discord import app_commands
 from discord.ext import commands
 
 import core
-from utils.exceptions import Blacklisted, Maintenance, NotVoted
+from utils import Blacklisted, Maintenance, NotVoted
 
 if TYPE_CHECKING:
     from core import Context, OiBot

@@ -29,7 +29,7 @@ from typing import Any, Callable, Coroutine, TYPE_CHECKING, TypeVar
 import discord
 from discord.ext import commands
 
-from utils.exceptions import NotVoted
+from utils import NotVoted
 
 from .commands import Command
 

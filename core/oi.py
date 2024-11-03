@@ -39,8 +39,7 @@ from topgg.webhook import WebhookManager
 from waifuim import Client as WaifiImClient
 
 from extensions.logger import WebhookHandler
-from utils.cache import DBCache, ExpiringCache
-from utils.id_generator import IDGenerator
+from utils import DBCache, ExpiringCache, IDGenerator
 
 from .commands import Bot, Cog, HybridCommand
 

@@ -29,8 +29,7 @@ from discord.ext import commands, menus
 from wavelink import AutoPlayMode, Playable, QueueMode
 
 from core import ui as cui
-from utils.paginators import Paginator
-from utils.view import OiView
+from utils import OiView, Paginator
 
 from .utils import hyperlink_song
 
@@ -38,7 +37,7 @@ if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
     from discord.ext.commands import Paginator as CPaginator
 
-    from utils.types import Playlist, PlaylistSong
+    from utils import Playlist, PlaylistSong
 
     from .player import Player
     from .types import PlayerContext

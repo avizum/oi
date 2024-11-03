@@ -20,6 +20,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 import time
 from datetime import datetime, timezone
 
+__all__ = ("IDGenerator",)
+
 
 class IDGenerator:
     def __init__(self, worker_id: int) -> None:

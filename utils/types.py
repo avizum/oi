@@ -23,6 +23,25 @@ from typing import Any, NotRequired, TypedDict
 
 from asyncpg import Record as PGRecord
 
+__all__ = (
+    "ErrorDict",
+    "LocationDict",
+    "ConditionDict",
+    "CurrentDict",
+    "WeatherDict",
+    "UrbanData",
+    "BlacklistRecord",
+    "PlayerSettingsRecord",
+    "SongRecord",
+    "PlaylistRecord",
+    "PlaylistSongRecord",
+    "Blacklist",
+    "PlayerSettings",
+    "Song",
+    "PlaylistSong",
+    "Playlist",
+)
+
 
 class ErrorDict(TypedDict):
     code: int

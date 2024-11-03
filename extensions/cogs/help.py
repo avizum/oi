@@ -27,7 +27,7 @@ from discord.ext import commands, menus
 from discord.ext.commands.hybrid import _CallableDefault
 
 import core
-from utils.paginators import Paginator
+from utils import Paginator
 
 if TYPE_CHECKING:
     from discord.ext.commands.hybrid import HybridAppCommand

@@ -37,9 +37,15 @@ from rapidfuzz import process
 from wavelink import ExtrasNamespace as Extras, QueueMode
 
 import core
-from utils.helpers import format_seconds
-from utils.paginators import Paginator
-from utils.types import PlayerSettingsRecord, Playlist as PlaylistD, PlaylistRecord, PlaylistSong, Song as SongD
+from utils import (
+    format_seconds,
+    Paginator,
+    PlayerSettingsRecord,
+    Playlist as PlaylistD,
+    PlaylistRecord,
+    PlaylistSong,
+    Song as SongD,
+)
 
 from .player import Player
 from .utils import (

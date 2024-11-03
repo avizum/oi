@@ -27,11 +27,11 @@ import discord
 from discord.ext import menus
 
 import core
-from utils.paginators import Paginator
+from utils import Paginator
 
 if TYPE_CHECKING:
     from core import Context, OiBot
-    from utils.types import UrbanData
+    from utils import UrbanData
 
 
 class RPSButton(discord.ui.Button["RPSView"]):

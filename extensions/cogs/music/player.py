@@ -27,8 +27,7 @@ import wavelink
 from wavelink import ExtrasNamespace as Extras, Playable, Playlist, QueueMode
 
 from core import OiBot
-from utils.helpers import format_seconds
-from utils.types import PlayerSettingsRecord, SongRecord
+from utils import format_seconds, PlayerSettingsRecord, SongRecord
 
 from .types import Lyrics, PlayerContext
 from .views import PlayerController
@@ -36,7 +35,7 @@ from .views import PlayerController
 if TYPE_CHECKING:
     from wavelink.types.tracks import TrackPayload
 
-    from utils.types import Song
+    from utils import Song
 
     from .cog import SEARCH_TYPES
 

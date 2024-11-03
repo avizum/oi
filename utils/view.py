@@ -19,6 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import discord
 
+__all__ = ("OiView",)
+
 
 class OiView(discord.ui.View):
     def __init__(self, *, members: list[discord.Member | discord.User], timeout: int | None = 180):

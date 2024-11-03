@@ -28,7 +28,7 @@ from discord import app_commands
 from discord.ext import commands, menus
 
 import core
-from utils.paginators import Paginator
+from utils import Paginator
 
 if TYPE_CHECKING:
     from waifuim import Image as WaifuImage
