@@ -95,6 +95,7 @@ def get_tip() -> list[str]:
                     "Need Help? Use `/help` or join the support server!",
                     "Have some feedback for us? Join the support server and send it our way.",
                     "If you need to report a bug, report it in the support server.",
+                    "Create your own playlists with </playlist create:1301780161410371647>",
                 ]
             ),
             "Support Server",
