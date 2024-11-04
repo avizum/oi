@@ -81,7 +81,7 @@ class Player(wavelink.Player):
         if not settings:
             query = """
                 INSERT INTO player_settings (guild_id, dj_role, dj_enabled, labels)
-                VALUES ($1, $2, $3)
+                VALUES ($1, $2, $3, $4)
                 RETURNING guild_id, dj_role, dj_enabled, labels
             """
             settings = dict(
