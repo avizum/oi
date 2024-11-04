@@ -26,6 +26,7 @@ from typing import Annotated, Any, TYPE_CHECKING
 import discord
 from discord import app_commands
 from discord.ext import commands
+from discord.utils import _human_join as human_join
 from rapidfuzz import process
 
 from utils import Playlist as PlaylistD, Song as SongD
@@ -124,9 +125,40 @@ class SongConverter(app_commands.Transformer):
         return await self.base(ctx, value)
 
 
+class LabelsConverter(app_commands.Transformer):
+    _choices: list[tuple[str, int]] = [
+        ("Nothing", 0),
+        ("Emojis", 1),
+        ("Emojis and labels", 2),
+    ]
+
+    @property
+    def type(self):
+        return discord.AppCommandOptionType.integer
+
+    @property
+    def choices(self) -> list[app_commands.Choice]:
+        return [app_commands.Choice(name=name, value=value) for name, value in self._choices]
+
+    @classmethod
+    async def convert(cls, _: PlayerContext, argument: str) -> int:
+        names = []
+        for name, value in cls._choices:
+            if argument.lower() == name.lower():
+                return value
+            names.append(f'"{name}"')
+
+        raise commands.BadArgument(f'Could not convert "{argument}" into the choices {human_join(names)}')
+
+    @classmethod
+    async def transform(cls, _: Interaction, argument: int) -> int:
+        return argument
+
+
 Playlist = Annotated[PlaylistD, PlaylistConverter]
 Song = Annotated[SongD | str, SongConverter]
 Time = Annotated[int, TimeConverter]
+Labels = Annotated[int, LabelsConverter]
 
 
 SOURCES: dict[str, str] = {

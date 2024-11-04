@@ -96,7 +96,7 @@ class DBCache:
             "SELECT user_id, reason, moderator, permanent FROM blacklist", record_class=BlacklistRecord
         )
         player_settings: list[PlayerSettingsRecord] = await pool.fetch(
-            "SELECT guild_id, dj_role, dj_enabled  FROM player_settings", record_class=PlayerSettingsRecord
+            "SELECT guild_id, dj_role, dj_enabled, labels FROM player_settings", record_class=PlayerSettingsRecord
         )
         songs: list[SongRecord] = await pool.fetch(
             "SELECT id, identifier, uri, encoded, source, title, artist FROM songs", record_class=SongRecord

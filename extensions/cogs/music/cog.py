@@ -55,6 +55,7 @@ from .utils import (
     is_in_voice,
     is_manager,
     is_not_deafened,
+    Labels,
     Playlist,
     PlaylistConverter,
     Song,
@@ -1001,9 +1002,9 @@ class Music(core.Cog):
             UPDATE player_settings
             SET dj_enabled=$1
             WHERE guild_id=$2
-            RETURNING guild_id, dj_role, dj_enabled
+            RETURNING guild_id, dj_role, dj_enabled, labels
         """
-        settings_row: PlayerSettingsRecord = await ctx.bot.pool.fetchrow(
+        settings_row: PlayerSettingsRecord = await self.bot.pool.fetchrow(
             query, True, ctx.guild.id, record_class=PlayerSettingsRecord
         )
         self.bot.cache.player_settings[ctx.guild.id] = dict(settings_row)  # type: ignore
@@ -1024,10 +1025,10 @@ class Music(core.Cog):
             UPDATE player_settings
             SET dj_enabled=$1
             WHERE guild_id=$2
-            RETURNING guild_id, dj_role, dj_enabled
+            RETURNING guild_id, dj_role, dj_enabled, labels
         """
-        settings = await ctx.bot.pool.fetchrow(query, False, ctx.guild.id)
-        self.bot.cache.player_settings[ctx.guild.id] = settings
+        settings = await self.bot.pool.fetchrow(query, False, ctx.guild.id, record_class=PlayerSettingsRecord)
+        self.bot.cache.player_settings[ctx.guild.id] = dict(settings)  # type: ignore
         if vc:
             vc.dj_enabled = False
         return await ctx.send("Disabled DJ.")
@@ -1057,10 +1058,10 @@ class Music(core.Cog):
             UPDATE player_settings
             SET dj_role=$1, dj_enabled=$2
             WHERE guild_id=$3
-            RETURNING guild_id, dj_role, dj_enabled
+            RETURNING guild_id, dj_role, dj_enabled, labels
         """
-        settings = await ctx.bot.pool.fetchrow(query, role_id, True, ctx.guild.id)
-        self.bot.cache.player_settings[ctx.guild.id] = settings
+        settings = await self.bot.pool.fetchrow(query, role_id, True, ctx.guild.id, record_class=PlayerSettingsRecord)
+        self.bot.cache.player_settings[ctx.guild.id] = dict(settings)  # type: ignore
         if vc:
             vc.dj_role = role
             vc.dj_enabled = True
@@ -1073,6 +1074,25 @@ class Music(core.Cog):
         if conf:
             return await conf.message.edit(content=message, allowed_mentions=MENTIONS, view=None)
         return await ctx.send(message, allowed_mentions=MENTIONS)
+
+    @player.command(name="labels", extras=EXTRAS)
+    @core.has_guild_permissions(manage_guild=True)
+    @core.describe(state="Pick the label format you want.")
+    async def player_labels(self, ctx: PlayerContext, state: Labels):
+        """Sets the controller's label format."""
+        mapping = {0: "off", 1: "emojis only", 2: "emojis and labels"}
+        vc = ctx.voice_client
+        query = """
+            UPDATE player_settings
+            SET labels=$1
+            WHERE guild_id=$2
+            RETURNING guild_id, dj_role, dj_enabled, labels
+        """
+        settings = await self.bot.pool.fetchrow(query, state, ctx.guild.id, record_class=PlayerSettingsRecord)
+        self.bot.cache.player_settings[ctx.guild.id] = dict(settings)  # type: ignore
+        if vc:
+            vc.labels = state
+        await ctx.send(f"Set player labels to {mapping[state]}.")
 
     @player.command(name="current")
     @is_in_voice()

@@ -183,6 +183,15 @@ class PlayerController(ui.View):
         self.loop_select: LoopTypeSelect | None = None
         self.lyrics_paginators: dict[int, Paginator] = {}
         super().__init__(timeout=None)
+        self.update_buttons()
+
+    @property
+    def labels(self) -> int:
+        return self.vc.labels
+
+    @labels.setter
+    def labels(self, state: int) -> None:
+        self.vc.labels = state
 
     async def disable(self) -> None:
         self.stop()
@@ -197,8 +206,46 @@ class PlayerController(ui.View):
             if isinstance(item, PlayerButton):
                 item.disabled = disabled
 
+    def set_labels(self) -> None:
+        vc = self.vc
+        if self.labels == 2:
+            self.rewind.label = "Rewind"
+            self.pause.label = "Resume" if vc.paused else "Pause"
+            self.skip.label = "Skip"
+            self.shuffle.label = "Shuffle"
+            if vc.queue.mode is QueueMode.normal:
+                self.loop.label = "Loop"
+            elif vc.queue.mode is QueueMode.loop:
+                self.loop.label = "Looping One"
+            elif vc.queue.mode is QueueMode.loop_all:
+                self.loop.label = "Looping Queue"
+            self.autoplay.label = "Autoplay"
+            self.lyrics.label = "Lyrics"
+        elif self.labels == 1:
+            for item in self.children:
+                if isinstance(item, PlayerButton) and item.label is not None:
+                    item.label = None
+
+    def set_visible(self, visible: bool = True) -> None:
+        self.clear_items()
+        if visible:
+            self.add_item(self.rewind)
+            self.add_item(self.pause)
+            self.add_item(self.skip)
+            self.add_item(self.shuffle)
+            self.add_item(self.loop)
+            self.add_item(self.autoplay)
+            self.add_item(self.lyrics)
+
     def update_buttons(self) -> None:
+        if self.labels == 0:
+            self.set_visible(False)
+            return
+
+        self.set_visible()
+        self.set_labels()
         self.set_disabled(False)
+
         self.pause.style = ButtonStyle.gray
         self.loop.style = ButtonStyle.gray
         self.autoplay.style = ButtonStyle.gray

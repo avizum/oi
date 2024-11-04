@@ -74,21 +74,23 @@ class Player(wavelink.Player):
 
         self.dj_enabled: bool = False
         self.dj_role: discord.Role | None = None
+        self.labels: int = 1
 
     async def _set_player_settings(self) -> None:
         settings = self.client.cache.player_settings.get(self.channel.guild.id)
         if not settings:
             query = """
-                INSERT INTO player_settings (guild_id, dj_role, dj_enabled)
+                INSERT INTO player_settings (guild_id, dj_role, dj_enabled, labels)
                 VALUES ($1, $2, $3)
-                RETURNING guild_id, dj_role, dj_enabled
+                RETURNING guild_id, dj_role, dj_enabled, labels
             """
-            settings = await self.client.pool.fetchrow(
-                query, self.channel.guild.id, 0, True, record_class=PlayerSettingsRecord
+            settings = dict(
+                await self.client.pool.fetchrow(query, self.channel.guild.id, 0, True, 1, record_class=PlayerSettingsRecord)
             )
             self.client.cache.player_settings[self.channel.guild.id] = dict(settings)  # type: ignore
 
         self.dj_enabled = settings["dj_enabled"]
+        self.labels = settings["labels"]
         self.dj_role = self.channel.guild.get_role(settings["dj_role"])
         if self.dj_enabled and not self.dj_role:
             self.manager = self.ctx.author

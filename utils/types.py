@@ -126,6 +126,7 @@ class PlayerSettingsRecord(Record):
     guild_id: int
     dj_role: int
     dj_enabled: bool
+    labels: int
 
 
 class SongRecord(Record):
@@ -160,6 +161,7 @@ class PlayerSettings(TypedDict):
     guild_id: int
     dj_role: int
     dj_enabled: bool
+    labels: int
 
 
 class Song(TypedDict):
