@@ -157,6 +157,7 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
         if not self.values:
             await itn.response.defer()
         else:
+            ctx: PlayerContext = self.vc.ctx
             disable = self.values[0] == "DISABLE"
             loop_queue = self.values[0] == "QUEUE"
             self.controller.loop.emoji = (
@@ -165,11 +166,15 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             self.controller.loop.style = discord.ButtonStyle.green
             if disable:
                 self.vc.queue.mode = QueueMode.normal
+                ctx.bot.command_usage["player loop"] += 1
             elif loop_queue:
                 self.vc.queue.mode = QueueMode.loop_all
+                ctx.bot.command_usage["queue loop"] += 1
             else:
                 self.vc.queue.mode = QueueMode.loop
+                ctx.bot.command_usage["player loop"] += 1
             self.controller.remove_item(self)
+            self.controller.loop_select = None
             await self.controller.update(itn)
 
 
@@ -236,6 +241,8 @@ class PlayerController(ui.View):
             self.add_item(self.loop)
             self.add_item(self.autoplay)
             self.add_item(self.lyrics)
+            if self.loop_select:
+                self.add_item(self.loop_select)
 
     def update_buttons(self) -> None:
         if self.labels == 0:
@@ -383,9 +390,7 @@ class PlayerController(ui.View):
         else:
             self.remove_item(self.loop_select)
             self.loop_select = None
-
         await self.update(itn)
-        self.ctx.bot.command_usage["queue loop"] += 1
 
     @cui.button(cls=PlayerButton, emoji="<:autoplay:1294460017348710420>")
     async def autoplay(self, itn: Interaction, button: PlayerButton):
