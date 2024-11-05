@@ -167,6 +167,8 @@ class Music(core.Cog):
         if not vc or vc and vc.locked:
             return
 
+        self.bot.songs_played -= 1
+
         _log.error(
             f"Lavalink exception occured: {track.title} ({track.source}:{track.identifier}) in guild ID {vc.ctx.guild.id}\n"
             f"Message: {exception.get('message')}\nSeverity: {exception.get('severity')}"
