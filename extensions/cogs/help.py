@@ -152,7 +152,7 @@ class GroupHelpPages(menus.ListPageSource):
         self.help: OiHelp = help
         self.group: core.HybridGroup = group
         commands = []
-        if self.group.fallback:
+        if isinstance(self.group, core.HybridGroup) and self.group.fallback:
             # If the group has a fallback, it means the group command has functionality, so we need to display a help page
             # with `create_command_help_embed`. Without a fallback, the base group command only serves to hold
             # subcommands and has no other functionality besides showing a help message for the group.
