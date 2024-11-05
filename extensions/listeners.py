@@ -89,6 +89,9 @@ class Important(core.Cog):
     async def on_command(self, ctx: Context) -> None:
         if ctx.cog == self.bot.get_cog("Owner") or not ctx.command:
             return
+        if isinstance(ctx.command, core.HybridGroup):
+            if not ctx.command.fallback:
+                return
         if ctx.command.qualified_name in self.bot.command_usage:
             self.bot.command_usage[ctx.command.qualified_name] += 1
         else:

@@ -22,6 +22,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import re
+from collections import defaultdict
 from datetime import datetime
 
 import aiohttp
@@ -80,7 +81,7 @@ class OiBot(Bot):
         self.maintenance: bool = False
         self.maintenance_cogs: list[Cog] = []
         self.launched_at: datetime = datetime.now(tz=dt.timezone.utc)
-        self.command_usage: dict[str, int] = {}
+        self.command_usage: dict[str, int] = defaultdict(int)
         self.cache: DBCache = DBCache(self)
         self.id_generator: IDGenerator = IDGenerator(1)
         self.songs_played: int = 0
@@ -173,14 +174,6 @@ class OiBot(Bot):
                 _log.info(f"Loaded extension: {extension}")
             except Exception as e:
                 _log.exception(f"Failed to load extension: {extension}. {e}")
-
-        owner = self.get_cog("Owner")
-        for command in self.walk_commands():
-            if command.cog == owner:
-                continue
-            if command.qualified_name in self.command_usage:
-                continue
-            self.command_usage[command.qualified_name] = 0
 
     async def fill_command_mentions(self, commands: list[AppCommand] | None = None) -> None:
         await self.wait_until_ready()
