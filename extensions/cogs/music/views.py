@@ -283,6 +283,9 @@ class PlayerController(ui.View):
 
         self.is_updating = True
 
+        if itn and itn.is_expired() or itn and itn.response.is_done():
+            itn = None
+
         if not itn and type(self.message) is not discord.Message:
             try:
                 self.message = await self.message.fetch()

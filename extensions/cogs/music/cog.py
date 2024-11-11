@@ -247,7 +247,7 @@ class Music(core.Cog):
             return
         if update_after and vc.controller:
             invoke = not ctx.command.qualified_name == "skip"
-            await vc.controller.update(ctx.interaction, invoke=invoke)
+            await vc.controller.update(invoke=invoke)
 
         if vc.ctx.interaction and ctx.interaction:
             vc.ctx.interaction = ctx.interaction
@@ -433,7 +433,7 @@ class Music(core.Cog):
             await vc.skip()
 
         if vc.controller:
-            await vc.controller.update(ctx.interaction)
+            await vc.controller.update()
 
     @core.command(extras=EXTRAS)
     @is_manager()
