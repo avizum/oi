@@ -21,13 +21,16 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import datetime
 import logging
 import math
+import time
 from collections import defaultdict
 from typing import cast, Literal, TYPE_CHECKING
 from urllib import parse
 
 import discord
+import humanize
 import wavelink
 from asyncpg import UniqueViolationError
 from discord import app_commands
@@ -44,6 +47,7 @@ from utils import (
     Playlist as PlaylistD,
     PlaylistRecord,
     PlaylistSong,
+    readable_bytes,
     Song as SongD,
 )
 
@@ -64,7 +68,7 @@ from .utils import (
 from .views import LyricPageSource, PlaylistInfoModal, PlaylistModalView, PlaylistPageSource, QueuePageSource
 
 if TYPE_CHECKING:
-    from core import OiBot
+    from core import Context, OiBot
 
     from .types import PlayerContext, TrackEnd, TrackException, TrackStart, TrackStuck
 
@@ -1434,3 +1438,44 @@ class Music(core.Cog):
         source = LyricPageSource(title, pag)
         paginator = Paginator(source, ctx=ctx, delete_message_after=True)
         await paginator.start()
+
+    @core.command()
+    @commands.cooldown(1, 60, commands.BucketType.guild)
+    async def node(self, ctx: Context):
+        """View the Lavalink node information."""
+        try:
+            node = wavelink.Pool.get_node("OiBot")
+            stats = await node.fetch_stats()
+            memory = stats.memory
+            cpu = stats.cpu
+        except (wavelink.InvalidNodeException, wavelink.NodeException, wavelink.LavalinkException):
+            return await ctx.send("Could not fetch node information.")
+
+        before = time.monotonic()
+        await self.bot.session.get(node.uri)
+        now = time.monotonic()
+        uptime = datetime.timedelta(milliseconds=stats.uptime)
+
+        embed = discord.Embed(title="Node Information")
+        embed.add_field(name="Uptime", value=f"{humanize.precisedelta(uptime, minimum_unit="days")}")
+        embed.add_field(name="Latency", value=f"`{(now - before) * 1000:.2f}ms`")
+        embed.add_field(name="Players", value=f"{stats.players} ({stats.playing} active)")
+        embed.add_field(
+            name="Memory Info",
+            value=(
+                f"Free: `{readable_bytes(memory.free)}`\n"
+                f"Used: `{readable_bytes(memory.used)}`\n"
+                f"Allocated: `{readable_bytes(memory.allocated)}`\n"
+                f"Reversable: `{readable_bytes(memory.reservable)}`"
+            ),
+        )
+        embed.add_field(
+            name="CPU Info",
+            value=(
+                f"Cores: `{cpu.cores}`\n"
+                f"Lavalink load: `{(cpu.lavalink_load * 100):.2f}%`\n"
+                f"System load: `{(cpu.system_load * 100):.2f}%`"
+            ),
+        )
+
+        await ctx.send(embed=embed)

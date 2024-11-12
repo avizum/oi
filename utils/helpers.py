@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
+import math
 from typing import Sequence, TYPE_CHECKING
 
 import discord
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
 __all__ = (
     "embed_to_text",
     "format_seconds",
+    "readable_bytes",
 )
 
 
@@ -92,3 +94,16 @@ def format_seconds(seconds: float, *, friendly: bool = False) -> str:
     hour = f"{hours:02d}:" if hours != 0 or days != 0 else ""
     minsec = f"{minutes:02d}:{seconds:02d}"
     return f"{day}{hour}{minsec}"
+
+
+def readable_bytes(size_in_bytes: int) -> str:
+    """Converts
+    E.g.:
+        1000 -> 1.00 KB
+        12345678 -> 12.34 MB
+    """
+    units = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+
+    power = int(math.log(max(abs(size_in_bytes), 1), 1000))
+
+    return f"{size_in_bytes / (1000 ** power):.2f} {units[power]}"
