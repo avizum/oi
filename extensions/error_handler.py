@@ -75,23 +75,22 @@ class ErrorHandler(core.Cog):
         if isinstance(error, app_commands.CommandInvokeError):
             error = error.original
 
-        if isinstance(
-            error,
-            (
-                commands.MissingPermissions,
-                commands.CommandOnCooldown,
-                commands.MaxConcurrencyReached,
-                commands.DisabledCommand,
-                Blacklisted,
-                Maintenance,
-            ),
-        ) and await self.bot.is_owner(ctx.author):
+        reinvoke = (
+            commands.MissingPermissions,
+            commands.CommandOnCooldown,
+            commands.MaxConcurrencyReached,
+            commands.DisabledCommand,
+            Blacklisted,
+            Maintenance,
+        )
+
+        if isinstance(error, reinvoke) and await self.bot.is_owner(ctx.author) and not ctx.interaction:
             try:
-                await ctx.reinvoke(restart=True)
+                return await ctx.reinvoke(restart=True)
             except Exception:
                 raise
 
-        if isinstance(error, Blacklisted):
+        elif isinstance(error, Blacklisted):
             ratelimited = self.blacklist_cooldown.update_rate_limit(ctx.message)
             embed = discord.Embed(title="You are blacklisted from Oi.", color=discord.Color.red())
             embed.add_field(
