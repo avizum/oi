@@ -47,6 +47,8 @@ from jishaku.repl import AsyncCodeExecutor
 
 from utils import BlacklistRecord
 
+from .music.cog import SEARCH_TYPES
+
 if TYPE_CHECKING:
     from cogs.music import Music
 
@@ -505,6 +507,15 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             await ctx.send("Set data.")
         except (wavelink.LavalinkException, wavelink.NodeException) as exc:
             await ctx.send(f"Could not set data: {exc}")
+
+    @Feature.Command(parent="jsk_music", name="source")
+    async def jsk_music_source(self, ctx: Context, source: SEARCH_TYPES):
+        """Sets the default source for the play command."""
+        cog: Music | None = self.bot.get_cog("Music")  # type: ignore
+        if not cog:
+            return await ctx.send("Music cog isn't loaded.")
+        cog.default_source = source
+        await ctx.send(f"Set the default source to {source}")
 
 
 async def setup(bot: OiBot):

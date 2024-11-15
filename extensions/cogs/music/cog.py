@@ -92,13 +92,18 @@ SEARCH_TYPES = Literal[
 
 type Interaction = discord.Interaction[OiBot]
 
+Default = commands.parameter(default=lambda ctx: ctx.cog.default_source)
+
 
 class Music(core.Cog):
     """Music commands for your server."""
 
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
-        self.next_cooldown = commands.CooldownMapping.from_cooldown(3, 10, type=commands.BucketType.guild)
+        self.next_cooldown: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(
+            3, 10, type=commands.BucketType.guild
+        )
+        self.default_source: str = "YouTube Music"
 
     @property
     def display_emoji(self) -> str:
@@ -340,7 +345,7 @@ class Music(core.Cog):
         ctx: PlayerContext,
         *,
         query: str,
-        source: SEARCH_TYPES = "YouTube Music",
+        source: SEARCH_TYPES = Default,
         play_now: bool = False,
         play_next: bool = False,
         shuffle: bool = False,
@@ -779,9 +784,7 @@ class Music(core.Cog):
         song="The song to add to the playlist.",
         source="The source to use to search if song is not saved by Oi.",
     )
-    async def playlist_songs_add(
-        self, ctx: PlayerContext, playlist: Playlist, song: Song, source: SEARCH_TYPES = "YouTube Music"
-    ):
+    async def playlist_songs_add(self, ctx: PlayerContext, playlist: Playlist, song: Song, source: SEARCH_TYPES = Default):
         """Adds a song to one of your playlists.
 
         Connect the player to search for tracks that Oi hasn't saved.
