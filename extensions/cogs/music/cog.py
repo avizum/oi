@@ -178,7 +178,8 @@ class Music(core.Cog):
 
         _log.error(
             f"Lavalink exception occured: {track.title} ({track.source}:{track.identifier}) in guild ID {vc.ctx.guild.id}\n"
-            f"Message: {exception.get('message')}\nSeverity: {exception.get('severity')}"
+            f"Message: {exception.get('message')}\nSeverity: {exception.get('severity')}\n"
+            f"Cause: {exception.get('cause')}"
         )
 
         cooldown = self.next_cooldown.update_rate_limit(vc.ctx)
