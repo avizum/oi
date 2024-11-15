@@ -33,6 +33,7 @@ from typing import Annotated, Any, Callable, Generator, TYPE_CHECKING
 import discord
 import psutil
 import toml
+import wavelink
 from discord.ext import commands
 from discord.ext.commands import flag
 from jishaku import Feature
@@ -47,6 +48,8 @@ from jishaku.repl import AsyncCodeExecutor
 from utils import BlacklistRecord
 
 if TYPE_CHECKING:
+    from cogs.music import Music
+
     from core import Command, Context, OiBot
 
 
@@ -417,6 +420,91 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             em.add_field(name="Reloaded Extensions", value="\n".join(reloaded))
 
         await ctx.send(embed=em)
+
+    @Feature.Command(parent="jsk", name="music", aliases=["m"], invoke_without_command=True)
+    async def jsk_music(self, ctx: Context):
+        """Controls Lavalink and other music stuff."""
+        node_cmd = self.bot.get_command("node")
+        if not node_cmd:
+            return
+
+        await node_cmd.can_run(ctx)
+        await node_cmd.invoke(ctx)
+
+    @Feature.Command(parent="jsk_music", name="reconnect")
+    async def jsk_music_reconnect(self, ctx: Context):
+        """Reconnects all players."""
+        cog: Music | None = self.bot.get_cog("Music")  # type: ignore
+        if not cog:
+            return await ctx.send("Music cog isn't loaded.")
+        elif not self.bot.voice_clients:
+            return await ctx.send("There are no music players connected.")
+
+        msg = await ctx.send("Reconnecting players...")
+        to_reconnect: list[asyncio.Task] = []
+        for vc in self.bot.voice_clients:
+            to_reconnect.append(self.bot.loop.create_task(cog._reconnect(vc)))  # type: ignore
+
+        gather = await asyncio.gather(*to_reconnect)
+        failed = len([result for result in gather if result is False])
+        if failed:
+            await msg.edit(content=f"{failed} of {len(gather)} players failed to reconnect.")
+            return
+        await msg.edit(content="Finished reconnecting all players.")
+
+    @Feature.Command(parent="jsk_music", name="disconnect")
+    async def jsk_music_disconnect(self, ctx: Context):
+        """Disconnects the Lavalink Node."""
+        try:
+            node = wavelink.Pool.get_node("OiBot")
+        except wavelink.InvalidNodeException:
+            await ctx.send("There is no node to disconnect")
+            return
+
+        if not self.bot.voice_clients:
+            await node.close(eject=True)
+            await ctx.send("Disconnected the node.")
+            return
+
+        conf = await ctx.confirm(
+            message=(
+                f"Are you sure you want to disconnect the Node?\n"
+                f"There are {len(self.bot.voice_clients)} connected players."
+            ),
+            remove_view_after=True,
+        )
+        if conf.result:
+            await node.close(eject=True)
+            await conf.message.edit(content="Disconnected the node.")
+            return
+        return await conf.message.edit(content="Okay, the node will not be disconnected.")
+
+    @Feature.Command(parent="jsk_music", name="connect")
+    async def jsk_music_connect(self, ctx: Context):
+        """Connects the Lavalink node."""
+        try:
+            node = wavelink.Pool.get_node("OiBot")
+            if node:
+                return await ctx.send("Node is already connected.")
+        except wavelink.InvalidNodeException:
+            pass
+        msg = await ctx.send("Starting nodes...")
+        await self.bot.start_wavelink_nodes()
+        try:
+            wavelink.Pool.get_node("OiBot")
+        except wavelink.InvalidNodeException:
+            return await msg.edit(content="Couldn't start node.")
+        await msg.edit(content="Started Node.")
+
+    @Feature.Command(parent="jsk_music", name="refresh")
+    async def jsk_music_refresh(self, ctx: Context, po_token: str, visitor_data: str):
+        """Refresh the po_token and visitor_data used by Lavalink."""
+        try:
+            node = wavelink.Pool.get_node("OiBot")
+            await node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
+            await ctx.send("Set data.")
+        except (wavelink.LavalinkException, wavelink.NodeException) as exc:
+            await ctx.send(f"Could not set data: {exc}")
 
 
 async def setup(bot: OiBot):

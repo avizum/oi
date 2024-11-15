@@ -320,31 +320,9 @@ class Music(core.Cog):
     @is_in_voice()
     async def reconnect(self, ctx: PlayerContext):
         """Reconnects your player without loss of the queue and song position."""
-        if await self.bot.is_owner(ctx.author) and not ctx.interaction:
-            to_reconnect: list[asyncio.Task] = []
-            for vc in self.bot.voice_clients:
-                to_reconnect.append(self.bot.loop.create_task(self._reconnect(vc)))  # type: ignore # all voice clients are type Player
-            gathered = await asyncio.gather(*to_reconnect)
-            failed = len([result for result in gathered if result is False])
-            if failed:
-                return await ctx.send(f"{failed} players failed to reconnect.")
-            return await ctx.send("Finished reconnecting all players.")
         async with ctx.typing():
             await self._reconnect(ctx.voice_client)
             return await ctx.send("Reconnected.")
-
-    @core.command(hidden=True)
-    @app_commands.guilds(768895735764221982, 866891524319084587)
-    @core.has_permissions(ban_members=True)
-    @core.is_owner()
-    async def refresh(self, ctx: PlayerContext, po_token: str, visitor_data: str):
-        """Refreshes the internal tokens used by Lavalink."""
-        try:
-            node = wavelink.Pool.get_node("OiBot")
-            await node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
-            await ctx.send("Set data.")
-        except (wavelink.LavalinkException, wavelink.NodeException) as exc:
-            await ctx.send(f"Could not set data: {exc}")
 
     @core.command()
     @is_not_deafened()

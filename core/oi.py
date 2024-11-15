@@ -121,7 +121,7 @@ class OiBot(Bot):
         await self.wait_until_ready()
 
         nodes: dict[str, wavelink.Node] = await wavelink.Pool.connect(
-            nodes=[wavelink.Node(**self.config["LAVALINK"], retries=5)], client=self
+            nodes=[wavelink.Node(**self.config["LAVALINK"], session=self.session, retries=5)], client=self
         )
         for node in nodes.values():
             if node.status == wavelink.NodeStatus.DISCONNECTED:
