@@ -25,6 +25,7 @@ import datetime
 import difflib
 import inspect
 import io
+import logging
 import re
 import sys
 from importlib.metadata import distribution, packages_distributions
@@ -50,9 +51,13 @@ from utils import BlacklistRecord
 from .music.cog import SEARCH_TYPES
 
 if TYPE_CHECKING:
-    from cogs.music import Music
-
     from core import Command, Context, OiBot
+
+    from .music import Music
+    from .music.player import Player
+
+
+_log = logging.getLogger("oi.music")
 
 
 class ExtensionConverter(commands.Converter):
@@ -76,6 +81,34 @@ class BlacklistFlags(commands.FlagConverter):
     permanent: bool = flag(description="Whether the blacklist will be appealable.")
 
 
+class ConfigFlags(commands.FlagConverter):
+    po_token: str | None = flag(description="Set YouTube po token", default=None)
+    visitor_data: str | None = flag(description="Set YouTube visitor data", default=None)
+    refresh_token: str | None = flag(description="Set YouTube refresh token.", default=None)
+    client_id: str | None = flag(description="Set Spotify client ID", default=None)
+    client_secret: str | None = flag(description="Set Spotify client secret", default=None)
+    sp_dc: str | None = flag(description="Set Spotify spDc cookie", default=None)
+    media_api_token: str | None = flag(description="Set Apple Music media API token", default=None)
+
+
+config_mapping_sources: dict[str, str] = {
+    "client_id": "spotify",
+    "client_secret": "spotify",
+    "sp_dc": "spotify",
+    "media_api_token": "applemusic",
+}
+
+config_mapping_names: dict[str, str] = {
+    "po_token": "poToken",
+    "visitor_data": "visitorData",
+    "refresh_token": "refreshToken",
+    "client_id": "clientId",
+    "client_secret": "clientSecret",
+    "sp_dc": "spDc",
+    "media_api_token": "mediaAPIToken",
+}
+
+
 class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
     """Jishaku and Developer commands."""
 
@@ -90,6 +123,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         for command in self.walk_commands():
             command.hidden = True
             command.member_permissions = ["bot_owner"]
+        self._players_to_restore: dict[int, Player] = {}
 
     @property
     def display_emoji(self) -> str:
@@ -476,6 +510,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             remove_view_after=True,
         )
         if conf.result:
+            self._players_to_restore = node.players  # type: ignore
             await node.close(eject=True)
             await conf.message.edit(content="Disconnected the node.")
             return
@@ -498,15 +533,69 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             return await msg.edit(content="Couldn't start node.")
         await msg.edit(content="Started Node.")
 
+        if self._players_to_restore:
+            cog: Music | None = self.bot.get_cog("Music")  # type: ignore
+            if not cog:
+                await ctx.send("Couldn't restore players, Music cog is not loaded.")
+                return
+
+            to_restore: list[asyncio.Task] = []
+            for _, vc in self._players_to_restore.items():
+                to_restore.append(self.bot.loop.create_task(cog._reconnect(vc)))
+
+            gather = await asyncio.gather(*to_restore)
+            failed = len([result for result in gather if result is False])
+            if failed:
+                await ctx.send(f"{failed} of {len(gather)} players failed to reconnect.")
+                return
+            await ctx.send("Restored all players.")
+
     @Feature.Command(parent="jsk_music", name="refresh")
-    async def jsk_music_refresh(self, ctx: Context, po_token: str, visitor_data: str):
-        """Refresh the po_token and visitor_data used by Lavalink."""
+    async def jsk_music_refresh(self, ctx: Context, *, flags: ConfigFlags):
+        """Refresh the API tokens used by Lavalink."""
+
+        node = wavelink.Pool.get_node("OiBot")
+        if flags.po_token or flags.visitor_data or flags.refresh_token:
+            data = {}
+            changed = []
+            if flags.po_token:
+                data["poToken"] = flags.po_token
+                changed.append("`po_token`")
+            if flags.visitor_data:
+                data["visitorData"] = flags.visitor_data
+                changed.append("`visitor_data`")
+            if flags.refresh_token:
+                data["refreshToken"] = flags.refresh_token
+                changed.append("`refresh_token`")
+            try:
+                await node.send("POST", path="youtube", data=data)
+                await ctx.send(f"Set YouTube data: {', '.join(changed)}")
+            except (wavelink.LavalinkException, wavelink.NodeException) as exc:
+                await ctx.send(f"Could not set YouTube data: {exc}")
+
+        data = {}
+        changed = []
+        for name, value in flags:
+            if not value:
+                continue
+            try:
+                changed.append(f"`{name}`")
+                if config_mapping_sources[name] not in data:
+                    data[config_mapping_sources[name]] = {}
+                data[config_mapping_sources[name]][config_mapping_names[name]] = value
+            except KeyError:
+                # KeyError happens when po_token, visitor_data or refresh_token are set.
+                # These were already set so we can just ignore it.
+                continue
+
+        if not changed:
+            await ctx.send("Nothing was set.")
+            return
         try:
-            node = wavelink.Pool.get_node("OiBot")
-            await node.send("POST", path="youtube", data={"poToken": po_token, "visitorData": visitor_data})
-            await ctx.send("Set data.")
+            await node.send("PATCH", path="v4/lavasrc/config", data=data)
+            await ctx.send(f"The following was set:\n{', '.join(changed)}.")
         except (wavelink.LavalinkException, wavelink.NodeException) as exc:
-            await ctx.send(f"Could not set data: {exc}")
+            await ctx.send(f"Could not set\n{', '.join(changed)}: {exc}")
 
     @Feature.Command(parent="jsk_music", name="source")
     async def jsk_music_source(self, ctx: Context, source: SEARCH_TYPES):
