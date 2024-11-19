@@ -31,7 +31,6 @@ import discord
 import jishaku
 import toml
 import wavelink
-from discord.app_commands import AppCommand
 from discord.ext import commands
 from discord.ext.commands.core import _CaseInsensitiveDict
 from discord.utils import _ColourFormatter
@@ -42,7 +41,7 @@ from waifuim import Client as WaifiImClient
 from extensions.logger import WebhookHandler
 from utils import DBCache, ExpiringCache, IDGenerator
 
-from .commands import Bot, Cog, HybridCommand
+from .commands import Bot, Cog
 
 _log = logging.getLogger("oi")
 
@@ -175,14 +174,6 @@ class OiBot(Bot):
             except Exception as e:
                 _log.exception(f"Failed to load extension: {extension}. {e}")
 
-    async def fill_command_mentions(self, commands: list[AppCommand] | None = None) -> None:
-        await self.wait_until_ready()
-        raw_tree_cmds = commands or await self.tree.fetch_commands()
-        for raw_cmd in raw_tree_cmds:
-            cmd = self.get_command(raw_cmd.name)
-            if isinstance(cmd, HybridCommand):
-                cmd.raw_app_command = raw_cmd
-
     async def create_pool(self) -> asyncpg.Pool:
         pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["POSTGRESQL"])  # type: ignore
         self.pool = pool
@@ -208,7 +199,7 @@ class OiBot(Bot):
         self.loop.create_task(self.start_wavelink_nodes())
         self.loop.create_task(self.start_topgg())
         self.loop.create_task(self.start_waifuim())
-        self.loop.create_task(self.fill_command_mentions())
+        self.loop.create_task(self.tree.fetch_commands())
 
     def run(self) -> None:
         self.setup_logging()

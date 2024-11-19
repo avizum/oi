@@ -20,17 +20,30 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Callable, Concatenate, Generator, ParamSpec, TYPE_CHECKING, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Concatenate,
+    Coroutine,
+    Generator,
+    Literal,
+    overload,
+    ParamSpec,
+    TYPE_CHECKING,
+    TypeVar,
+    Union,
+)
 
 import discord
 from discord import app_commands
 from discord.ext import commands
-from discord.utils import MISSING
+from discord.utils import cached_property, MISSING
 
 if TYPE_CHECKING:
-    from discord.app_commands import AppCommand
+    from discord.abc import Snowflake
     from discord.ext.commands import Context
     from discord.ext.commands._types import Coro
+    from discord.ext.commands.hybrid import HybridAppCommand
 
     from .oi import OiBot
 
@@ -52,6 +65,7 @@ __all__ = (
 CogT = TypeVar("CogT", bound="Cog | None")
 P = ParamSpec("P")
 T = TypeVar("T")
+type CommandType = app_commands.Command[Any, ..., Any] | HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any]
 
 
 class Command(commands.Command[CogT, P, T]):
@@ -154,33 +168,78 @@ class Group(commands.Group, Command[CogT, P, T]):
         return decorator
 
 
+class Mention:
+    def __init__(self, command: HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any], /) -> None:
+        self.command = command
+        try:
+            self.tree: MentionableTree = command.cog.bot.tree
+        except AttributeError as exc:
+            raise ValueError("Can not mention command that doesn't have a tree.") from exc
+
+    def get_mention(self, /, *, guild: Snowflake | None = None) -> str:
+        default = f"/{self.command.qualified_name}"
+        if not self.command.app_command:
+            return default
+        command = self.command.app_command
+        if isinstance(self.command, HybridGroup) and self.command.fallback:
+            cmd = self.command.app_command.get_command(self.command.fallback)
+            if cmd:
+                command = cmd
+        mention = self.tree.get_mention(command, guild=guild)
+        if not mention:
+            return default
+        return mention
+
+    def __call__(self, /, *, guild: Snowflake | None):
+        return self.get_mention(guild=guild)
+
+    def __str__(self):
+        return self.get_mention()
+
+
 class HybridCommand(commands.HybridCommand, Command[CogT, P, T]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.raw_app_command: AppCommand | None = None
         super().__init__(*args, **kwargs)
 
         if self.app_command:
             self.app_command.guild_only = True
 
-    @property
-    def mention(self):
-        if not self.raw_app_command:
-            return f"/{self.qualified_name}"
-        return self.raw_app_command.mention
+    @cached_property
+    def mention(self) -> Mention:
+        return Mention(self)
+
+    @cached_property
+    def id(self) -> int | None:
+        try:
+            tree: MentionableTree = self.cog.bot.tree
+
+            app_command = tree.get_app_command(self)
+            if app_command:
+                return app_command.id
+        except AttributeError:
+            return None
 
 
 class HybridGroup(commands.HybridGroup, Group[CogT, P, T]):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
-        self.raw_app_command: AppCommand | None = None
         super().__init__(*args, **kwargs)
         if self.app_command:
             self.app_command.guild_only = True
 
-    @property
+    @cached_property
     def mention(self):
-        if not self.raw_app_command:
-            return f"/{self.qualified_name}"
-        return self.raw_app_command.mention
+        return Mention(self)
+
+    @cached_property
+    def id(self) -> int | None:
+        try:
+            tree: MentionableTree = self.cog.bot.tree
+
+            app_command = tree.get_app_command(self)
+            if app_command:
+                return app_command.id
+        except AttributeError:
+            return None
 
     def command(
         self,
@@ -211,6 +270,11 @@ class HybridGroup(commands.HybridGroup, Group[CogT, P, T]):
             return result
 
         return decorator
+
+    def get_command(
+        self, name
+    ) -> HybridCommand[Any, ..., Any] | Command[Any, ..., Any] | commands.Command[Any, ..., Any] | None:
+        return super().get_command(name)
 
 
 def command(name: str = MISSING, **attrs: Any) -> Callable[..., HybridCommand]:
@@ -257,8 +321,239 @@ class GroupCog(commands.GroupCog):
         return "<:oi_coin:909746036996702239>"
 
 
+class MentionableTree(app_commands.CommandTree):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.application_commands: dict[int | None, list[app_commands.AppCommand]] = {}
+        self.cache: dict[int | None, dict[app_commands.Command | app_commands.Group | HybridCommand | str, str]] = {}
+
+    async def sync(self, *, guild: Snowflake | None = None) -> list[app_commands.AppCommand]:
+        """Syncs all application commands under this tree to Discord, then caches the commands."""
+        ret = await super().sync(guild=guild)
+        guild_id = guild.id if guild else None
+        self.application_commands[guild_id] = ret
+        self.cache.pop(guild_id, None)
+        return ret
+
+    async def fetch_commands(self, *, guild: Snowflake | None = None) -> list[app_commands.AppCommand]:
+        """Fetches app commands from Discord, then caches the commands."""
+        ret = await super().fetch_commands(guild=guild)
+        guild_id = guild.id if guild else None
+        self.application_commands[guild_id] = ret
+        self.cache.pop(guild_id, None)
+        return ret
+
+    def get_app_commands(self, *, guild: Snowflake | None = None):
+        """Returns the cached app commands, if any."""
+        try:
+            return self.application_commands[guild.id if guild else None]
+        except KeyError:
+            return None
+
+    async def get_or_fetch_app_commands(self, *, guild: Snowflake | None = None):
+        """Method overwritten to store the commands."""
+        try:
+            return self.application_commands[guild.id if guild else None]
+        except KeyError:
+            return await self.fetch_commands(guild=guild)
+
+    @overload
+    def get_app_command(
+        self, command: CommandType, *, guild: Snowflake | None = None, fetch: Literal[True]
+    ) -> Coroutine[Any, Any, app_commands.AppCommand | None]: ...
+
+    @overload
+    def get_app_command(
+        self, command: CommandType, *, guild: Snowflake | None = None, fetch: Literal[False] = ...
+    ) -> app_commands.AppCommand | None: ...
+
+    def get_app_command(
+        self, command: CommandType, *, guild: Snowflake | None = None, fetch: bool = False
+    ) -> Coroutine[Any, Any, app_commands.AppCommand | None] | app_commands.AppCommand | None:
+        check_global = self.fallback_to_global is True and guild is not None
+        if fetch:
+
+            async def _async() -> app_commands.AppCommand | None:
+                local_commands = await self.get_or_fetch_app_commands(guild=guild)
+                app_command_found = discord.utils.get(local_commands, name=(command.root_parent or command).name)
+
+                if check_global and not app_command_found:
+                    global_commands = await self.get_or_fetch_app_commands(guild=guild)
+                    app_command_found = discord.utils.get(global_commands, name=(command.root_parent or command).name)
+                return app_command_found
+
+            return _async()
+
+        def _sync() -> app_commands.AppCommand | None:
+            local_commands = self.get_app_commands(guild=guild)
+            if not local_commands:
+                return None
+            app_command_found = discord.utils.get(local_commands, name=(command.root_parent or command).name)
+
+            if check_global and not app_command_found:
+                global_commands = self.get_app_commands(guild=None)
+                if not global_commands:
+                    return None
+                app_command_found = discord.utils.get(global_commands, name=(command.root_parent or command).name)
+
+            return app_command_found
+
+        return _sync()
+
+    async def fetch_mention(
+        self, command: app_commands.Command | HybridCommand, *, guild: Snowflake | None = None
+    ) -> str | None:
+        """Fetches the mention of an AppCommand given a specific command name, and optionally, a guild.
+
+        Parameters
+        ----------
+        name: `app_commands.Command` | `HybridCommand`
+            The command to retrieve the mention for.
+        guild: `Snowflake` | `None`
+            The scope (guild) from which to retrieve the commands from. If None is given or not passed,
+            only the global scope will be searched, however the global scope will also be searched if
+            a guild is passed.
+
+        Returns
+        -------
+        str | None
+            The command mention, if found.
+        """
+        guild_id = guild.id if guild else None
+        try:
+            return self.cache[guild_id][command]
+        except KeyError:
+            pass
+
+        check_global = self.fallback_to_global is True and guild is not None
+
+        local_commands = await self.get_or_fetch_app_commands(guild=guild)
+        app_command_found = discord.utils.get(local_commands, name=(command.root_parent or command).name)
+
+        if check_global and not app_command_found:
+            global_commands = await self.get_or_fetch_app_commands(guild=None)
+            app_command_found = discord.utils.get(global_commands, name=(command.root_parent or command).name)
+
+        if not app_command_found:
+            return None
+
+        mention = f"</{command.qualified_name}:{app_command_found.id}>"
+        self.cache.setdefault(guild_id, {})
+        self.cache[guild_id][command] = mention
+        return mention
+
+    def get_mention(
+        self,
+        command: app_commands.Command | app_commands.Group | HybridCommand | HybridAppCommand,
+        *,
+        guild: Snowflake | None = None,
+    ) -> str | None:
+        """Retrieves the mention of an AppCommand given a specific command name from cache, and optionally, a guild.
+
+        Parameters
+        ----------
+        name: `app_commands.Command` | `HybridCommand`
+            The command to retrieve the mention for.
+        guild: `Snowflake` | `None`
+            The scope (guild) from which to retrieve the commands from. If None is given or not passed,
+            only the global scope will be searched, however the global scope will also be searched if
+            a guild is passed.
+
+        Returns
+        -------
+        str | None
+            The command mention, if found.
+        """
+
+        guild_id = guild.id if guild else None
+        try:
+            return self.cache[guild_id][command]
+        except KeyError:
+            pass
+
+        # If a guild is given, and fallback to global is set to True, then we must also
+        # check the global scope, as commands for both show in a guild.
+        check_global = self.fallback_to_global is True and guild is not None
+
+        local_commands = self.get_app_commands(guild=guild)
+        if not local_commands:
+            return None
+        app_command_found = discord.utils.get(local_commands, name=(command.root_parent or command).name)
+
+        if check_global and not app_command_found:
+            global_commands = self.get_app_commands(guild=None)
+            if not global_commands:
+                return None
+            app_command_found = discord.utils.get(global_commands, name=(command.root_parent or command).name)
+
+        if not app_command_found:
+            return None
+
+        mention = f"</{command.qualified_name}:{app_command_found.id}>"
+        self.cache.setdefault(guild_id, {})
+        self.cache[guild_id][command] = mention
+        return mention
+
+    def _walk_children(
+        self, commands: list[app_commands.Group | app_commands.Command]
+    ) -> Generator[app_commands.Command, None, None]:
+        for command in commands:
+            if isinstance(command, app_commands.Group):
+                yield from self._walk_children(command.commands)
+            else:
+                yield command
+
+    async def __async_walk_mentions(self, *, guild: Snowflake | None = None):
+        for command in self._walk_children(self.get_commands(guild=guild, type=discord.AppCommandType.chat_input)):
+            mention = await self.fetch_mention(command, guild=guild)
+            if mention:
+                yield command, mention
+        if guild and self.fallback_to_global is True:
+            for command in self._walk_children(self.get_commands(guild=None, type=discord.AppCommandType.chat_input)):
+                mention = await self.fetch_mention(command, guild=guild)
+                if mention:
+                    yield command, mention
+
+    def __walk_mentions(self, *, guild: Snowflake | None = None):
+        for command in self._walk_children(self.get_commands(guild=guild, type=discord.AppCommandType.chat_input)):
+            mention = self.get_mention(command, guild=guild)
+            if mention:
+                yield command, mention
+        if guild and self.fallback_to_global is True:
+            for command in self._walk_children(self.get_commands(guild=None, type=discord.AppCommandType.chat_input)):
+                mention = self.get_mention(command, guild=guild)
+                if mention:
+                    yield command, mention
+
+    def walk_mentions(self, *, guild: Snowflake | None = None, fetch: bool = False):
+        """Gets all valid mentions for app commands in a specific guild.
+
+        This takes into consideration group commands, it will only return mentions for
+        the command's children, and not the parent as parents aren't mentionable.
+
+        Parameters
+        ----------
+        guild: discord.Guild | None
+            The guild to get commands for. If not given, it will only return global commands.
+        fetch: bool
+            Whether to fetch the commands. This will return a corutine.
+
+        Yields
+        ------
+        tuple[`app_commands.Command` | `HybridCommand`, str]
+
+        """
+        if fetch:
+            return self.__async_walk_mentions(guild=guild)
+        else:
+            return self.__walk_mentions(guild=guild)
+
+
 class Bot(commands.AutoShardedBot):
-    """Normal bot class but with command and group decorators changed to HybridCommand and HybridGroup."""
+    """AutoShardedBot with a custom tree, command, and group decorators."""
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs, tree_cls=MentionableTree)
 
     def command(self, name: str = MISSING, **kwargs) -> Callable[..., HybridCommand]:
         def decorator(func) -> HybridCommand:
