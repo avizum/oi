@@ -545,6 +545,15 @@ class HelpCommandCog(core.Cog):
     async def _help(self, itn: discord.Interaction, entity: str | None = None):
         """Shows help for commands or modules."""
         ctx = await self.bot.get_context(itn)
+        # This is the only app_commands.command, so in order for this command to be logged, we do this:
+        command = self.bot.get_command("help")
+        if command is None:
+            # command should never be none, If this cog is unloaded, then help is none,
+            # and this command wouldn't be invoked in the first place.
+            return
+        ctx.command = command
+        self.bot.dispatch("command", ctx)
+
         if entity is not None:
             cmd = self.bot.get_command(entity) or self.bot.get_cog(entity)
             if cmd is None:
