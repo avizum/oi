@@ -539,7 +539,7 @@ class Utility(core.Cog):
         await ctx.send(embed=embed)
 
     @usage.command(name="member")
-    @core.describe(command_type="What type of command usage to show.")
+    @core.describe(member="The member's command usage you want to see.", command_type="What type of command usage to show.")
     @app_commands.rename(command_type="type")
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def usage_member(self, ctx: Context, member: discord.Member = commands.Author, command_type: CommandTypes = 0):
@@ -579,13 +579,13 @@ class Utility(core.Cog):
         pool = self.bot.pool
 
         async with ctx.typing():
-            total_uses: TotalUsesRecord = await pool.fetchrow(Query.TOTAL_USES, record_class=TotalUsesRecord)
+            total_uses: TotalUsesRecord = await pool.fetchrow(Query.TOTAL_USES, command_type, record_class=TotalUsesRecord)
             if not total_uses.uses:
                 # This should only happen if there are no entries in the database, which would be very bad.
                 return await ctx.send("No command usage logged for some reason.")
 
-            top_uses: list[UsesRecord] = await pool.fetch(Query.TOP_USES, record_class=UsesRecord)
-            top_uses_today: list[UsesRecord] = await pool.fetch(Query.TOP_USES_TODAY, record_class=UsesRecord)
+            top_uses: list[UsesRecord] = await pool.fetch(Query.TOP_USES, command_type, record_class=UsesRecord)
+            top_uses_today: list[UsesRecord] = await pool.fetch(Query.TOP_USES_TODAY, command_type, record_class=UsesRecord)
 
         embed = discord.Embed(
             title="Global Command Usage",
