@@ -74,7 +74,7 @@ if TYPE_CHECKING:
 
 __all__ = ("Music",)
 
-_log = logging.getLogger("oi.music")
+_log = logging.getLogger(__name__)
 
 
 MENTIONS = discord.AllowedMentions.none()

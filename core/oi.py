@@ -43,7 +43,7 @@ from utils import DBCache, ExpiringCache, IDGenerator
 
 from .commands import Bot, Cog
 
-_log = logging.getLogger("oi")
+_log = logging.getLogger(__name__)
 
 jishaku.Flags.HIDE = True
 jishaku.Flags.RETAIN = True

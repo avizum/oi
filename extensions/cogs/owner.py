@@ -25,7 +25,6 @@ import datetime
 import difflib
 import inspect
 import io
-import logging
 import re
 import sys
 from importlib.metadata import distribution, packages_distributions
@@ -55,9 +54,6 @@ if TYPE_CHECKING:
 
     from .music import Music
     from .music.player import Player
-
-
-_log = logging.getLogger("oi.music")
 
 
 class ExtensionConverter(commands.Converter):

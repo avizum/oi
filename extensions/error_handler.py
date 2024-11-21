@@ -35,7 +35,7 @@ from utils import Blacklisted, Maintenance, NotVoted
 if TYPE_CHECKING:
     from core import Context, OiBot
 
-_log = logging.getLogger("oi.commands")
+_log = logging.getLogger(__name__)
 
 VOTE_VIEW = discord.ui.View()
 VOTE_VIEW.add_item(
