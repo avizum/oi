@@ -22,7 +22,8 @@ from __future__ import annotations
 import datetime
 import inspect
 import pathlib
-from typing import TYPE_CHECKING
+from enum import Enum
+from typing import Annotated, TYPE_CHECKING
 
 import discord
 import humanize
@@ -30,10 +31,12 @@ import psutil
 import pytz
 from discord import app_commands
 from discord.ext import commands, menus
+from discord.utils import _human_join as human_join
 from jishaku.math import natural_size
 
 import core
 from utils import Paginator
+from utils.types import Record
 
 if TYPE_CHECKING:
     from core import Context, OiBot
@@ -42,6 +45,23 @@ if TYPE_CHECKING:
 
 NORMAL_PERMISSONS = discord.Permissions(1644942454270)
 SOURCE_URL = "https://github.com/avizum/oi"
+
+
+class CommandTypesConverter(int, Enum):
+    all = 0
+    slash = 1
+    prefix = 2
+
+    @classmethod
+    async def convert(cls, ctx: Context, argument: str) -> int:
+        try:
+            return cls[argument].value
+        except KeyError as exc:
+            fmt = human_join(list(f'"{item.name}"' for item in cls))
+            raise commands.BadArgument(f'Could not convert "{argument}" to {fmt}') from exc
+
+
+CommandTypes = Annotated[int, CommandTypesConverter]
 
 
 class UsagePageSource(menus.ListPageSource):
@@ -56,6 +76,165 @@ class UsagePageSource(menus.ListPageSource):
         items = f"```\n{ent}```"
         self.embed.add_field(name=f"Commands ran: {self.total:,}", value=items)
         return self.embed
+
+
+class UsesRecord(Record):
+    command_name: str
+    uses: int
+
+
+class UserUsesRecord(Record):
+    user_id: int
+    uses: int
+
+
+class TotalUsesRecord(Record):
+    uses: int
+    since: datetime.datetime
+
+
+class Query:
+    MAPPING = {0: "", 1: "Slash ", 2: "Prefix "}
+
+    TOTAL_USES = """
+        SELECT CASE
+            WHEN $1 = 0 THEN COUNT(*)
+            WHEN $1 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $1 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses", MIN(used) as "since"
+        FROM command_usage
+    """
+
+    TOP_USES = """
+        SELECT command_name,
+        CASE
+            WHEN $1 = 0 THEN COUNT(*)
+            WHEN $1 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $1 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        GROUP BY command_name
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    TOP_USES_TODAY = """
+        SELECT command_name,
+        CASE
+            WHEN $1 = 0 THEN COUNT(*)
+            WHEN $1 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $1 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE used > (CURRENT_TIMESTAMP - INTERVAL '1 day')
+        GROUP BY command_name
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    GUILD_USES = """
+        SELECT CASE
+            WHEN $2 = 0 THEN COUNT(*)
+            WHEN $2 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $2 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses", MIN(used) as "since"
+        FROM command_usage
+        WHERE guild_id = $1
+    """
+
+    GUILD_TOP_USES = """
+        SELECT command_name,
+        CASE
+            WHEN $2 = 0 THEN COUNT(*)
+            WHEN $2 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $2 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE guild_id = $1
+        GROUP BY command_name
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    GUILD_TOP_USES_TODAY = """
+        SELECT command_name,
+        CASE
+            WHEN $2 = 0 THEN COUNT(*)
+            WHEN $2 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $2 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE guild_id = $1 AND used > (CURRENT_TIMESTAMP - INTERVAL '1 day')
+        GROUP BY command_name
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    GUILD_TOP_USERS = """
+        SELECT user_id,
+        CASE
+            WHEN $2 = 0 THEN COUNT(*)
+            WHEN $2 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $2 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE guild_id = $1
+        GROUP BY user_id
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    GUILD_TOP_USERS_TODAY = """
+        SELECT user_id,
+        CASE
+            WHEN $2 = 0 THEN COUNT(*)
+            WHEN $2 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $2 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE guild_id = $1 AND used > (CURRENT_TIMESTAMP - INTERVAL '1 day')
+        GROUP BY user_id
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    MEMBER_USES = """
+        SELECT CASE
+            WHEN $3 = 0 THEN COUNT(*)
+            WHEN $3 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $3 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses", MIN(used) as "since"
+        FROM command_usage
+        WHERE guild_id = $1 AND user_id = $2
+    """
+
+    MEMBER_TOP_USES = """
+        SELECT command_name,
+        CASE
+            WHEN $3 = 0 THEN COUNT(*)
+            WHEN $3 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $3 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE guild_id = $1 AND user_id = $2
+        GROUP BY command_name
+        ORDER BY uses DESC
+        LIMIT 5
+    """
+
+    MEMBER_TOP_USES_TODAY = """
+        SELECT command_name,
+        CASE
+            WHEN $3 = 0 THEN COUNT(*)
+            WHEN $3 = 1 THEN COUNT(CASE WHEN app_command THEN 1 END)
+            WHEN $3 = 2 THEN COUNT(CASE WHEN NOT app_command THEN 1 END)
+        END AS "uses"
+        FROM command_usage
+        WHERE guild_id = $1 AND user_id = $2 AND used > (CURRENT_TIMESTAMP - INTERVAL '1 day')
+        GROUP BY command_name
+        ORDER BY uses DESC
+        LIMIT 5
+    """
 
 
 class Utility(core.Cog):
@@ -300,17 +479,136 @@ class Utility(core.Cog):
         await ctx.send(embed=embed)
         # fmt: on
 
-    @oi.command()
-    @commands.cooldown(1, 3, commands.BucketType.user)
-    async def usage(self, ctx: Context):
-        """Shows the command usage stats from last reboot."""
+    def get_user(self, user_id: int) -> str:
+        try:
+            user = self.bot.cached_users[user_id][0]
+            return user.name
+        except KeyError:
+            return "Not Found"
+
+    def format_usage(self, record: list[UsesRecord | UserUsesRecord]) -> str:
+        fmt = []
+        if not record:
+            return "No command usage."
+        if isinstance(record[0], UserUsesRecord):
+            for count, row in enumerate(record, start=1):
+                fmt.append(f"{count}. {self.get_user(row.user_id)}: {row.uses} command uses")
+        else:
+            for count, row in enumerate(record, start=1):
+                fmt.append(f"{count}. {row.command_name}: {row.uses} uses")
+        return "\n".join(fmt)
+
+    @oi.group(fallback="server")
+    @core.describe(command_type="What type of command usage to show.")
+    @app_commands.rename(command_type="type")
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def usage(self, ctx: Context, command_type: CommandTypes = 0):
+        """Shows command usage for this server."""
+        cmd_type = Query.MAPPING[command_type]
+        pool = self.bot.pool
+
+        async with ctx.typing():
+            args = (ctx.guild.id, command_type)
+            total_uses: TotalUsesRecord = await pool.fetchrow(Query.GUILD_USES, *args, record_class=TotalUsesRecord)
+            if not total_uses.uses:
+                return await ctx.send(f"No {cmd_type}command usage logged for {ctx.guild} yet.")
+
+            top_uses: list[UsesRecord] = await pool.fetch(Query.GUILD_TOP_USES, *args, record_class=UsesRecord)
+            top_uses_today: list[UsesRecord] = await pool.fetch(Query.GUILD_TOP_USES_TODAY, *args, record_class=UsesRecord)
+            top_users: list[UserUsesRecord] = await pool.fetch(Query.GUILD_TOP_USERS, *args, record_class=UserUsesRecord)
+            await self.bot.fetch_users(*[row.user_id for row in top_users])
+
+            top_users_today: list[UserUsesRecord] = await pool.fetch(
+                Query.GUILD_TOP_USERS_TODAY, *args, record_class=UserUsesRecord
+            )
+            await self.bot.fetch_users(*[row.user_id for row in top_users_today])
+
+        embed = discord.Embed(
+            title=f"{cmd_type}Command Usage for {ctx.guild.name}",
+            description=f"This server has {total_uses.uses:,} {cmd_type}command uses.",
+            timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
+        )
+        embed.add_field(name=f"Top {cmd_type}Commands", value=self.format_usage(top_uses))
+        embed.add_field(name=f"Top {cmd_type}Commands Today", value=self.format_usage(top_uses_today))
+        embed.add_field(name="\u200b", value="\u200b")
+        embed.add_field(name=f"Top {cmd_type}Command Users", value=self.format_usage(top_users))
+        embed.add_field(name=f"Top {cmd_type}Command Users Today", value=self.format_usage(top_users_today))
+        embed.add_field(name="\u200b", value="\u200b")
+        embed.set_footer(text="Tracking since", icon_url=self.bot.user.display_avatar.url)
+
+        await ctx.send(embed=embed)
+
+    @usage.command(name="member")
+    @core.describe(command_type="What type of command usage to show.")
+    @app_commands.rename(command_type="type")
+    @commands.cooldown(1, 10, commands.BucketType.user)
+    async def usage_member(self, ctx: Context, member: discord.Member = commands.Author, command_type: CommandTypes = 0):
+        """Shows command usage for a member in this server"""
+        cmd_type = Query.MAPPING[command_type]
+        pool = self.bot.pool
+
+        async with ctx.typing():
+            args = (ctx.guild.id, member.id, command_type)
+            total_uses: TotalUsesRecord = await pool.fetchrow(Query.MEMBER_USES, *args, record_class=TotalUsesRecord)
+            if not total_uses.uses:
+                noun = member if member != ctx.author else "you"
+                return await ctx.send(f"No {cmd_type}command usage logged for {noun} yet.")
+            top_uses: list[UsesRecord] = await pool.fetch(Query.MEMBER_TOP_USES, *args, record_class=UsesRecord)
+            top_uses_today: list[UsesRecord] = await pool.fetch(Query.MEMBER_TOP_USES_TODAY, *args, record_class=UsesRecord)
+
+        start = f"{member} has" if member != ctx.author else "You have"
+        embed = discord.Embed(
+            title=f"{cmd_type}Command Usage for {member}",
+            description=f"{start} used {total_uses.uses} {cmd_type}commands.",
+            timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
+        )
+
+        start = f"{member}'s" if member != ctx.author else "Your"
+        embed.add_field(name=f"{start} Top {cmd_type}Commands", value=self.format_usage(top_uses))
+        embed.add_field(name=f"{start} Top {cmd_type}Commands Today", value=self.format_usage(top_uses_today))
+        embed.set_footer(text="Tracking since", icon_url=self.bot.user.display_avatar.url)
+        await ctx.send(embed=embed)
+
+    @usage.command(name="global")
+    @core.describe(command_type="What type of command usage to show.")
+    @app_commands.rename(command_type="type")
+    @commands.cooldown(1, 10, commands.BucketType.guild)
+    async def usage_global(self, ctx: Context, command_type: CommandTypes = 0):
+        """Shows global command usage."""
+        cmd_type = Query.MAPPING[command_type]
+        pool = self.bot.pool
+
+        async with ctx.typing():
+            total_uses: TotalUsesRecord = await pool.fetchrow(Query.TOTAL_USES, record_class=TotalUsesRecord)
+            if not total_uses.uses:
+                # This should only happen if there are no entries in the database, which would be very bad.
+                return await ctx.send("No command usage logged for some reason.")
+
+            top_uses: list[UsesRecord] = await pool.fetch(Query.TOP_USES, record_class=UsesRecord)
+            top_uses_today: list[UsesRecord] = await pool.fetch(Query.TOP_USES_TODAY, record_class=UsesRecord)
+
+        embed = discord.Embed(
+            title="Global Command Usage",
+            description=f"{total_uses.uses} {cmd_type}commands used.",
+            timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
+        )
+
+        embed.add_field(name=f"Top {cmd_type}Commands", value=self.format_usage(top_uses))
+        embed.add_field(name=f"Top {cmd_type}Commands Today", value=self.format_usage(top_uses_today))
+        embed.set_footer(text="Tracking since", icon_url=self.bot.user.display_avatar.url)
+        await ctx.send(embed=embed)
+
+    @usage.command(name="session")
+    @commands.cooldown(1, 10, commands.BucketType.guild)
+    async def usage_session(self, ctx: Context):
+        """Shows all command usage stats from last reboot."""
         usage = self.bot.command_usage
         most_use = dict(reversed(sorted(usage.items(), key=lambda item: item[1])))
 
         uh = humanize.precisedelta(datetime.datetime.now(tz=datetime.timezone.utc) - self.bot.launched_at)
         em = discord.Embed(
             title="Oi Usage",
-            description=f"Oi has been up for `{uh}`",
+            description=f"Oi has been up for `{uh}`\nUse {self.usage_global.mention} to see all time usage.",
             color=0x00FFB3,
         )
         most = [f"{k}: {v:,}" for k, v in most_use.items()]

@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import datetime as dt
+import json
 import logging
 import re
 from collections import defaultdict
@@ -78,6 +79,7 @@ class OiBot(Bot):
         )
         self._BotBase__cogs: dict[str, commands.Cog] = _CaseInsensitiveDict()
         self.votes: ExpiringCache = ExpiringCache(60 * 60 * 12)  # 12 hours
+        self.cached_users: ExpiringCache = ExpiringCache(60 * 60 * 6)  # 1 hour
         self.maintenance: bool = False
         self.maintenance_cogs: list[Cog] = []
         self.launched_at: datetime = datetime.now(tz=dt.timezone.utc)
@@ -108,6 +110,25 @@ class OiBot(Bot):
         if before.content == after.content:
             return
         await self.process_commands(after)
+
+    async def fetch_user(self, user_id: int) -> discord.User:
+        try:
+            return self.cached_users[user_id][0]
+        except KeyError:
+            user = await super().fetch_user(user_id)
+            self.cached_users[user_id] = user
+            return user
+
+    async def fetch_users(self, *user_ids: int) -> list[discord.User]:
+        ret = []
+
+        for user_id in user_ids:
+            try:
+                ret.append(self.cached_users[user_id][0])
+            except KeyError:
+                ret.append(await self.fetch_user(user_id))
+
+        return ret
 
     async def get_context(
         self, origin: discord.Message | discord.Interaction, *, cls: type[commands.Context] | None = None
@@ -176,7 +197,10 @@ class OiBot(Bot):
                 _log.exception(f"Failed to load extension: {extension}. {e}")
 
     async def create_pool(self) -> asyncpg.Pool:
-        pool: asyncpg.Pool = await asyncpg.create_pool(**self.config["POSTGRESQL"])  # type: ignore
+        async def init(con: asyncpg.Connection) -> None:
+            await con.set_type_codec("jsonb", schema="pg_catalog", encoder=json.dumps, decoder=json.loads)
+
+        pool: asyncpg.Pool = await asyncpg.create_pool(init=init, **self.config["POSTGRESQL"])  # type: ignore
         self.pool = pool
         await self.cache.populate()
         return pool

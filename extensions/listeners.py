@@ -20,15 +20,17 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import difflib
+import logging
 import random
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
+import asyncpg
 import discord
 import humanize
 from discord.ext import commands, tasks
 
 import core
-from utils import Blacklisted, embed_to_text, Maintenance
+from utils import ANSIFormat, Blacklisted, embed_to_text, Maintenance
 
 if TYPE_CHECKING:
     from core import Context, OiBot
@@ -43,19 +45,35 @@ MODS = {
     343019667511574528: "crunchyanime",  # Crunchy
 }
 
+_log = logging.getLogger(__name__)
+
+
+class CommandData(TypedDict):
+    command_name: str
+    guild_id: int
+    channel_id: int
+    user_id: int
+    used: str
+    app_command: bool
+    success: bool
+
 
 class Important(core.Cog):
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
         self.vote_webhook: discord.Webhook = discord.Webhook.from_url(bot.config["VOTE_WEBHOOK"], session=bot.session)
         self.guilds_webhook: discord.Webhook = discord.Webhook.from_url(bot.config["GUILDS_WEBHOOK"], session=bot.session)
+        self._command_queue: list[CommandData] = []
 
     async def cog_load(self) -> None:
         await self.bot.wait_until_ready()
         self.update_status.start()
+        self.insert_queue.add_exception_type(asyncpg.PostgresConnectionError)
+        self.insert_queue.start()
 
     async def cog_unload(self) -> None:
         self.update_status.cancel()
+        self.insert_queue.cancel()
 
     async def bot_check(self, ctx: Context) -> bool:
         if await self.bot.is_owner(ctx.author):
@@ -85,17 +103,78 @@ class Important(core.Cog):
             activity = discord.CustomActivity(name=random.choice(activities))
             await self.bot.change_presence(activity=activity, shard_id=shard)
 
+    @tasks.loop(seconds=10)
+    async def insert_queue(self) -> None:
+        query = """
+            INSERT INTO command_usage (command_name, guild_id, channel_id, user_id, used, app_command, success)
+            SELECT c.command_name, c.guild_id, c.channel_id, c.user_id, c.used, c.app_command, c.success
+            FROM jsonb_to_recordset($1::jsonb) AS c(
+                command_name TEXT,
+                guild_id BIGINT,
+                channel_id BIGINT,
+                user_id BIGINT,
+                used TIMESTAMP,
+                app_command BOOLEAN,
+                success BOOLEAN
+            )
+        """
+        if self._command_queue:
+            await self.bot.pool.execute(query, self._command_queue)
+            self._command_queue.clear()
+
     @core.Cog.listener()
     async def on_command(self, ctx: Context) -> None:
-        if ctx.cog == self.bot.get_cog("Owner") or not ctx.command:
-            return
+        self.log_command(ctx)
+
+    def log_command(self, ctx: Context):
+        command = ctx.command
+        try:
+            if "bot_owner" in command.member_permissions:
+                return
+        except AttributeError:
+            member_permisions = command.extras.get("member_permissions", [])
+            if "bot_owner" in member_permisions:
+                return
+
         if isinstance(ctx.command, core.HybridGroup):
             if not ctx.command.fallback:
+                # We don't need to log commands without a fallback because commands without fallback have no functionality
+                # other than sending the help command for the group.
                 return
-        if ctx.command.qualified_name in self.bot.command_usage:
-            self.bot.command_usage[ctx.command.qualified_name] += 1
+
+        command_name = command.qualified_name
+        guild_id = ctx.guild.id
+        channel_id = ctx.channel.id
+        user_id = ctx.author.id
+        used = ctx.message.created_at.isoformat()
+        app_command = ctx.prefix in ["/", "\u200b"]
+        success = not ctx.command_failed
+
+        self.bot.command_usage[command_name] += 1
+
+        _ = ANSIFormat
+        if ctx.interaction:
+            namespace = ctx.interaction.namespace
+            params = [f"{_(f"{i[0]}:"):*;d} {i[1]}" for i in namespace]
+            message = f"{_(f"/{command_name}"):**} {" ".join(params)}"
         else:
-            self.bot.command_usage[ctx.command.qualified_name] = 1
+            message = ctx.message.content.replace(
+                f"{ctx.prefix}{command_name}", f"{_(f"{ctx.clean_prefix}{command_name}"):**}"
+            )
+
+        _log.info(f"{ctx.author} ({user_id}) #{ctx.channel.name} ({guild_id}): {message}")
+
+        self._command_queue.append(
+            {
+                "command_name": command_name,
+                "guild_id": guild_id,
+                "channel_id": channel_id,
+                "user_id": user_id,
+                "used": used,
+                "app_command": app_command,
+                "success": success,
+            }
+        )
 
     @core.Cog.listener()
     async def on_dbl_vote(self, data: dict) -> None:
