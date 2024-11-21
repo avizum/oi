@@ -65,7 +65,7 @@ __all__ = (
 CogT = TypeVar("CogT", bound="Cog | None")
 P = ParamSpec("P")
 T = TypeVar("T")
-type CommandType = app_commands.Command[Any, ..., Any] | HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any]
+type CommandType = int | app_commands.Command[Any, ..., Any] | HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any]
 
 
 class Command(commands.Command[CogT, P, T]):
@@ -75,14 +75,14 @@ class Command(commands.Command[CogT, P, T]):
         /,
         **kwargs: Any,
     ) -> None:
-        extras = kwargs.get("extras", {})
-        self.member_permissions: list[str] | None = getattr(func, "__member_permissions__", extras.get("member_permissions"))
-        self.member_guild_permissions: list[str] | None = getattr(
-            func, "__member_guild_permissions__", extras.get("member_guild_permissions")
+        extras: dict[Any, Any] = kwargs.get("extras", {})
+        self.member_permissions: list[str] = getattr(func, "__member_permissions__", extras.get("member_permissions", []))
+        self.member_guild_permissions: list[str] = getattr(
+            func, "__member_guild_permissions__", extras.get("member_guild_permissions", [])
         )
-        self.bot_permissions: list[str] | None = getattr(func, "__bot_permissions__", extras.get("bot_permissions"))
-        self.bot_guild_permissions: list[str] | None = getattr(
-            func, "__bot_guild_permissions__", extras.get("bot_guild_permissions")
+        self.bot_permissions: list[str] = getattr(func, "__bot_permissions__", extras.get("bot_permissions", []))
+        self.bot_guild_permissions: list[str] = getattr(
+            func, "__bot_guild_permissions__", extras.get("bot_guild_permissions", [])
         )
         super().__init__(func, **kwargs)
 
@@ -374,6 +374,11 @@ class MentionableTree(app_commands.CommandTree):
         if fetch:
 
             async def _async() -> app_commands.AppCommand | None:
+                if isinstance(command, int):
+                    try:
+                        return await self.fetch_command(command, guild=guild)
+                    except discord.NotFound:
+                        return None
                 local_commands = await self.get_or_fetch_app_commands(guild=guild)
                 app_command_found = discord.utils.get(local_commands, name=(command.root_parent or command).name)
 
@@ -385,17 +390,22 @@ class MentionableTree(app_commands.CommandTree):
             return _async()
 
         def _sync() -> app_commands.AppCommand | None:
-            local_commands = self.get_app_commands(guild=guild)
-            if not local_commands:
-                return None
+            empty = []
+            if isinstance(command, int):
+                local_commands = self.get_app_commands(guild=guild) or empty
+                app_command_found = discord.utils.get(local_commands, id=command)
+
+                if check_global and not app_command_found:
+                    global_commands = self.get_app_commands(guild=None) or empty
+                    app_command_found = discord.utils.get(global_commands, id=command)
+                return app_command_found
+
+            local_commands = self.get_app_commands(guild=guild) or empty
             app_command_found = discord.utils.get(local_commands, name=(command.root_parent or command).name)
 
             if check_global and not app_command_found:
-                global_commands = self.get_app_commands(guild=None)
-                if not global_commands:
-                    return None
+                global_commands = self.get_app_commands(guild=None) or empty
                 app_command_found = discord.utils.get(global_commands, name=(command.root_parent or command).name)
-
             return app_command_found
 
         return _sync()

@@ -41,7 +41,7 @@ from waifuim import Client as WaifiImClient
 from extensions.logger import WebhookHandler
 from utils import DBCache, ExpiringCache, IDGenerator
 
-from .commands import Bot, Cog
+from .commands import Bot, Cog, MentionableTree
 
 _log = logging.getLogger(__name__)
 
@@ -61,6 +61,7 @@ class OiBot(Bot):
     pool: asyncpg.Pool
     owner_id: None
     owner_ids: set[int]
+    tree: MentionableTree
 
     def __init__(self) -> None:
         super().__init__(
