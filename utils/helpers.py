@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import math
-from typing import Sequence, TYPE_CHECKING
+from typing import Any, Sequence, TYPE_CHECKING
 
 import discord
 
@@ -31,6 +31,7 @@ __all__ = (
     "embed_to_text",
     "format_seconds",
     "readable_bytes",
+    "ANSIFormat",
 )
 
 
@@ -107,3 +108,75 @@ def readable_bytes(size_in_bytes: int) -> str:
     power = int(math.log(max(abs(size_in_bytes), 1), 1000))
 
     return f"{size_in_bytes / (1000 ** power):.2f} {units[power]}"
+
+
+class ANSIFormat:
+    PRE = "\x1b["
+    END = f"{PRE}0m"
+    SEP = ";"
+    MAPPING = {
+        # Normal text colors
+        "k": "30",  # black
+        "r": "31",  # red
+        "g": "32",  # green
+        "y": "33",  # yellow
+        "b": "34",  # blue
+        "m": "35",  # magenta
+        "c": "36",  # cyan
+        "w": "37",  # white
+        # Bright text colors
+        "K": "90",
+        "R": "91",
+        "G": "92",
+        "Y": "93",
+        "B": "94",
+        "M": "95",
+        "C": "96",
+        "W": "97",
+        # Background Colors (same as above but with 'bg' as a prefix)
+        "bgk": "40",
+        "bgr": "41",
+        "bgg": "42",
+        "bgy": "43",
+        "bgb": "44",
+        "bgm": "45",
+        "bgc": "46",
+        "bgw": "47",
+        # Bright background colors
+        "bgK": "100",
+        "bgR": "101",
+        "bgG": "102",
+        "bgY": "103",
+        "bgB": "104",
+        "bgM": "105",
+        "bgC": "106",
+        "bgW": "107",
+        # Text formatting
+        "**": "1",  # bold
+        "d": "2",  # dim
+        "*": "3",  # italic
+        "_": "4",  # underline
+        "+": "5",  # blink
+        "++": "6",  # rapid blink
+        "!": "7",  # inverse
+        "|": "8",  # hide
+        "~": "9",  # strikethrough
+    }
+
+    def __init__(self, text: Any, /) -> None:
+        self.text: str = str(text)
+
+    def __format__(self, format_spec: str) -> str:
+        # Split the format_spec if there are multiple specifiers
+        format_keys = format_spec.split(self.SEP)
+
+        # Translate each key to its corresponding ANSI code
+        codes = [self.MAPPING[key] for key in format_keys if key in self.MAPPING]
+
+        # If no valid codes, return the text as-is
+        if not codes:
+            return self.text
+
+        # Combine codes into a single ANSI sequence
+        ansi_start = f"{self.PRE}{self.SEP.join(codes)}m"
+        return f"{ansi_start}{self.text}{self.END}"
