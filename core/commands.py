@@ -559,6 +559,16 @@ class MentionableTree(app_commands.CommandTree):
             return self.__walk_mentions(guild=guild)
 
 
+type CommandGroupUnion = (
+    commands.Command[Any, ..., Any]
+    | commands.Group[Any, ..., Any]
+    | Command[Any, ..., Any]
+    | Group[Any, ..., Any]
+    | HybridCommand[Any, ..., Any]
+    | HybridGroup[Any, ..., Any]
+)
+
+
 class Bot(commands.AutoShardedBot):
     """AutoShardedBot with a custom tree, command, and group decorators."""
 
@@ -587,12 +597,10 @@ class Bot(commands.AutoShardedBot):
 
     def walk_commands(
         self,
-    ) -> Generator[HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any] | commands.Command[Any, ..., Any], None, None]:
+    ) -> Generator[CommandGroupUnion, None, None]:
         return super().walk_commands()
 
-    def get_command(
-        self, name: str
-    ) -> HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any] | commands.Command[Any, ..., Any] | None:
+    def get_command(self, name: str) -> CommandGroupUnion | None:
         return super().get_command(name)
 
 

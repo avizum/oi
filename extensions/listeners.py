@@ -129,7 +129,7 @@ class Important(core.Cog):
     def log_command(self, ctx: Context):
         command = ctx.command
         try:
-            if "bot_owner" in command.member_permissions:
+            if "bot_owner" in command.member_permissions:  # type: ignore  # Caught in AttributeError
                 return
         except AttributeError:
             member_permisions = command.extras.get("member_permissions", [])
