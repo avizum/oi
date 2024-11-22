@@ -20,6 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import contextlib
+import copy
 import math
 from typing import Any, TYPE_CHECKING
 
@@ -157,7 +158,6 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
         if not self.values:
             await itn.response.defer()
         else:
-            ctx: PlayerContext = self.vc.ctx
             disable = self.values[0] == "DISABLE"
             loop_queue = self.values[0] == "QUEUE"
             self.controller.loop.emoji = (
@@ -166,13 +166,13 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             self.controller.loop.style = discord.ButtonStyle.green
             if disable:
                 self.vc.queue.mode = QueueMode.normal
-                ctx.bot.command_usage["player loop"] += 1
+                self.view.command_usage(itn, "player loop", mode="off")
             elif loop_queue:
                 self.vc.queue.mode = QueueMode.loop_all
-                ctx.bot.command_usage["queue loop"] += 1
+                self.view.command_usage(itn, "queue loop")
             else:
                 self.vc.queue.mode = QueueMode.loop
-                ctx.bot.command_usage["player loop"] += 1
+                self.view.command_usage(itn, "player loop", mode="track")
             self.controller.remove_item(self)
             self.controller.loop_select = None
             await self.controller.update(itn)
@@ -208,7 +208,7 @@ class PlayerController(ui.View):
 
     def set_disabled(self, disabled: bool) -> None:
         for item in self.children:
-            if isinstance(item, PlayerButton):
+            if isinstance(item, (PlayerButton, LoopTypeSelect)):
                 item.disabled = disabled
 
     def set_labels(self) -> None:
@@ -332,18 +332,33 @@ class PlayerController(ui.View):
             return False
         return True
 
+    def command_usage(self, itn: Interaction, name: str, **kwargs: Any):
+        # Using the buttons is equivalent to using the command, so we log it.
+        # Since button interactions don't have command data, we do this.
+        f_ctx = copy.copy(self.ctx)
+        cmd = self.ctx.bot.get_command(name)
+        if not cmd or not isinstance(itn.user, discord.Member):
+            return
+
+        f_ctx.command = cmd
+        f_ctx.author = itn.user
+        # We do this so that arguemnts that were "used" show up when logged.
+        itn.namespace.__dict__.update(kwargs)
+        f_ctx.interaction = itn
+        self.ctx.bot.dispatch("command", f_ctx)
+
     @cui.button(cls=PlayerButton, emoji="<:skip_left:1294459900696461364>")
     async def rewind(self, itn: Interaction, _: PlayerButton):
         await self.vc.seek(0)
         if self.vc.paused:
             await self.vc.pause(False)
-        self.ctx.bot.command_usage["seek"] += 1
+        self.command_usage(itn, "seek", time="0:00")
         await self.update(itn)
 
     @cui.button(cls=PlayerButton, emoji="<:play_or_pause:1294459947572138069>")
     async def pause(self, itn: Interaction, _: PlayerButton):
         await self.vc.pause(not self.vc.paused)
-        self.ctx.bot.command_usage["pause" if not self.vc.paused else "resume"] += 1
+        self.command_usage(itn, "resume" if not self.vc.paused else "pause")
         await self.update(itn)
 
     @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>")
@@ -372,7 +387,7 @@ class PlayerController(ui.View):
                 await send(f"Vote to skip passed ({required} of {required}). Skipping.")
                 return
             await send(f"Voted to skip. ({len(self.vc.skip_votes)}/{required})", ephemeral=True)
-        self.ctx.bot.command_usage["skip"] += 1
+        self.command_usage(itn, "skip")
         await self.update(itn, invoke=False)
 
     @cui.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>")
@@ -380,7 +395,7 @@ class PlayerController(ui.View):
         vc = self.vc
 
         vc.queue.shuffle()
-        self.ctx.bot.command_usage["queue shuffle"] += 1
+        self.command_usage(itn, "queue shuffle")
         await self.update(itn)
 
     @cui.button(cls=PlayerButton, emoji="<:loop_all:1294459877447696385>")
@@ -399,14 +414,14 @@ class PlayerController(ui.View):
     async def autoplay(self, itn: Interaction, button: PlayerButton):
         state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
         self.vc.autoplay = state
-        self.ctx.bot.command_usage["player autoplay"] += 1
+        self.command_usage(itn, "player autoplay", state=not bool(state.value))
         await self.update(itn)
 
     @cui.button(cls=PlayerLyricsButton, emoji="<:lyrics:1297669978635505675>")
     async def lyrics(self, itn: Interaction, button: PlayerLyricsButton):
         assert self.vc.current is not None
 
-        self.ctx.bot.command_usage["lyrics"] += 1
+        self.command_usage(itn, "lyrics", search=self.vc.current.title)
 
         if itn.user.id in self.lyrics_paginators:
             paginator = self.lyrics_paginators[itn.user.id]
