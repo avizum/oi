@@ -1329,62 +1329,6 @@ class Music(core.Cog):
 
     @core.command()
     @core.has_voted()
-    @is_not_deafened()
-    @is_in_channel()
-    @is_in_voice()
-    @core.describe(
-        text="What to say in the voice channel.",
-        voice="Which voice to use.",
-        translate="Whether to translate text to the native language of the voice.",
-        speed="How slow or fast the speech should be.",
-    )
-    async def tts(
-        self,
-        ctx: PlayerContext,
-        *,
-        text: Range[str, 1, 500],
-        voice: str = "Carter",
-        translate: bool = False,
-        speed: Range[float, 0.5, 10.0] = 1.0,
-    ):
-        """Text to speech in voice channel."""
-        vc = ctx.voice_client
-
-        if vc.current and not vc.paused:
-            return await ctx.send("This command requires the player to be idle.", ephemeral=True)
-
-        current = None
-        start = 0
-        if vc.current:
-            current = vc.current
-            start = vc.position
-
-        text = parse.quote(text)
-
-        search = await wavelink.Playable.search(
-            f"ftts://{text}?voice={voice}&translate={str(translate).lower()}&speed={speed}", source=None
-        )
-        if not search:
-            return await ctx.send("Could not load speech.", ephemeral=True)
-
-        track = search[0]
-        track.extras = Extras(
-            requester=str(ctx.author),
-            requester_id=ctx.author.id,
-            duration=format_seconds(track.length),
-            hyperlink="TTS query",
-        )
-
-        if ctx.interaction:
-            await ctx.send("Sent TTS query to player.", ephemeral=True)
-
-        await vc.play(track, add_history=False, paused=False)
-        await self.bot.wait_for("wavelink_track_end", check=lambda pl: pl.player.channel == vc.channel)
-        if current:
-            await vc.play(current, start=start, paused=True, add_history=False)
-
-    @core.command()
-    @core.has_voted()
     @core.describe(search="The song to search for.")
     async def lyrics(self, ctx: PlayerContext, *, search: str | None = None):
         """Gets the lyrics for a song.
