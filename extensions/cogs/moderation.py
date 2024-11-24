@@ -53,11 +53,11 @@ class TargetConverter(app_commands.Transformer):
             raise commands.BadArgument(f"I can not {action} the server owner.")
         if target == bot:
             raise commands.BadArgument(f"I can not {action} myself.")
-        elif target == mod:
+        if target == mod:
             raise commands.BadArgument(f"Can not {action} yourself.")
-        elif bot.top_role <= target.top_role:
+        if bot.top_role <= target.top_role:
             raise commands.BadArgument(f"I can not {action} someone with a higher or equal role to me.")
-        elif mod.top_role <= target.top_role:
+        if mod.top_role <= target.top_role:
             raise commands.BadArgument(f"You can not {action} someone with a higher or equal role to you.")
         return target
 
@@ -94,12 +94,13 @@ class FindBanEntry(app_commands.Transformer):
                 await ctx.guild.fetch_ban(user)
             except discord.NotFound as e:
                 raise commands.BadArgument("That user isn't banned.") from e
-            return user
         except commands.UserNotFound:
             bans = [entry async for entry in ctx.guild.bans()]
             for ban in bans:
                 if str(ban[1]).startswith(argument):
                     return ban[1]
+        else:
+            return user
 
         raise commands.BadArgument("That user isn't banned")
 
@@ -119,11 +120,11 @@ class RoleTarget(app_commands.Transformer):
     async def base(self, ctx: Context, role: discord.Role) -> discord.Role:
         if role > ctx.me.top_role:
             raise commands.BadArgument("That role is higher than my highest role.")
-        elif role > ctx.author.top_role:
+        if role > ctx.author.top_role:
             raise commands.BadArgument("That role is higher than your highest role.")
-        elif role == ctx.guild.default_role:
+        if role == ctx.guild.default_role:
             raise commands.BadArgument("Can not modify @\u200beverone role.")
-        elif role.managed:
+        if role.managed:
             raise commands.BadArgument("Can not modify a managed role.")
 
         return role
@@ -210,8 +211,7 @@ class Moderation(core.Cog):
     @staticmethod
     async def do_removal(ctx: Context, *args, **kwargs) -> list[discord.Message]:
         async with ctx.typing():
-            messages = await ctx.channel.purge(*args, **kwargs)
-        return messages
+            return await ctx.channel.purge(*args, **kwargs)
 
     @staticmethod
     async def show_results(ctx: Context, messages: list[discord.Message]) -> discord.Embed:

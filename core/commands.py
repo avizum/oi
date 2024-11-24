@@ -52,13 +52,13 @@ __all__ = (
     "Bot",
     "Cog",
     "Command",
-    "command",
-    "describe",
     "Group",
-    "group",
     "GroupCog",
     "HybridCommand",
     "HybridGroup",
+    "command",
+    "describe",
+    "group",
 )
 
 
@@ -555,8 +555,7 @@ class MentionableTree(app_commands.CommandTree):
         """
         if fetch:
             return self.__async_walk_mentions(guild=guild)
-        else:
-            return self.__walk_mentions(guild=guild)
+        return self.__walk_mentions(guild=guild)
 
 
 type CommandGroupUnion = (

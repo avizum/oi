@@ -23,7 +23,7 @@ import datetime
 import inspect
 import pathlib
 from enum import Enum
-from typing import Annotated, TYPE_CHECKING
+from typing import Annotated, ClassVar, TYPE_CHECKING
 
 import discord
 import humanize
@@ -57,7 +57,7 @@ class CommandTypesConverter(int, Enum):
         try:
             return cls[argument].value
         except KeyError as exc:
-            fmt = human_join(list(f'"{item.name}"' for item in cls))
+            fmt = human_join([f'"{item.name}"' for item in cls])
             raise commands.BadArgument(f'Could not convert "{argument}" to {fmt}') from exc
 
 
@@ -94,7 +94,7 @@ class TotalUsesRecord(Record):
 
 
 class Query:
-    MAPPING = {0: "", 1: "Slash ", 2: "Prefix "}
+    MAPPING: ClassVar[dict[int, str]] = {0: "", 1: "Slash ", 2: "Prefix "}
 
     TOTAL_USES = """
         SELECT CASE
@@ -373,10 +373,7 @@ class Utility(core.Cog):
             view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label="Source", url=SOURCE_URL))
             return await ctx.send("Here is the source.", view=view)
 
-        if command == "help":
-            cmd = self.bot.help_command
-        else:
-            cmd = self.bot.get_command(command)
+        cmd = self.bot.help_command if command == "help" else self.bot.get_command(command)
         if not cmd:
             return await ctx.send("Could not find command.", view=view)
 
@@ -393,7 +390,7 @@ class Utility(core.Cog):
         link = f"{SOURCE_URL}/blob/main/{path}#L{beginning}-L{end}"
 
         view.add_item(discord.ui.Button(style=discord.ButtonStyle.link, label=f"Source for {command}", url=link))
-        await ctx.send("Here is the source.", view=view)
+        return await ctx.send("Here is the source.", view=view)
 
     @source.autocomplete("command")
     async def source_command_autocomplete(self, itn: discord.Interaction, current: str) -> list[app_commands.Choice]:
@@ -413,8 +410,8 @@ class Utility(core.Cog):
                 continue
             files += 1
             with item.open() as of:
-                for line in of.readlines():
-                    line = line.strip()
+                for source_line in of.readlines():
+                    line = source_line.strip()
                     if line.startswith("class"):
                         classes += 1
                     if line.startswith("def"):
@@ -482,9 +479,10 @@ class Utility(core.Cog):
     def get_user(self, user_id: int) -> str:
         try:
             user = self.bot.cached_users[user_id][0]
-            return user.name
         except KeyError:
             return "Not Found"
+        else:
+            return user.name
 
     def format_usage(self, record: list[UsesRecord | UserUsesRecord]) -> str:
         fmt = []
@@ -536,7 +534,7 @@ class Utility(core.Cog):
         embed.add_field(name="\u200b", value="\u200b")
         embed.set_footer(text="Tracking since", icon_url=self.bot.user.display_avatar.url)
 
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @usage.command(name="member")
     @core.describe(member="The member's command usage you want to see.", command_type="What type of command usage to show.")
@@ -567,7 +565,7 @@ class Utility(core.Cog):
         embed.add_field(name=f"{start} Top {cmd_type}Commands", value=self.format_usage(top_uses))
         embed.add_field(name=f"{start} Top {cmd_type}Commands Today", value=self.format_usage(top_uses_today))
         embed.set_footer(text="Tracking since", icon_url=self.bot.user.display_avatar.url)
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @usage.command(name="global")
     @core.describe(command_type="What type of command usage to show.")
@@ -596,14 +594,14 @@ class Utility(core.Cog):
         embed.add_field(name=f"Top {cmd_type}Commands", value=self.format_usage(top_uses))
         embed.add_field(name=f"Top {cmd_type}Commands Today", value=self.format_usage(top_uses_today))
         embed.set_footer(text="Tracking since", icon_url=self.bot.user.display_avatar.url)
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @usage.command(name="session")
     @commands.cooldown(1, 10, commands.BucketType.guild)
     async def usage_session(self, ctx: Context):
         """Shows all command usage stats from last reboot."""
         usage = self.bot.command_usage
-        most_use = dict(reversed(sorted(usage.items(), key=lambda item: item[1])))
+        most_use = dict(sorted(usage.items(), key=lambda item: item[1]))
 
         uh = humanize.precisedelta(datetime.datetime.now(tz=datetime.timezone.utc) - self.bot.launched_at)
         em = discord.Embed(
@@ -625,7 +623,7 @@ class Utility(core.Cog):
         if len(message) > 1000:
             return await ctx.send("Your message is too long!")
         await self.report_webhook.send(content=f"**{ctx.author}**:\n{message}\n")
-        await ctx.send("Report sent!")
+        return await ctx.send("Report sent!")
 
     @oi.command()
     @commands.cooldown(1, 60, commands.BucketType.user)
@@ -771,7 +769,7 @@ class Utility(core.Cog):
             inline=False,
         )
 
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @core.command()
     @core.describe(location="Where to get the weather for.")
@@ -797,11 +795,7 @@ class Utility(core.Cog):
         dt = datetime.datetime.now(pytz.timezone(locale["tz_id"])).strftime("%A, %B %d, %I:%M %p")
         embed.add_field(name="Location", value=f"{locale['name']}, {locale['region']}\nLocal Time: {dt}", inline=False)
 
-        if not ctx.interaction:
-            metric = False
-        else:
-            metric = ctx.interaction.locale != discord.Locale.american_english
-
+        metric = False if not ctx.interaction else ctx.interaction.locale != discord.Locale.american_english
         temperature = f"{current['temp_c']} °C" if metric else f"{current['temp_f']} °F"
         feels_like = f"{current['feelslike_c']} °C" if metric else f"{current['feelslike_f']} °F"
         wind_speed = f"{current['wind_kph']} kph" if metric else f"{current['wind_mph']} mph"
@@ -829,7 +823,7 @@ class Utility(core.Cog):
         )
 
         embed.set_thumbnail(url=f"https:{conditions['icon']}")
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
 
 async def setup(bot: OiBot):

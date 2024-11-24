@@ -244,7 +244,7 @@ class Image(core.Cog):
                 return await ctx.send("Invalid code.")
             embed = discord.Embed()
             embed.set_image(url=f"https://http.cat/{code}")
-            await ctx.send(embed=embed)
+            return await ctx.send(embed=embed)
 
     @images.group()
     async def animals(self, ctx: Context):

@@ -155,9 +155,7 @@ class Player(wavelink.Player):
         next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
 
         if self.autoplay is not wavelink.AutoPlayMode.disabled:
-            nothing = (
-                "Autoplay is enabled, but nothing is in the queue. " f"Add some songs with {self.ctx.cog.play.mention}."
-            )
+            nothing = f"Autoplay is enabled, but nothing is in the queue. Add some songs with {self.ctx.cog.play.mention}."
 
         joined = "\n".join(next_tracks) or nothing
         if queue_mode is QueueMode.loop:
@@ -242,7 +240,7 @@ class Player(wavelink.Player):
             tracks = None
 
         if not tracks:
-            return
+            return None
 
         return tracks if isinstance(tracks, wavelink.Playlist) else tracks[0]
 
@@ -266,13 +264,18 @@ class Player(wavelink.Player):
 
         controller.update_buttons()
 
-        kwargs: dict[str, Any] = dict(embed=embed, view=controller, format_embeds=False, no_tips=True)
+        kwargs: dict[str, Any] = {
+            "embed": embed,
+            "view": controller,
+            "format_embeds": False,
+            "no_tips": True,
+        }
 
         if controller.message is None:
             controller.message = await self.ctx.send(**kwargs)
             return
 
-        elif controller.counter >= 10:
+        if controller.counter >= 10:
             with contextlib.suppress(discord.NotFound):
                 message = await controller.message.fetch()
                 await message.edit(view=None)
@@ -290,23 +293,25 @@ class Player(wavelink.Player):
                 "GET",
                 path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics",
             )
-            return data
         except (wavelink.LavalinkException, wavelink.NodeException):
-            return
+            return None
+        else:
+            return data
 
     @classmethod
     async def fetch_lyrics(cls, query: str) -> tuple[str, Lyrics] | None:
-        """Searches YouTube for lyrics."""
+        """Search YouTube for lyrics."""
         try:
             tracks = await Playable.search(query, source="ytmsearch")
             if isinstance(tracks, Playlist) or not tracks:
-                return
+                return None
             track = tracks[0]
         except wavelink.LavalinkLoadException:
-            return
+            return None
         try:
             node = wavelink.Pool.get_node("OiBot")
             data: Lyrics = await node.send("GET", path="v4/lyrics", params={"track": f"{track.encoded}"})
-            return track.title, data
         except (wavelink.LavalinkException, wavelink.NodeException):
-            return
+            return None
+        else:
+            return track.title, data

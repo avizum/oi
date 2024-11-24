@@ -65,8 +65,9 @@ class ErrorHandler(core.Cog):
         error = getattr(exc, "original", exc)
         if isinstance(error, app_commands.CommandNotFound):
             return await itn.response.send_message("This command is unavailable right now.", ephemeral=True)
-        else:
-            _log.error(f"Ignoring exception in tree command {itn.command}:", exc_info=error)
+
+        _log.error(f"Ignoring exception in tree command {itn.command}:", exc_info=error)
+        return None
 
     @core.Cog.listener()
     async def on_command_error(self, ctx: Context, exc: commands.CommandError):
@@ -87,7 +88,8 @@ class ErrorHandler(core.Cog):
         if isinstance(error, reinvoke) and await self.bot.is_owner(ctx.author) and not ctx.interaction:
             try:
                 return await ctx.reinvoke(restart=True)
-            except Exception:
+            except Exception as err:
+                _log.error(f"Ignoring exception while reinvoking {ctx.command}:", exc_info=err)
                 raise
 
         elif isinstance(error, Blacklisted):
@@ -110,9 +112,10 @@ class ErrorHandler(core.Cog):
             )
             if ctx.interaction or not ratelimited:
                 await ctx.send(embed=embed, view=view, ephemeral=True)
+            return None
 
         elif isinstance(error, commands.CommandNotFound):
-            return
+            return None
 
         elif isinstance(error, NotVoted):
             return await ctx.send("You need to vote for Oi to use this command.", ephemeral=True, view=VOTE_VIEW)
@@ -121,12 +124,12 @@ class ErrorHandler(core.Cog):
             return await ctx.send(str(error), ephemeral=True)
 
         elif isinstance(error, discord.NotFound) and error.code == 10062:
-            return
+            return None
 
         elif isinstance(error, discord.Forbidden) and error.code == 50013:
             with contextlib.suppress(discord.Forbidden):
                 return await ctx.send("I am missing permissions to do this.", ephemeral=True)
-            return
+            return None
 
         elif isinstance(error, (commands.MemberNotFound, commands.UserNotFound)):
             return await ctx.send(f'Could not find member "{error.argument}".', ephemeral=True)
@@ -197,6 +200,7 @@ class ErrorHandler(core.Cog):
                 await self.webhook.send(embed=dev_embed, content=f"```py\n{tb}\n```")
 
             _log.error(f"Ignoring exception in command {ctx.command}:", exc_info=error)
+            return None
 
 
 async def setup(bot: OiBot):

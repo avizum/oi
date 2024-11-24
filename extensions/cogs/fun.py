@@ -115,6 +115,7 @@ class RPSView(discord.ui.View):
                             item.style = discord.ButtonStyle.blurple
                     item.disabled = True
             await self.message.edit(embed=self.embed, view=self)
+        return None
 
 
 class GuessModal(discord.ui.Modal, title="Guess the Number"):
@@ -143,6 +144,7 @@ class GuessModal(discord.ui.Modal, title="Guess the Number"):
             await itn.response.send_message("Lower, try again!", ephemeral=True)
         elif int(self.guess.value) < self.number:
             await itn.response.send_message("Higher, try again!", ephemeral=True)
+        return None
 
 
 class GuessView(discord.ui.View):
@@ -208,7 +210,7 @@ class Fun(core.Cog):
         """Play rock paper scissors with someone."""
         if opponent and opponent.bot:
             return await ctx.send("You can't play against a bot.")
-        elif opponent == ctx.author:
+        if opponent == ctx.author:
             return await ctx.send("You can't play against yourself.")
         if opponent is None:
             opponent = ctx.me
@@ -232,6 +234,7 @@ class Fun(core.Cog):
         view = RPSView(ctx=ctx, opponent=opponent, embed=embed)
         msg = await ctx.send(embed=embed, view=view)
         view.message = msg
+        return None
 
     @games.command()
     async def guess(self, ctx: Context):
@@ -301,7 +304,7 @@ class Fun(core.Cog):
             return await ctx.send("No results found mathing your query.")
 
         paginator = Paginator(UrbanSource(data["list"]), ctx=ctx, remove_view_after=True)
-        await paginator.start()
+        return await paginator.start()
 
     @fun.command()
     @core.describe(text="The text to repeat.")

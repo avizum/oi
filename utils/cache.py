@@ -48,8 +48,8 @@ if TYPE_CHECKING:
     from core import OiBot
 
 __all__ = (
-    "ExpiringCache",
     "DBCache",
+    "ExpiringCache",
 )
 
 # fmt: off
@@ -138,7 +138,7 @@ class DBCache:
                     ps.position
                 """
 
-        for playlist_id in self.playlists.keys():
+        for playlist_id in self.playlists:
             playlist_songs: list[PlaylistSongRecord] = await self.bot.pool.fetch(
                 query, playlist_id, record_class=PlaylistSongRecord
             )

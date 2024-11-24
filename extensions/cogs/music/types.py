@@ -31,8 +31,8 @@ if TYPE_CHECKING:
     from .player import Player
 
 __all__ = (
-    "SearchType",
     "PlayerContext",
+    "SearchType",
     "TrackEnd",
     "TrackStart",
     "TrackStuck",

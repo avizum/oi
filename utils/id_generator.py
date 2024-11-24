@@ -23,6 +23,10 @@ from datetime import datetime, timezone
 __all__ = ("IDGenerator",)
 
 
+class IDGenerationError(Exception):
+    """Raised when an ID can not be created."""
+
+
 class IDGenerator:
     def __init__(self, worker_id: int) -> None:
 
@@ -46,7 +50,7 @@ class IDGenerator:
         current_time = self.current_ms()
 
         if current_time < self.last_ms:
-            raise Exception("Can not generate ID")
+            raise IDGenerationError("Can not generate ID")
 
         if current_time == self.last_ms:
             self.sequence = (self.sequence + 1) & self.max_sequence

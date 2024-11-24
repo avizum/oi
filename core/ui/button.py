@@ -30,7 +30,7 @@ if TYPE_CHECKING:
 
 __all__ = ("button",)
 
-V = TypeVar("V", bound="View", covariant=True)
+V_co = TypeVar("V_co", bound="View", covariant=True)
 BT = TypeVar("BT", bound=Button)
 
 
@@ -43,8 +43,8 @@ def button(
     style: ButtonStyle = ButtonStyle.secondary,
     emoji: str | None = None,
     row: int | None = None,
-) -> Callable[[ItemCallbackType[V, BT]], BT]:
-    def decorator(func: ItemCallbackType[V, BT]) -> ItemCallbackType[V, BT]:
+) -> Callable[[ItemCallbackType[V_co, BT]], BT]:
+    def decorator(func: ItemCallbackType[V_co, BT]) -> ItemCallbackType[V_co, BT]:
         func.__discord_ui_model_type__ = cls
         func.__discord_ui_model_kwargs__ = {
             "style": style,

@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import math
-from typing import Any, Sequence, TYPE_CHECKING
+from typing import Any, ClassVar, Sequence, TYPE_CHECKING
 
 import discord
 
@@ -28,10 +28,10 @@ if TYPE_CHECKING:
     from core import Context
 
 __all__ = (
+    "ANSIFormat",
     "embed_to_text",
     "format_seconds",
     "readable_bytes",
-    "ANSIFormat",
 )
 
 
@@ -114,7 +114,7 @@ class ANSIFormat:
     PRE = "\x1b["
     END = f"{PRE}0m"
     SEP = ";"
-    MAPPING = {
+    MAPPING: ClassVar[dict[str, str]] = {
         # Normal text colors
         "k": "30",  # black
         "r": "31",  # red

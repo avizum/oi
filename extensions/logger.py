@@ -69,10 +69,10 @@ class WebhookLogger(core.Cog):
             lines = message.splitlines()
             for line in lines:
                 for path in sys.path:
-                    line = line.replace(f"{path}/", "")
+                    add = line.replace(f"{path}/", "")
                 if len(line) >= 1988:
-                    line = f"{line[:1985]}..."
-                paginator.add_line(line)
+                    add = f"{line[:1985]}..."
+                paginator.add_line(add)
 
         for page in paginator.pages:
             await self.webhook.send(page)

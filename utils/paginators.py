@@ -47,11 +47,12 @@ class SkipPage(discord.ui.Modal, title="Skip to page"):
     async def on_submit(self, interaction: discord.Interaction) -> None:
         try:
             if not self.to_page.value:
-                raise ValueError("Page number cannot be empty.")
+                await self.send_error(interaction, "Page number cannot be empty.")
+                return None
             page_num = int(self.to_page.value)
             max_pages = self.view.source.get_max_pages()
             await self.view.show_checked_page(interaction, int(self.to_page.value) - 1)
-            if max_pages and page_num > max_pages or page_num <= 0:
+            if (max_pages and page_num > max_pages) or page_num <= 0:
                 await self.send_error(
                     interaction,
                     f"Please enter a page number between 1 and {max_pages}.",
@@ -128,12 +129,11 @@ class Paginator(discord.ui.View):
         value = await discord.utils.maybe_coroutine(self.source.format_page, self, page)  # type: ignore
         if isinstance(value, dict):
             return value
-        elif isinstance(value, str):
+        if isinstance(value, str):
             return {"content": value, "embed": None}
-        elif isinstance(value, discord.Embed):
+        if isinstance(value, discord.Embed):
             return {"embed": value, "content": None}
-        else:
-            return {}
+        return {}
 
     async def on_timeout(self) -> None:
         if not self.message:
@@ -159,9 +159,7 @@ class Paginator(discord.ui.View):
     async def show_checked_page(self, itn: discord.Interaction, page_num: int):
         max_pages = self.source.get_max_pages()
         try:
-            if max_pages is None:
-                await self.show_page(itn, page_num)
-            elif max_pages > page_num >= 0:
+            if max_pages is None or max_pages > page_num >= 0:
                 await self.show_page(itn, page_num)
         except IndexError:
             pass

@@ -44,7 +44,11 @@ if TYPE_CHECKING:
     from .types import PlayerContext
 
 
-__all__ = ("PlayerController", "QueuePageSource", "LyricPageSource")
+__all__ = (
+    "LyricPageSource",
+    "PlayerController",
+    "QueuePageSource",
+)
 
 
 class PlayerButton(ui.Button["PlayerController"]):
@@ -64,13 +68,11 @@ class PlayerButton(ui.Button["PlayerController"]):
     async def interaction_check(self, itn: discord.Interaction) -> bool:
         assert self.view is not None
         vc: Player = self.view.vc
-        if not vc or vc and vc.locked or not vc.connected:
+        if vc is None or (vc and vc.locked) or not vc.connected or vc.current is None:
             await itn.response.defer()
             return False
         vc = self.view.vc
-        if vc is None or vc.current is None:
-            return False
-        elif itn.user not in vc.channel.members:
+        if itn.user not in vc.channel.members:
             await itn.response.send_message(f"You need to be in {vc.channel.mention} to use this.", ephemeral=True)
             return False
 
@@ -84,16 +86,15 @@ class PlayerButton(ui.Button["PlayerController"]):
                 f"You need to have {vc.dj_role.mention} role or have `Manage Server` permission to do this.", ephemeral=True
             )
             return False
-        elif not vc.dj_role:
+        if not vc.dj_role:
             if vc.manager and vc.manager == itn.user:
                 return True
             await itn.response.send_message(
                 "You need to be DJ or have `Manage Server` permission to do this.", ephemeral=True
             )
             return False
-        else:
-            await itn.response.send_message("You need to be a DJ to use this.", ephemeral=True)
-            return False
+        await itn.response.send_message("You need to be a DJ to use this.", ephemeral=True)
+        return False
 
 
 class PlayerSkipButton(PlayerButton):
@@ -101,7 +102,7 @@ class PlayerSkipButton(PlayerButton):
         assert self.view is not None
         vc = self.view.vc
 
-        if not vc or vc and vc.locked or not vc.current or not vc.connected:
+        if not vc or (vc and vc.locked) or not vc.current or not vc.connected:
             await itn.response.defer()
             return False
 
@@ -116,7 +117,7 @@ class PlayerLyricsButton(PlayerButton):
         assert self.view is not None
         vc = self.view.vc
 
-        if not vc or vc and vc.locked or not vc.current or not vc.connected:
+        if not vc or (vc and vc.locked) or not vc.current or not vc.connected:
             await itn.response.defer()
             return False
 
@@ -283,7 +284,7 @@ class PlayerController(ui.View):
 
         self.is_updating = True
 
-        if itn and itn.is_expired() or itn and itn.response.is_done():
+        if (itn and itn.is_expired()) or (itn and itn.response.is_done()):
             itn = None
 
         if not itn and type(self.message) is not discord.Message:
@@ -323,13 +324,9 @@ class PlayerController(ui.View):
             return True
 
         if vc.dj_role:
-            if vc.dj_role in itn.user.roles:
-                return True
-            return False
-        elif not vc.dj_role:
-            if vc.manager == itn.user:
-                return True
-            return False
+            return vc.dj_role in itn.user.roles
+        if not vc.dj_role:
+            return vc.manager == itn.user
         return True
 
     def command_usage(self, itn: Interaction, name: str, **kwargs: Any):
@@ -435,7 +432,7 @@ class PlayerController(ui.View):
 
         await itn.response.defer(thinking=True, ephemeral=True)
         lyrics_data = await self.vc.fetch_current_lyrics()
-        if not lyrics_data or lyrics_data and not lyrics_data["text"]:
+        if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             await itn.followup.send("Could not find lyrics.", ephemeral=True)
             return
         pag = commands.Paginator(max_size=320)

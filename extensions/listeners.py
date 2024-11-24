@@ -136,11 +136,10 @@ class Important(core.Cog):
             if "bot_owner" in member_permisions:
                 return
 
-        if isinstance(ctx.command, core.HybridGroup):
-            if not ctx.command.fallback:
-                # We don't need to log commands without a fallback because commands without fallback have no functionality
-                # other than sending the help command for the group.
-                return
+        if isinstance(ctx.command, core.HybridGroup) and not ctx.command.fallback:
+            # We don't need to log commands without a fallback because commands without fallback have no functionality
+            # other than sending the help command for the group.
+            return
 
         command_name = command.qualified_name
         guild_id = ctx.guild.id
@@ -193,6 +192,7 @@ class Important(core.Cog):
 
         embed.set_image(url="https://media.discordapp.net/attachments/890645724243558431/934771253036867644/thanksvote.gif")
         await user.send(embed=embed)
+        return None
 
     @core.Cog.listener()
     async def on_dbl_test(self, data: dict) -> None:
@@ -203,7 +203,7 @@ class Important(core.Cog):
     async def on_guild_join(self, guild: discord.Guild) -> None:
         embed = discord.Embed(
             title="Joined Guild",
-            description=(f"Name: {guild.name} | {guild.id}\n" f"Owner: {guild.owner_id}\n" f"Members: {guild.member_count}"),
+            description=f"Name: {guild.name} | {guild.id}\nOwner: {guild.owner_id}\nMembers: {guild.member_count}",
             color=discord.Color.green(),
         )
         if guild.icon:
@@ -248,7 +248,7 @@ class Important(core.Cog):
             return
         embed = discord.Embed(
             title="Left Guild",
-            description=(f"Name: {guild.name} | {guild.id}\n" f"Owner: {guild.owner_id}\n" f"Members: {guild.member_count}"),
+            description=f"Name: {guild.name} | {guild.id}\nOwner: {guild.owner_id}\nMembers: {guild.member_count}",
             color=discord.Color.red(),
         )
         if guild.icon:

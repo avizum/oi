@@ -199,7 +199,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
                     f" and can see {cache_summary}."
                 )
             else:
-                shard_ids = ", ".join(str(i) for i in self.bot.shards.keys())
+                shard_ids = ", ".join(str(i) for i in self.bot.shards)
                 summary.append(
                     f"This bot is automatically sharded (Shards {shard_ids} of {self.bot.shard_count})"
                     f" and can see {cache_summary}."
@@ -273,7 +273,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
                             result: Any
 
                             if result is None and out and out.getvalue():
-                                result = f"Redirected stdout\n```{out.getvalue()}```"
+                                result = f"Redirected stdout\n```{out.getvalue()}```"  # noqa: PLW2901
 
                             if result is None:
                                 continue
@@ -325,13 +325,16 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         if not get_cog:
             return await ctx.send("Could not find cog.")
         self.bot.maintenance_cogs.append(get_cog)  # type: ignore
+        return await ctx.send(f"Added {get_cog.qualified_name} to the list of maintenance cogs.")
 
     @Feature.Command(parent="jsk", name="news")
     async def jsk_news(self, ctx: Context, *, news: str):
         """Changes the news of the bot."""
         self.bot.news = news
         toml_data = toml.load("config.toml")
-        with open("config.toml", "w") as f:
+        with open(  # noqa: ASYNC230  # this operation doesn't take long, and is only called every so often.
+            "config.toml", "w"
+        ) as f:
             toml_data["BOT_NEWS"] = news
             toml.dump(toml_data, f)
         await ctx.send(f"Bot news: {news}")
@@ -345,7 +348,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         """Adds a user to the global blacklist."""
         if user.id in self.bot.owner_ids:
             return await ctx.send("Can not blacklist Owners.")
-        elif user.id in self.bot.cache.blacklisted:
+        if user.id in self.bot.cache.blacklisted:
             return await ctx.send("User already blacklisted.")
 
         query = """
@@ -376,7 +379,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         except discord.Forbidden:
             failed = "Notifying the user failed."
 
-        await ctx.send(f"{user} added to the blacklist. {failed}")
+        return await ctx.send(f"{user} added to the blacklist. {failed}")
 
     @Feature.Command(parent="blacklist", name="remove", aliases=["r", "rm"])
     async def blacklist_remove(self, ctx: Context, user: discord.User, *, reason: str):
@@ -414,7 +417,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         except discord.Forbidden:
             failed = "Notifying the user failed."
 
-        await conf.message.edit(content=f"{user} remove from the blacklist. {failed}", view=None)
+        return await conf.message.edit(content=f"{user} remove from the blacklist. {failed}", view=None)
 
     @Feature.Command(parent="jsk", name="gitsync", aliases=["gs"])
     async def gitsync(self, ctx: Context):
@@ -469,20 +472,17 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         cog: Music | None = self.bot.get_cog("Music")  # type: ignore
         if not cog:
             return await ctx.send("Music cog isn't loaded.")
-        elif not self.bot.voice_clients:
+        if not self.bot.voice_clients:
             return await ctx.send("There are no music players connected.")
 
         msg = await ctx.send("Reconnecting players...")
-        to_reconnect: list[asyncio.Task] = []
-        for vc in self.bot.voice_clients:
-            to_reconnect.append(self.bot.loop.create_task(cog._reconnect(vc)))  # type: ignore
+        to_reconnect: list[asyncio.Task] = [self.bot.loop.create_task(cog._reconnect(vc)) for vc in self.bot.voice_clients]  # type: ignore
 
         gather = await asyncio.gather(*to_reconnect)
         failed = len([result for result in gather if result is False])
         if failed:
-            await msg.edit(content=f"{failed} of {len(gather)} players failed to reconnect.")
-            return
-        await msg.edit(content="Finished reconnecting all players.")
+            return await msg.edit(content=f"{failed} of {len(gather)} players failed to reconnect.")
+        return await msg.edit(content="Finished reconnecting all players.")
 
     @Feature.Command(parent="jsk_music", name="disconnect")
     async def jsk_music_disconnect(self, ctx: Context):
@@ -490,13 +490,11 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         try:
             node = wavelink.Pool.get_node("OiBot")
         except wavelink.InvalidNodeException:
-            await ctx.send("There is no node to disconnect")
-            return
+            return await ctx.send("There is no node to disconnect")
 
         if not self.bot.voice_clients:
             await node.close(eject=True)
-            await ctx.send("Disconnected the node.")
-            return
+            return await ctx.send("Disconnected the node.")
 
         conf = await ctx.confirm(
             message=(
@@ -508,8 +506,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         if conf.result:
             self._players_to_restore = node.players  # type: ignore
             await node.close(eject=True)
-            await conf.message.edit(content="Disconnected the node.")
-            return
+            return await conf.message.edit(content="Disconnected the node.")
         return await conf.message.edit(content="Okay, the node will not be disconnected.")
 
     @Feature.Command(parent="jsk_music", name="connect")
@@ -532,19 +529,18 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         if self._players_to_restore:
             cog: Music | None = self.bot.get_cog("Music")  # type: ignore
             if not cog:
-                await ctx.send("Couldn't restore players, Music cog is not loaded.")
-                return
+                return await ctx.send("Couldn't restore players, Music cog is not loaded.")
 
-            to_restore: list[asyncio.Task] = []
-            for _, vc in self._players_to_restore.items():
-                to_restore.append(self.bot.loop.create_task(cog._reconnect(vc)))
+            to_restore: list[asyncio.Task] = [
+                self.bot.loop.create_task(cog._reconnect(vc)) for vc in self._players_to_restore.values()
+            ]
 
             gather = await asyncio.gather(*to_restore)
             failed = len([result for result in gather if result is False])
             if failed:
-                await ctx.send(f"{failed} of {len(gather)} players failed to reconnect.")
-                return
-            await ctx.send("Restored all players.")
+                return await ctx.send(f"{failed} of {len(gather)} players failed to reconnect.")
+            return await ctx.send("Restored all players.")
+        return None
 
     @Feature.Command(parent="jsk_music", name="refresh")
     async def jsk_music_refresh(self, ctx: Context, *, flags: ConfigFlags):
@@ -600,7 +596,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         if not cog:
             return await ctx.send("Music cog isn't loaded.")
         cog.default_source = source
-        await ctx.send(f"Set the default source to {source}")
+        return await ctx.send(f"Set the default source to {source}")
 
 
 async def setup(bot: OiBot):

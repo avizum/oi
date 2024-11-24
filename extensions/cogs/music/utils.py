@@ -19,9 +19,8 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import contextlib
 import datetime
-from typing import Annotated, Any, TYPE_CHECKING
+from typing import Annotated, Any, ClassVar, TYPE_CHECKING
 
 import discord
 from discord import app_commands
@@ -38,15 +37,15 @@ if TYPE_CHECKING:
 
 
 __all__ = (
-    "find_song_matches",
-    "hyperlink_song",
-    "is_in_voice",
-    "is_in_channel",
-    "is_not_deafened",
-    "is_manager",
     "Playlist",
     "Song",
     "Time",
+    "find_song_matches",
+    "hyperlink_song",
+    "is_in_channel",
+    "is_in_voice",
+    "is_manager",
+    "is_not_deafened",
 )
 
 type Interaction = discord.Interaction[OiBot]
@@ -56,17 +55,20 @@ class TimeConverter(app_commands.Transformer):
     """Converts a time `MM:SS` to an `int`"""
 
     def base(self, ctx: PlayerContext, argument: int | str) -> int:
-        with contextlib.suppress(ValueError):
+        try:
             argument = int(argument)
+        except ValueError:
+            pass
         if isinstance(argument, int):
             return argument
-        if isinstance(argument, str):
-            try:
-                time_ = datetime.datetime.strptime(argument, "%M:%S")
-                delta = time_ - datetime.datetime(1900, 1, 1)
-                return int(delta.total_seconds())
-            except ValueError as e:
-                raise commands.BadArgument("Time must be in MM:SS format.") from e
+
+        try:
+            time_ = datetime.datetime.strptime(argument, "%M:%S")
+            delta = time_ - datetime.datetime(1900, 1, 1)
+        except ValueError as e:
+            raise commands.BadArgument("Time must be in MM:SS format.") from e
+        else:
+            return int(delta.total_seconds())
 
     async def convert(self, ctx: PlayerContext, argument: int | str) -> int:
         return self.base(ctx, argument)
@@ -126,7 +128,7 @@ class SongConverter(app_commands.Transformer):
 
 
 class LabelsConverter(app_commands.Transformer):
-    _choices: list[tuple[str, int]] = [
+    _choices: ClassVar[list[tuple[str, int]]] = [
         ("Nothing", 0),
         ("Emojis", 1),
         ("Emojis and labels", 2),
@@ -171,9 +173,9 @@ SOURCES: dict[str, str] = {
 
 
 def format_option_name(song: SongD) -> str:
-    """Formats a `Song` like so: `SONG NAME - ARTIST (SOURCE)`
+    """Formats a `Song` like so: `SONG NAME - ARTIST (SOURCE)`.
 
-    If the total length is longer than 100 characters,the song name will be truncated.
+    If the total length is longer than 100 characters, the song name will be truncated.
     """
     suffix = f" - {song["artist"]} ({SOURCES[song["source"]]})"
     max_title_length = 100 - len(suffix)
@@ -205,13 +207,14 @@ def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.
     options: list[app_commands.Choice[str]] = []
     for match in matches:
         title, _, _ = match
-        for song in items[title]:
-            options.append(app_commands.Choice(name=format_option_name(song), value=song["identifier"]))
+        options.extend(
+            [app_commands.Choice(name=format_option_name(song), value=song["identified"]) for song in items[title]]
+        )
     return options[:25]
 
 
 def hyperlink_song(song: SongD) -> str:
-    """Creates a hyperlink from `Song`"""
+    """Creates a hyperlink from `Song`."""
     if song["uri"]:
         return f"[{song["title"]}](<{song["uri"]}>)"
     return song["title"]
@@ -224,17 +227,17 @@ def is_in_voice(*, author: bool = True, bot: bool = True):
         if author and bot:
             if ctx.author.voice and ctx.voice_client and ctx.author.voice.channel == ctx.voice_client.channel:
                 return True
-            elif ctx.voice_client and not ctx.author.voice:
+            if ctx.voice_client and not ctx.author.voice:
                 raise commands.CheckFailure(
                     f"You need to be connected to {ctx.voice_client.channel.mention} to use this command."
                 )
-            else:
-                raise commands.CheckFailure("There is no music player connected.")
-        elif author:
+
+            raise commands.CheckFailure("There is no music player connected.")
+        if author:
             if ctx.author.voice:
                 return True
             raise commands.CheckFailure("You need to be connected to a voice channel to use this command.")
-        elif bot:
+        if bot:
             if ctx.voice_client:
                 return True
             raise commands.CheckFailure("There is no music player connected.")
@@ -290,7 +293,7 @@ def is_manager():
             raise commands.CheckFailure(
                 f"You need to have {vc.dj_role.mention} role or have `Manage Server` permissions to do this."
             )
-        elif not vc.dj_role:
+        if not vc.dj_role:
             if vc.manager == ctx.author:
                 return True
             raise commands.CheckFailure("You need to be DJ or have `Manage Server` permission to do this.")

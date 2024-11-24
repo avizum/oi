@@ -37,7 +37,7 @@ from discord import app_commands
 from discord.ext import commands
 from discord.ext.commands import Range
 from rapidfuzz import process
-from wavelink import ExtrasNamespace as Extras, QueueMode
+from wavelink import QueueMode
 
 import core
 from utils import (
@@ -78,7 +78,7 @@ _log = logging.getLogger(__name__)
 
 
 MENTIONS = discord.AllowedMentions.none()
-EXTRAS = dict(update_after=True)
+EXTRAS = {"update_after": True}
 
 SEARCH_TYPES = Literal[
     "YouTube",
@@ -122,16 +122,14 @@ class Music(core.Cog):
 
         if payload.resumed:
             return
-        else:
-            for vc in node.players.values():
-                self.bot.loop.create_task(self._reconnect(vc))  # type: ignore # all node players are type Player
+
+        for vc in node.players.values():
+            self.bot.loop.create_task(self._reconnect(vc))  # type: ignore # all node players are type Player
 
     @core.Cog.listener()
     async def on_wavelink_track_end(self, payload: TrackEnd) -> None:
         vc = payload.player
-        if vc is None:
-            return
-        elif vc.autoplay == wavelink.AutoPlayMode.enabled:
+        if vc is None or vc.autoplay == wavelink.AutoPlayMode.enabled:
             return
 
         vc.skip_votes.clear()
@@ -173,7 +171,7 @@ class Music(core.Cog):
         track = payload.track
         exception = payload.exception
 
-        if not vc or vc and vc.locked:
+        if not vc or (vc and vc.locked):
             return
 
         _log.error(
@@ -218,7 +216,8 @@ class Music(core.Cog):
 
         if not vc.controller:
             return
-        elif vc.controller and vc.controller.message is not None:
+
+        if vc.controller.message is not None:
             if isinstance(messages, list):
                 message_deleted = discord.utils.get(messages, id=vc.controller.message.id) is not None
             else:
@@ -244,7 +243,7 @@ class Music(core.Cog):
         if not vc.dj_enabled or vc.dj_role:
             return
 
-        if member == vc.manager and after.channel != vc.channel or not vc.manager and after.channel == vc.channel:
+        if (member == vc.manager and after.channel != vc.channel) or (not vc.manager and after.channel == vc.channel):
             manager: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
             if manager:
                 await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS, no_tips=True)
@@ -256,7 +255,7 @@ class Music(core.Cog):
         if not vc:
             return
         if update_after and vc.controller:
-            invoke = not ctx.command.qualified_name == "skip"
+            invoke = ctx.command.qualified_name != "skip"
             await vc.controller.update(invoke=invoke)
 
         if vc.ctx.interaction and ctx.interaction:
@@ -269,7 +268,7 @@ class Music(core.Cog):
         if ctx.voice_client:
             await ctx.send(f"Already connected to {ctx.voice_client.channel.mention}")
             vc = ctx.voice_client
-            return
+            return None
         try:
             vc = Player(ctx=ctx)
             await channel.connect(cls=vc, self_deaf=True)  # type: ignore
@@ -279,7 +278,7 @@ class Music(core.Cog):
                     await ctx.me.edit(suppress=False)
         except wavelink.ChannelTimeoutException:
             await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}")
-            return
+            return None
         await vc._set_player_settings()
         return vc
 
@@ -315,10 +314,11 @@ class Music(core.Cog):
 
             if vc.queue:
                 await vc.play(vc.queue.get(), start=position)
-            return True
         except Exception as exc:
             _log.error("Ignoring exception while reconnecting player:", exc_info=exc)
             return False
+        else:
+            return True
 
     @core.command()
     @is_manager()
@@ -378,9 +378,8 @@ class Music(core.Cog):
             if play_now or play_next:
                 search.tracks.reverse()
                 added = 0
-                for track in search:
+                for added, track in enumerate(search):
                     vc.queue.put_at(0, track)
-                    added += 1
                 end = "beginning of the queue."
             else:
                 added = vc.queue.put(search)
@@ -415,7 +414,8 @@ class Music(core.Cog):
         if not vc.current:
             await vc.play(vc.queue.get())
             return
-        elif vc.paused:
+
+        if vc.paused:
             await vc.pause(False)
         elif play_now:
             await vc.skip()
@@ -439,7 +439,7 @@ class Music(core.Cog):
             return await ctx.send("Player is already paused.")
 
         await vc.pause(True)
-        await ctx.send("Paused the player.")
+        return await ctx.send("Paused the player.")
 
     @core.command(extras=EXTRAS)
     @is_manager()
@@ -457,7 +457,7 @@ class Music(core.Cog):
             return await ctx.send("Player is not paused.", ephemeral=True)
 
         await vc.pause(False)
-        await ctx.send("Unpaused the player.")
+        return await ctx.send("Unpaused the player.")
 
     @core.command(extras=EXTRAS)
     @is_not_deafened()
@@ -477,25 +477,23 @@ class Music(core.Cog):
         try:
             await is_manager().predicate(ctx)
             await vc.skip()
-            await ctx.send(f"{ctx.author} has skipped the track.")
-            return
         except commands.CheckFailure:
             pass
+        else:
+            return await ctx.send(f"{ctx.author} has skipped the track.")
 
         if ctx.author.id == vc.current.extras.requester_id:
             await vc.skip()
-            await ctx.send(f"Track requester {ctx.author} has skipped the track.")
-        else:
-            required = math.ceil(len(vc.channel.members) / 2)
-            if ctx.author.id in vc.skip_votes:
-                await ctx.send("You already voted to skip the track.", ephemeral=True)
-                return
-            vc.skip_votes.add(ctx.author.id)
-            if len(vc.skip_votes) >= required:
-                await vc.skip()
-                await ctx.send(f"Vote to skip passed ({required} of {required}). Skipping.")
-                return
-            await ctx.send(f"Voted to skip. ({len(vc.skip_votes)}/{required})", ephemeral=True)
+            return await ctx.send(f"Track requester {ctx.author} has skipped the track.")
+
+        required = math.ceil(len(vc.channel.members) / 2)
+        if ctx.author.id in vc.skip_votes:
+            return await ctx.send("You already voted to skip the track.", ephemeral=True)
+        vc.skip_votes.add(ctx.author.id)
+        if len(vc.skip_votes) >= required:
+            await vc.skip()
+            return await ctx.send(f"Vote to skip passed ({required} of {required}). Skipping.")
+        return await ctx.send(f"Voted to skip. ({len(vc.skip_votes)}/{required})", ephemeral=True)
 
     @core.command(extras=EXTRAS)
     @is_manager()
@@ -522,7 +520,7 @@ class Music(core.Cog):
 
         source = QueuePageSource(vc)
         paginator = Paginator(source, ctx=ctx, delete_message_after=True)
-        await paginator.start()
+        return await paginator.start()
 
     @queue.command(name="remove", extras=EXTRAS)
     @is_manager()
@@ -547,13 +545,13 @@ class Music(core.Cog):
 
         vc.queue.remove(tracks[0], count=len(tracks))
         all_instances = "all instances of" if len(tracks) > 1 else ""
-        await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
+        return await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
 
     @queue_remove.autocomplete("item")
     async def queue_remove_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
         if not itn.guild:
             return [app_commands.Choice(name="If you see this, I'm telling on you.", value="crazy stuff")]
-        elif not itn.guild.voice_client:
+        if not itn.guild.voice_client:
             return [app_commands.Choice(name="There is no player connected", value="disconnected")]
 
         assert isinstance(itn.guild.voice_client, Player)
@@ -577,7 +575,7 @@ class Music(core.Cog):
             return await ctx.send("The queue is empty.", ephemeral=True)
 
         vc.queue.shuffle()
-        await ctx.send("Shuffled the queue.")
+        return await ctx.send("Shuffled the queue.")
 
     @queue.command(name="loop", extras=EXTRAS)
     @is_manager()
@@ -604,7 +602,7 @@ class Music(core.Cog):
             return await ctx.send("The queue is empty.", ephemeral=True)
 
         vc.queue.reset()
-        await ctx.send("Cleared the queue.")
+        return await ctx.send("Cleared the queue.")
 
     @core.group(fallback="show")
     @app_commands.describe(playlist="The playlist to show information of")
@@ -665,9 +663,8 @@ class Music(core.Cog):
         if play_now or play_next:
             tracks.reverse()
             added = 0
-            for track in tracks:
+            for added, track in enumerate(tracks):
                 vc.queue.put_at(0, track)
-                added += 1
             end = "beginning of the queue."
         else:
             added = vc.queue.put(tracks)
@@ -687,7 +684,7 @@ class Music(core.Cog):
         if not vc.current:
             await vc.play(vc.queue.get())
             return
-        elif vc.paused:
+        if vc.paused:
             await vc.pause(False)
         elif play_now:
             await vc.skip()
@@ -735,7 +732,7 @@ class Music(core.Cog):
             if not name:
                 # Name is an empty string when PlaylistModalView is sent and it times out.
                 # At this point, we assume the user did not mean use the command and ignore it.
-                return
+                return None
 
         if image:
             res = parse.urlparse(image)
@@ -777,7 +774,7 @@ class Music(core.Cog):
         if not playlist:
             return await ctx.send_help(ctx.command)
 
-        await ctx.invoke(self.playlist, playlist)
+        return await ctx.invoke(self.playlist, playlist)
 
     @playlist_songs.command(name="add")
     @core.describe(
@@ -799,7 +796,7 @@ class Music(core.Cog):
             search = await vc.fetch_tracks(song, source, save_tracks=False)
             if not search:
                 return await ctx.send("No tracks found...")
-            elif isinstance(search, wavelink.Playlist):
+            if isinstance(search, wavelink.Playlist):
                 return await ctx.send("Only individual songs can be added to a playlist.")
             song = (await vc.save_tracks([search]))[search.identifier]
 
@@ -833,7 +830,7 @@ class Music(core.Cog):
         )
         embed.set_thumbnail(url=playlist["image"])
 
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
 
     @playlist_songs_add.autocomplete("song")
     async def playlist_add_song_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -1100,7 +1097,7 @@ class Music(core.Cog):
             vc.controller.counter = 10
 
         vc.ctx = ctx
-        await vc.invoke_controller(vc.current)
+        return await vc.invoke_controller(vc.current)
 
     @player.command(name="loop", extras=EXTRAS)
     @is_manager()
@@ -1117,13 +1114,12 @@ class Music(core.Cog):
 
         if mode == "track":
             vc.queue.mode = QueueMode.loop
-            await ctx.send(f"Now looping {vc.current.extras.hyperlink}")
-        elif mode == "queue":
+            return await ctx.send(f"Now looping {vc.current.extras.hyperlink}")
+        if mode == "queue":
             vc.queue.mode = QueueMode.loop_all
-            await ctx.send("Enabled queue loop.")
-        else:
-            vc.queue.mode = QueueMode.normal
-            await ctx.send("Disabled Loop.")
+            return await ctx.send("Enabled queue loop.")
+        vc.queue.mode = QueueMode.normal
+        return await ctx.send("Disabled Loop.")
 
     @player.command(name="volume")
     @is_manager()
@@ -1340,7 +1336,7 @@ class Music(core.Cog):
         if not search and not vc:
             raise commands.BadArgument("No argument provided for search.")
 
-        elif not search:
+        if not search:
             if vc and not vc.current:
                 raise commands.BadArgument("There is no song playing. Please enter a search query or play a song.")
 
@@ -1354,7 +1350,7 @@ class Music(core.Cog):
                 raise commands.BadArgument("No results found matching your search.")
             title, lyrics_data = fetch
 
-        if not lyrics_data or lyrics_data and not lyrics_data["text"]:
+        if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             raise commands.BadArgument("No results found matching your search.")
         lyrics = lyrics_data["text"]
         pag = commands.Paginator(max_size=320)
@@ -1404,4 +1400,4 @@ class Music(core.Cog):
             ),
         )
 
-        await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)

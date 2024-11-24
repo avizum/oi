@@ -37,7 +37,7 @@ HELP_FORUM = 1019682191749423155
 SUPPORT_SERVER = 866891524319084587
 
 
-class SupportServer(core.Cog, command_attrs=dict(hidden=True)):
+class SupportServer(core.Cog, command_attrs={"hidden": True}):
     """Support Server utilities."""
 
     @core.Cog.listener()
@@ -72,7 +72,7 @@ class SupportServer(core.Cog, command_attrs=dict(hidden=True)):
 
         # not using app_commands because they don't have ctx
         if not ctx.interaction:
-            return
+            return None
 
         resolved = ctx.channel.parent.get_tag(1019838841005289513)
         if not resolved:
@@ -80,20 +80,19 @@ class SupportServer(core.Cog, command_attrs=dict(hidden=True)):
 
         if ctx.author.id == ctx.channel.owner_id or ctx.permissions.manage_threads:
             await ctx.send("Marked post as solved.")
-            await ctx.channel.edit(archived=True, locked=True, applied_tags=[resolved])
+            return await ctx.channel.edit(archived=True, locked=True, applied_tags=[resolved])
 
-        else:
-            if not ctx.channel.owner:
-                return await ctx.send("Could not find OP.", ephemeral=True)
-            conf = await ctx.confirm(
-                message=f"{ctx.channel.owner.mention}, Mark post as solved?",
-                allowed=[ctx.channel.owner],
-            )
-            if conf.result:
-                await conf.message.edit(content="Marked post as solved.")
-                await ctx.channel.edit(archived=True, locked=True, applied_tags=[resolved])
-            else:
-                await conf.message.edit(content="Timed out.")
+        if not ctx.channel.owner:
+            return await ctx.send("Could not find OP.", ephemeral=True)
+        conf = await ctx.confirm(
+            message=f"{ctx.channel.owner.mention}, Mark post as solved?",
+            allowed=[ctx.channel.owner],
+        )
+        if conf.result:
+            await conf.message.edit(content="Marked post as solved.")
+            return await ctx.channel.edit(archived=True, locked=True, applied_tags=[resolved])
+
+        return await conf.message.edit(content="Timed out.")
 
 
 async def setup(bot: OiBot):

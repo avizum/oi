@@ -20,9 +20,9 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from discord.ext import commands
 
 __all__ = (
-    "NotVoted",
-    "Maintenance",
     "Blacklisted",
+    "Maintenance",
+    "NotVoted",
 )
 
 

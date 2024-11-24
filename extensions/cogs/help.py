@@ -163,8 +163,7 @@ class GroupHelpPages(menus.ListPageSource):
 
     async def format_page(self, menu: menus.Menu, group_commands: list[core.HybridGroup]) -> discord.Embed:
         if isinstance(group_commands[0], int):
-            embed = self.help.create_command_help_embed(self.group)
-            return embed
+            return self.help.create_command_help_embed(self.group)
         embed = discord.Embed(
             title=f"Command Group: {self.group.qualified_name}",
             description=self.group.help or "No description provided.",
@@ -216,16 +215,18 @@ class CogSelect(discord.ui.Select["HelpPaginator"]):
                 if isinstance(i, CommandSelect):
                     self.view.remove_item(i)
             await self.view.switch(Home(self.help.context, self.help), itn)
-        else:
-            cog: core.Cog | None = self.help.context.bot.get_cog(self.values[0])  # type: ignore
+            return None
 
-            if cog is None:
-                return await itn.response.send_message("This module is unavailable.", ephemeral=True)
+        cog: core.Cog | None = self.help.context.bot.get_cog(self.values[0])  # type: ignore
 
-            menu = CogHelpPages(self.help, cog)
-            commands = await menu.get_page(0)
-            self.view.add_item(CommandSelect(self.help, commands))
-            await self.view.switch(menu, itn)
+        if cog is None:
+            return await itn.response.send_message("This module is unavailable.", ephemeral=True)
+
+        menu = CogHelpPages(self.help, cog)
+        commands = await menu.get_page(0)
+        self.view.add_item(CommandSelect(self.help, commands))
+        await self.view.switch(menu, itn)
+        return None
 
 
 class CommandSelect(discord.ui.Select["HelpPaginator"]):
@@ -274,6 +275,7 @@ class CommandSelect(discord.ui.Select["HelpPaginator"]):
         await self.view.message.edit(
             embed=embed, view=CommandHelpView(self.view.timeout, self.help, self.view, previous_embed=previous_embed)
         )
+        return None
 
 
 class CommandHelpView(discord.ui.View):
@@ -380,8 +382,8 @@ class OiHelp(commands.HelpCommand):
     ) -> list[CommandParameter] | None:
         if not getattr(entity, "__commands_is_hybrid__", None):
             return None
-        else:
-            app_command: HybridAppCommand | app_commands.Group | None = getattr(entity, "app_command", None)
+
+        app_command: HybridAppCommand | app_commands.Group | None = getattr(entity, "app_command", None)
         if app_command is None:
             return None
         info = []
@@ -401,10 +403,8 @@ class OiHelp(commands.HelpCommand):
                 default = entity.params[param.name].displayed_default or None
             else:
                 default = param.default
-            if param.description == "…":
-                description = "No description provided."
-            else:
-                description = param.description
+
+            description = "No description provieded" if param.description == "…" else param.description
             info.append(
                 CommandParameter(
                     name=param.name, description=description, default=default, required=param.required, greedy=greedy
@@ -550,7 +550,7 @@ class HelpCommandCog(core.Cog):
         if command is None:
             # command should never be none, If this cog is unloaded, then help is none,
             # and this command wouldn't be invoked in the first place.
-            return
+            return None
         ctx.command = command
         self.bot.dispatch("command", ctx)
 
