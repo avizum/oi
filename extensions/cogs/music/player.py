@@ -22,6 +22,7 @@ from __future__ import annotations
 import contextlib
 from typing import Any, TYPE_CHECKING
 
+import asyncpg
 import discord
 import wavelink
 from wavelink import ExtrasNamespace as Extras, Playable, Playlist, QueueMode
@@ -82,12 +83,18 @@ class Player(wavelink.Player):
             query = """
                 INSERT INTO player_settings (guild_id, dj_role, dj_enabled, labels)
                 VALUES ($1, $2, $3, $4)
+                ON CONFLICT (guild_id) DO UPDATE
+                SET guild_id = $1
                 RETURNING guild_id, dj_role, dj_enabled, labels
             """
-            settings = dict(
-                await self.client.pool.fetchrow(query, self.channel.guild.id, 0, True, 1, record_class=PlayerSettingsRecord)
-            )
-            self.client.cache.player_settings[self.channel.guild.id] = dict(settings)  # type: ignore
+            try:
+                settings = await self.client.pool.fetchrow(
+                    query, self.channel.guild.id, 0, True, 1, record_class=PlayerSettingsRecord
+                )
+                self.client.cache.player_settings[self.channel.guild.id] = dict(settings)  # type: ignore
+            except asyncpg.UniqueViolationError:
+                # If this happens, then the row somehow exists but doesn't?
+                return
 
         self.dj_enabled = settings["dj_enabled"]
         self.labels = settings["labels"]
