@@ -27,7 +27,7 @@ from typing import Any, TYPE_CHECKING
 import discord
 from discord import ButtonStyle, ui
 from discord.ext import commands, menus
-from wavelink import AutoPlayMode, Playable, QueueMode
+from wavelink import AutoPlayMode, Playable, QueueEmpty, QueueMode
 
 from core import ui as cui
 from utils import OiView, Paginator
@@ -112,12 +112,12 @@ class PlayerSkipButton(PlayerButton):
         return True
 
 
-class PlayerLyricsButton(PlayerButton):
+class PlayerPublicButton(PlayerButton):
     async def interaction_check(self, itn: Interaction) -> bool:
         assert self.view is not None
         vc = self.view.vc
 
-        if not vc or (vc and vc.locked) or not vc.current or not vc.connected:
+        if not vc or (vc and vc.locked) or not vc.connected:
             await itn.response.defer()
             return False
 
@@ -179,6 +179,68 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             await self.controller.update(itn)
 
 
+source_map = {
+    "youtube": "YouTube",
+    "you tube": "YouTube",
+    "youtube music": "YouTube Music",
+    "you tube music": "YouTube Music",
+    "spotify": "Spotify",
+    "soundcloud": "SoundCloud",
+    "sound cloud": "SoundCloud",
+    "applemusic": "Apple Music",
+    "apple music": "Apple Music",
+    "deezer": "Deezer",
+}
+
+
+class EnqueueModal(ui.Modal):
+    query = ui.TextInput(
+        label="Enter a song:",
+        placeholder="Search query or URL",
+        style=discord.TextStyle.short,
+    )
+    source = ui.TextInput(label="Source (Ignore if using URL):", placeholder="Spotify")
+
+    def __init__(self, controller: PlayerController):
+        self.controller = controller
+        self.vc = controller.vc
+        self.source.default = self.vc.ctx.cog.default_source
+        super().__init__(title="Enqueue")
+
+    async def on_submit(self, itn: Interaction):
+        await itn.response.defer(thinking=True, ephemeral=True)
+        vc = self.vc
+        cog = vc.ctx.cog
+
+        source = source_map.get(self.source.value.lower(), cog.default_source)
+        tracks = await self.vc.fetch_tracks(self.query.value, source)  # type: ignore
+        kwargs = {"query": self.query.value}
+        if source != cog.default_source:
+            kwargs["source"] = source
+        self.controller.command_usage(itn, "play", **kwargs)
+        if not tracks:
+            if self.query.value.startswith(("https://", "http://")):
+                not_found = (
+                    "No tracks found matching the provided URL.\n"
+                    "-# Make sure your URL is valid or try using a different URL."
+                )
+            else:
+                not_found = (
+                    f"No tracks found on {source} matching the query: {self.query.value}.\n"
+                    "-# Try changing the source, or check your spelling."
+                )
+            return await itn.followup.send(not_found)
+        assert isinstance(itn.user, discord.Member)
+        embed = vc.enqueue_tracks(tracks, requester=itn.user)
+        assert embed.description is not None
+        description = embed.description
+        embed.description = description.replace("Added", f"{itn.user} added")
+        embed.color = 0x00FFB3
+        await vc.ctx.send(embed=embed)
+        msg = await itn.followup.send(description, wait=True)
+        return await msg.delete(delay=10)
+
+
 class PlayerController(ui.View):
     def __init__(self, /, *, ctx: PlayerContext, vc: Player) -> None:
         self.ctx: PlayerContext = ctx
@@ -211,6 +273,7 @@ class PlayerController(ui.View):
         for item in self.children:
             if isinstance(item, (PlayerButton, LoopTypeSelect)):
                 item.disabled = disabled
+        self.enqueue.disabled = False
 
     def set_labels(self) -> None:
         vc = self.vc
@@ -227,6 +290,7 @@ class PlayerController(ui.View):
                 self.loop.label = "Looping Queue"
             self.autoplay.label = "Autoplay"
             self.lyrics.label = "Lyrics"
+            self.enqueue.label = "Enqueue"
         elif self.labels == 1:
             for item in self.children:
                 if isinstance(item, PlayerButton) and item.label is not None:
@@ -238,9 +302,10 @@ class PlayerController(ui.View):
             self.add_item(self.rewind)
             self.add_item(self.pause)
             self.add_item(self.skip)
+            self.add_item(self.autoplay)
+            self.add_item(self.enqueue)
             self.add_item(self.shuffle)
             self.add_item(self.loop)
-            self.add_item(self.autoplay)
             self.add_item(self.lyrics)
             if self.loop_select:
                 self.add_item(self.loop_select)
@@ -344,7 +409,7 @@ class PlayerController(ui.View):
         f_ctx.interaction = itn
         self.ctx.bot.dispatch("command", f_ctx)
 
-    @cui.button(cls=PlayerButton, emoji="<:skip_left:1294459900696461364>")
+    @cui.button(cls=PlayerButton, emoji="<:skip_left:1294459900696461364>", row=0)
     async def rewind(self, itn: Interaction, _: PlayerButton):
         await self.vc.seek(0)
         if self.vc.paused:
@@ -352,13 +417,13 @@ class PlayerController(ui.View):
         self.command_usage(itn, "seek", time="0:00")
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:play_or_pause:1294459947572138069>")
+    @cui.button(cls=PlayerButton, emoji="<:play_or_pause:1294459947572138069>", row=0)
     async def pause(self, itn: Interaction, _: PlayerButton):
         await self.vc.pause(not self.vc.paused)
         self.command_usage(itn, "resume" if not self.vc.paused else "pause")
         await self.update(itn)
 
-    @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>")
+    @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>", row=0)
     async def skip(self, itn: Interaction, _: PlayerSkipButton):
         vc = self.vc
 
@@ -387,7 +452,30 @@ class PlayerController(ui.View):
         self.command_usage(itn, "skip")
         await self.update(itn, invoke=False)
 
-    @cui.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>")
+    @cui.button(cls=PlayerButton, emoji="<:autoplay:1294460017348710420>", row=0)
+    async def autoplay(self, itn: Interaction, button: PlayerButton):
+        state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
+        self.vc.autoplay = state
+        self.command_usage(itn, "player autoplay", state=not bool(state.value))
+        await self.update(itn)
+
+    @cui.button(cls=PlayerPublicButton, emoji="<:queue_add:1310474338868138004>", row=1)
+    async def enqueue(self, itn: Interaction, button: PlayerPublicButton):
+        modal = EnqueueModal(self)
+        await itn.response.send_modal(modal)
+        await modal.wait()
+
+        if not self.vc.current:
+            try:
+                await self.vc.play(self.vc.queue.get())
+            except QueueEmpty:
+                pass
+            else:
+                return
+
+        await self.update(itn)
+
+    @cui.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>", row=1)
     async def shuffle(self, itn: Interaction, _: PlayerButton):
         vc = self.vc
 
@@ -395,7 +483,7 @@ class PlayerController(ui.View):
         self.command_usage(itn, "queue shuffle")
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:loop_all:1294459877447696385>")
+    @cui.button(cls=PlayerButton, emoji="<:loop_all:1294459877447696385>", row=1)
     async def loop(self, itn: Interaction, button: PlayerButton):
         assert self.vc.current is not None
 
@@ -407,16 +495,10 @@ class PlayerController(ui.View):
             self.loop_select = None
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:autoplay:1294460017348710420>")
-    async def autoplay(self, itn: Interaction, button: PlayerButton):
-        state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
-        self.vc.autoplay = state
-        self.command_usage(itn, "player autoplay", state=not bool(state.value))
-        await self.update(itn)
-
-    @cui.button(cls=PlayerLyricsButton, emoji="<:lyrics:1297669978635505675>")
-    async def lyrics(self, itn: Interaction, button: PlayerLyricsButton):
-        assert self.vc.current is not None
+    @cui.button(cls=PlayerPublicButton, emoji="<:lyrics:1297669978635505675>", row=1)
+    async def lyrics(self, itn: Interaction, button: PlayerPublicButton):
+        if self.vc.current is None:
+            return await itn.response.defer()
 
         self.command_usage(itn, "lyrics", search=self.vc.current.title)
 
@@ -434,7 +516,7 @@ class PlayerController(ui.View):
         lyrics_data = await self.vc.fetch_current_lyrics()
         if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             await itn.followup.send("Could not find lyrics.", ephemeral=True)
-            return
+            return None
         pag = commands.Paginator(max_size=320)
 
         for line in lyrics_data["text"].splitlines():
@@ -447,6 +529,7 @@ class PlayerController(ui.View):
 
         await paginator.start(itn)
         self.lyrics_paginators[itn.user.id] = paginator
+        return None
 
 
 class QueuePageSource(menus.ListPageSource):
