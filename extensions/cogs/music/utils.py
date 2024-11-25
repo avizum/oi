@@ -208,7 +208,7 @@ def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.
     for match in matches:
         title, _, _ = match
         options.extend(
-            [app_commands.Choice(name=format_option_name(song), value=song["identified"]) for song in items[title]]
+            [app_commands.Choice(name=format_option_name(song), value=song["identifier"]) for song in items[title]]
         )
     return options[:25]
 
