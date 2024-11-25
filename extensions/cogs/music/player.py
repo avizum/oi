@@ -242,7 +242,7 @@ class Player(wavelink.Player):
         try:
             tracks = await Playable.search(query, source=source_map.get(source, "ytsearch"))
             if save_tracks:
-                self.bot.loop.create_task(self.save_tracks(tracks if isinstance(tracks, wavelink.Playlist) else tracks[:1]))
+                self.bot.loop.create_task(self.save_tracks(tracks if isinstance(tracks, Playlist) else tracks[:1]))
         except wavelink.LavalinkLoadException:
             tracks = None
 
@@ -250,6 +250,47 @@ class Player(wavelink.Player):
             return None
 
         return tracks if isinstance(tracks, wavelink.Playlist) else tracks[0]
+
+    def enqueue_tracks(self, tracks: Playable | Playlist, *, requester: discord.Member, top: bool = False) -> discord.Embed:
+
+        if isinstance(tracks, wavelink.Playlist):
+            playlist = tracks  # reduces confusion
+
+            for track in playlist:
+                self.set_extras(track, requester=str(requester), requester_id=requester.id)
+
+            if top:
+                playlist.tracks.reverse()
+                for added, track in enumerate(playlist):
+                    self.queue.put_at(0, track)
+                end = "beginning of the queue."
+            else:
+                added = self.queue.put(playlist)
+                end = "queue."
+
+            title = "Enqueued Playlist"
+            if playlist.type and playlist.type == "user_created":
+                title = "Enqueued Personal Playlist"
+
+            hyperlink = f"[{playlist.name}]({playlist.url})" if tracks.url else playlist.name
+            embed = discord.Embed(
+                title=title,
+                description=f"Added {hyperlink} with {added} tracks to the {end}",
+            )
+            embed.set_thumbnail(url=tracks.artwork)
+            return embed
+
+        track = tracks  # reduces confusion
+        self.set_extras(track, requester=str(requester), requester_id=requester.id)
+        if top:
+            self.queue.put_at(0, track)
+            end = "beginning of the queue."
+        else:
+            self.queue.put(track)
+            end = "queue"
+        embed = discord.Embed(title="Enqueued Track", description=f"Added {track.extras.hyperlink} to the {end}.")
+        embed.set_thumbnail(url=track.artwork)
+        return embed
 
     async def invoke_controller(self, playable: Playable | None) -> None:
         """Invokes the controller.

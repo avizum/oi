@@ -368,44 +368,7 @@ class Music(core.Cog):
         if play_now or play_next or shuffle:
             await is_manager().predicate(ctx)
 
-        requester = str(ctx.author)
-        requester_id = ctx.author.id
-
-        if isinstance(search, wavelink.Playlist):
-            for track in search:
-                vc.set_extras(track, requester=requester, requester_id=requester_id)
-
-            if play_now or play_next:
-                search.tracks.reverse()
-                added = 0
-                for added, track in enumerate(search):
-                    vc.queue.put_at(0, track)
-                end = "beginning of the queue."
-            else:
-                added = vc.queue.put(search)
-                end = "queue."
-
-            url = search.url or query
-            hyperlink = f"[{search.name}](<{url}>)"
-            embed = discord.Embed(
-                title="Enqueued Playlist",
-                description=f"Added {hyperlink} with {added} tracks to the {end}",
-            )
-        else:
-            vc.set_extras(search, requester=requester, requester_id=requester_id)
-
-            if play_now or play_next:
-                vc.queue.put_at(0, search)
-                end = "beginning of the queue."
-            else:
-                vc.queue.put(search)
-                end = "queue."
-            embed = discord.Embed(
-                title="Enqueued Track",
-                description=f"Added {search.extras.hyperlink} to the {end}",
-            )
-        embed.set_thumbnail(url=search.artwork)
-
+        embed = vc.enqueue_tracks(search, requester=ctx.author, top=play_now or play_next)
         await ctx.send(embed=embed)
 
         if shuffle:
@@ -660,21 +623,8 @@ class Music(core.Cog):
             await ctx.send("Could not load any of the tracks in this playlist. Please try again later", ephemeral=True)
             return
 
-        if play_now or play_next:
-            tracks.reverse()
-            added = 0
-            for added, track in enumerate(tracks):
-                vc.queue.put_at(0, track)
-            end = "beginning of the queue."
-        else:
-            added = vc.queue.put(tracks)
-            end = "queue."
-
-        embed = discord.Embed(
-            title="Enqueued Personal Playlist", description=f"Added {playlist['name']} with {added} tracks to the {end}"
-        )
-        image = playlist["image"] or tracks[0].artwork
-        embed.set_thumbnail(url=image)
+        user_playlist = UserPlaylist(tracks, playlist)
+        embed = vc.enqueue_tracks(user_playlist, requester=ctx.author, top=play_now or play_next)
 
         await ctx.send(embed=embed)
 
