@@ -27,6 +27,8 @@ import wavelink
 import core
 
 if TYPE_CHECKING:
+    from utils import Playlist as PlaylistData
+
     from .cog import Music
     from .player import Player
 
@@ -82,3 +84,12 @@ class Lyrics(TypedDict):
     text: str
     lines: list[LyricLine]
     plugin: Any
+
+
+class Playlist(wavelink.Playlist):
+    def __init__(self, tracks: list[wavelink.Playable], data: PlaylistData) -> None:
+        self.tracks = tracks
+        self.artwork = data["image"] or self.tracks[0].artwork
+        self.name = data["name"]
+        self.type = "user_created"
+        self.url = None

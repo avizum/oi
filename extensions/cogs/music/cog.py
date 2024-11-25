@@ -52,6 +52,7 @@ from utils import (
 )
 
 from .player import Player
+from .types import Playlist as UserPlaylist
 from .utils import (
     find_song_matches,
     hyperlink_song,
@@ -103,7 +104,7 @@ class Music(core.Cog):
         self.next_cooldown: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(
             3, 10, type=commands.BucketType.guild
         )
-        self.default_source: str = "YouTube Music"
+        self.default_source: SEARCH_TYPES = "YouTube Music"
 
     @property
     def display_emoji(self) -> str:
@@ -203,7 +204,7 @@ class Music(core.Cog):
 
         vc = cast(Player, message.guild.voice_client)
         if vc.controller:
-            vc.controller.counter += 2 if message.author.bot else 1
+            vc.controller.counter += 1
 
     @core.Cog.listener("on_message_delete")
     @core.Cog.listener("on_bulk_message_delete")
@@ -286,9 +287,12 @@ class Music(core.Cog):
     @is_not_deafened()
     @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
-    async def connect(self, ctx: PlayerContext) -> Player | None:
+    async def connect(self, ctx: PlayerContext):
         """Connects to a voice channel or stage."""
-        return await self._connect(ctx)
+        vc = await self._connect(ctx)
+        if not vc:
+            return await ctx.send("Could not connect to your channel.")
+        return await vc.invoke_controller(None)
 
     @core.command()
     @is_manager()
@@ -314,6 +318,8 @@ class Music(core.Cog):
 
             if vc.queue:
                 await vc.play(vc.queue.get(), start=position)
+            if vc.controller is None:
+                await vc.invoke_controller(None)
         except Exception as exc:
             _log.error("Ignoring exception while reconnecting player:", exc_info=exc)
             return False
