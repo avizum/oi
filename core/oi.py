@@ -99,11 +99,9 @@ class OiBot(Bot):
 
     async def on_message(self, message: discord.Message, /):
         if re.fullmatch("<@867713143366746142>", message.content):
-            em = discord.Embed(description=f"Hey, {message.author.mention}, My prefix is `/`.\n", color=0x00FFB3)
-            em.set_image(
-                url="https://cdn.discordapp.com/attachments/790354100654964776/1015124745689239592/how_to_slash.png"
+            await message.reply(
+                f"Hey, my prefix is `/` or {self.user.mention}.", allowed_mentions=discord.AllowedMentions(replied_user=True)
             )
-            await message.channel.send(embed=em)
         await self.process_commands(message)
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message, /):
