@@ -31,7 +31,7 @@ from discord.ext import commands
 import core
 
 if TYPE_CHECKING:
-    from discord import Interaction, Member
+    from discord import Interaction, Member, User
 
     from core import Context, OiBot
 
@@ -68,6 +68,13 @@ class TargetConverter(app_commands.Transformer):
     async def transform(self, itn: Interaction, argument: Member) -> Member:
         ctx = itn._baton
         return await self.base(ctx, argument)
+
+
+class BanTargetConverter(TargetConverter):
+    async def base(self, ctx: Context, target: Member | User) -> Member | User:
+        if isinstance(target, User):
+            return target
+        return await super().base(ctx, target)
 
 
 class ReasonConverter(app_commands.Transformer):
@@ -192,6 +199,7 @@ class TimeConverter(app_commands.Transformer):
 
 
 Target = Annotated[discord.Member, TargetConverter]
+BanTarget = Annotated[discord.Member | discord.User, TargetConverter]
 Reason = Annotated[str, ReasonConverter]
 BanEntry = Annotated[discord.User, FindBanEntry]
 Time = Annotated[int, TimeConverter]
@@ -239,7 +247,7 @@ class Moderation(core.Cog):
     @core.has_permissions(ban_members=True)
     @core.bot_has_permissions(ban_members=True)
     @core.describe(target="The member to ban.", reason="The reason that will show up in the audit log.")
-    async def ban(self, ctx: Context, target: Target, *, reason: Reason = DefaultReason):
+    async def ban(self, ctx: Context, target: BanTarget, *, reason: Reason = DefaultReason):
         """Ban a member from the server."""
         await ctx.guild.ban(user=target, reason=reason)
         await ctx.send(f"Banned {target}.", ephemeral=True)
