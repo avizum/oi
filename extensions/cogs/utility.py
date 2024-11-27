@@ -496,6 +496,10 @@ class Utility(core.Cog):
                 fmt.append(f"{count}. {row.command_name}: {row.uses} uses")
         return "\n".join(fmt)
 
+    def midnight_timestamp(self) -> str:
+        midnight = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        return discord.utils.format_dt(midnight, "R")
+
     @oi.group(fallback="server")
     @core.describe(command_type="What type of command usage to show.")
     @app_commands.rename(command_type="type")
@@ -523,7 +527,10 @@ class Utility(core.Cog):
 
         embed = discord.Embed(
             title=f"{cmd_type}Command Usage for {ctx.guild.name}",
-            description=f"This server has {total_uses.uses:,} {cmd_type}command uses.",
+            description=(
+                f"This server has {total_uses.uses:,} {cmd_type}command uses.\n"
+                f"Top {cmd_type}Commands reset in: {self.midnight_timestamp()}"
+            ),
             timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
         )
         embed.add_field(name=f"Top {cmd_type}Commands", value=self.format_usage(top_uses))
@@ -557,7 +564,10 @@ class Utility(core.Cog):
         start = f"{member} has" if member != ctx.author else "You have"
         embed = discord.Embed(
             title=f"{cmd_type}Command Usage for {member}",
-            description=f"{start} used {total_uses.uses} {cmd_type}commands.",
+            description=(
+                f"{start} used {total_uses.uses} {cmd_type}commands.\n"
+                f"Top {cmd_type}Commands reset in: {self.midnight_timestamp()}"
+            ),
             timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
         )
 
@@ -587,7 +597,9 @@ class Utility(core.Cog):
 
         embed = discord.Embed(
             title="Global Command Usage",
-            description=f"{total_uses.uses} {cmd_type}commands used.",
+            description=(
+                f"{total_uses.uses} {cmd_type}commands used.\nTop {cmd_type}Commands reset in: {self.midnight_timestamp()}"
+            ),
             timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
         )
 
