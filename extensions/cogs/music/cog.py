@@ -366,7 +366,17 @@ class Music(core.Cog):
 
         search = await vc.fetch_tracks(query, source)
         if not search:
-            await ctx.send("No tracks found...")
+            msg = (
+                f"No tracks found on {source} matching the query: {query}.\n"
+                "-# Try changing the source, or check your spelling."
+            )
+            if query.startswith(("https://", "http://")):
+                msg = (
+                    "No tracks found matching the provided URL.\n"
+                    "-# Make sure your URL is valid or try using a diffrent url."
+                )
+
+            await ctx.send(msg, ephemeral=True)
             return
 
         await is_in_channel().predicate(ctx)
@@ -751,7 +761,17 @@ class Music(core.Cog):
         if isinstance(song, str):
             search = await vc.fetch_tracks(song, source, save_tracks=False)
             if not search:
-                return await ctx.send("No tracks found...")
+                msg = (
+                    f"No tracks found on {source} matching the query: {song}.\n"
+                    "-# Try changing the source, or check your spelling."
+                )
+                if song.startswith(("https://", "http://")):
+                    msg = (
+                        "No tracks found matching the provided URL.\n"
+                        "-# Make sure your URL is valid or try using a diffrent url."
+                    )
+                return await ctx.send(msg, ephemeral=True)
+
             if isinstance(search, wavelink.Playlist):
                 return await ctx.send("Only individual songs can be added to a playlist.")
             song = (await vc.save_tracks([search]))[search.identifier]
