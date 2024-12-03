@@ -25,10 +25,11 @@ import datetime
 import difflib
 import inspect
 import io
+import itertools
 import re
 import sys
 from importlib.metadata import distribution, packages_distributions
-from typing import Annotated, Any, Callable, Generator, TYPE_CHECKING
+from typing import Any, Callable, Generator, TYPE_CHECKING
 
 import discord
 import psutil
@@ -56,19 +57,19 @@ if TYPE_CHECKING:
     from .music.player import Player
 
 
-class ExtensionConverter(commands.Converter):
-    async def convert(self, ctx: Context, extensions: str) -> list[str]:
+class ExtensionConverter(list[str]):
+    @classmethod
+    async def convert(cls, ctx: Context, extension: str) -> list[str]:
         exts = []
-        split = extensions.split()
-        for extension in split:
-            matches = difflib.get_close_matches(extension, ctx.bot.extensions)
-            if extension in ("a", "all", "~", "*"):
-                exts.extend(ctx.bot.extensions)
-            elif matches:
-                exts.append(matches[0])
-            else:
-                exts.append(extension)
-
+        matches = difflib.get_close_matches(extension, ctx.bot.extensions)
+        if extension.startswith(("a", "all", "i", "initial")):
+            exts.extend(ctx.bot.initial_extensions)
+            if extension.endswith("*"):
+                exts.extend(ctx.bot.core_extensions)
+        elif matches:
+            exts.append(matches[0])
+        else:
+            exts.append(extension)
         return exts
 
 
@@ -233,9 +234,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
         await ctx.send(embed=embed)
 
-    async def do_extension(
-        self, ctx: Context, action: Callable[..., Any], extensions: list[str]
-    ) -> tuple[list[str], list[str]]:
+    async def do_extension(self, action: Callable[..., Any], extensions: list[str]) -> tuple[list[str], list[str]]:
         loaded: list[str] = []
         failed: list[str] = []
         for extension in extensions:
@@ -288,25 +287,26 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
     @Feature.Command(parent="jsk", name="load", aliases=["l"])
     async def jsk_load(self, ctx: Context, *extensions: str):
         """Loads extensions."""
-        loaded, failed = await self.do_extension(ctx, self.bot.load_extension, list(extensions))
+        loaded, failed = await self.do_extension(self.bot.load_extension, [*extensions])
 
         fmtd = "\n".join(loaded + failed)
-        embed = discord.Embed(title="Reloaded extensions", description=fmtd)
+        embed = discord.Embed(title="Loaded extensions", description=fmtd)
         await ctx.send(embed=embed)
 
     @Feature.Command(parent="jsk", name="unload", aliases=["u"])
-    async def jsk_unload(self, ctx: Context, *, extensions: Annotated[list[str], ExtensionConverter]):
+    async def jsk_unload(self, ctx: Context, extensions: commands.Greedy[ExtensionConverter]):
         """Unloads extensions."""
-        loaded, failed = await self.do_extension(ctx, self.bot.unload_extension, extensions)
+        loaded, failed = await self.do_extension(self.bot.unload_extension, list(itertools.chain.from_iterable(extensions)))
 
         fmtd = "\n".join(loaded + failed)
         embed = discord.Embed(title="Unloaded extensions", description=fmtd)
         await ctx.send(embed=embed)
 
     @Feature.Command(parent="jsk", name="reload", aliases=["r"])
-    async def jsk_reload(self, ctx: Context, *, extensions: Annotated[list[str], ExtensionConverter]):
+    async def jsk_reload(self, ctx: Context, extensions: commands.Greedy[ExtensionConverter]):
         """Reloads extensions."""
-        loaded, failed = await self.do_extension(ctx, self.bot.reload_extension, extensions)
+
+        loaded, failed = await self.do_extension(self.bot.reload_extension, list(itertools.chain.from_iterable(extensions)))
 
         fmtd = "\n".join(loaded + failed)
         embed = discord.Embed(title="Reloaded extensions", description=fmtd)

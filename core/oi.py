@@ -63,6 +63,22 @@ class OiBot(Bot):
     owner_id: None
     owner_ids: set[int]
     tree: MentionableTree
+    core_extensions: tuple[str, ...] = (
+        "core.context",
+        "extensions.logger",
+        "extensions.listeners",
+        "extensions.error_handler",
+        "extensions.cogs.owner",
+    )
+    initial_extensions: tuple[str, ...] = (
+        "extensions.cogs.help",
+        "extensions.cogs.moderation",
+        "extensions.cogs.utility",
+        "extensions.cogs.music",
+        "extensions.cogs.images",
+        "extensions.cogs.fun",
+        "extensions.cogs.support",
+    )
 
     def __init__(self) -> None:
         super().__init__(
@@ -172,21 +188,7 @@ class OiBot(Bot):
         await self.topgg_webhook.run(2832)
 
     async def load_extensions(self) -> None:
-        extensions: tuple[str, ...] = (
-            "core.context",
-            "extensions.logger",
-            "extensions.listeners",
-            "extensions.error_handler",
-            "extensions.cogs.owner",
-            "extensions.cogs.help",
-            "extensions.cogs.moderation",
-            "extensions.cogs.utility",
-            "extensions.cogs.music",
-            "extensions.cogs.images",
-            "extensions.cogs.fun",
-            "extensions.cogs.support",
-        )
-        for extension in extensions:
+        for extension in self.core_extensions + self.initial_extensions:
             try:
                 await self.load_extension(extension)
 
