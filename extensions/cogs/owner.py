@@ -548,20 +548,20 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
 
         node = wavelink.Pool.get_node("OiBot")
         if flags.po_token or flags.visitor_data or flags.refresh_token:
-            data = {}
-            changed = []
+            yt_data = {}
+            yt_changed = []
             if flags.po_token:
-                data["poToken"] = flags.po_token
-                changed.append("`po_token`")
+                yt_data["poToken"] = flags.po_token
+                yt_changed.append("`po_token`")
             if flags.visitor_data:
-                data["visitorData"] = flags.visitor_data
-                changed.append("`visitor_data`")
+                yt_data["visitorData"] = flags.visitor_data
+                yt_changed.append("`visitor_data`")
             if flags.refresh_token:
-                data["refreshToken"] = flags.refresh_token
-                changed.append("`refresh_token`")
+                yt_data["refreshToken"] = flags.refresh_token
+                yt_changed.append("`refresh_token`")
             try:
-                await node.send("POST", path="youtube", data=data)
-                await ctx.send(f"Set YouTube data: {', '.join(changed)}")
+                await node.send("POST", path="youtube", data=yt_data)
+                await ctx.send(f"Set YouTube data: {', '.join(yt_changed)}")
             except (wavelink.LavalinkException, wavelink.NodeException) as exc:
                 await ctx.send(f"Could not set YouTube data: {exc}")
 
@@ -590,7 +590,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             await ctx.send(f"Could not set\n{', '.join(changed)}: {exc}")
 
     @Feature.Command(parent="jsk_music", name="source")
-    async def jsk_music_source(self, ctx: Context, source: SEARCH_TYPES):
+    async def jsk_music_source(self, ctx: Context, *, source: SEARCH_TYPES):
         """Sets the default source for the play command."""
         cog: Music | None = self.bot.get_cog("Music")  # type: ignore
         if not cog:
