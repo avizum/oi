@@ -461,6 +461,9 @@ class PlayerController(ui.View):
 
     @cui.button(cls=PlayerPublicButton, emoji="<:queue_add:1310474338868138004>", row=1)
     async def enqueue(self, itn: Interaction, button: PlayerPublicButton):
+        if itn.user not in self.vc.channel.members:
+            await itn.response.send_message(f"You need to be in {self.vc.channel.mention} to add songs to the queue.")
+            return
         modal = EnqueueModal(self)
         await itn.response.send_modal(modal)
         await modal.wait()
