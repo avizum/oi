@@ -267,7 +267,7 @@ class Music(core.Cog):
         channel = ctx.author.voice.channel
         assert channel is not None
         if ctx.voice_client:
-            await ctx.send(f"Already connected to {ctx.voice_client.channel.mention}")
+            await ctx.send(f"Already connected to {ctx.voice_client.channel.mention}", ephemeral=True)
             vc = ctx.voice_client
             return None
         try:
@@ -278,7 +278,7 @@ class Music(core.Cog):
                 with contextlib.suppress(discord.Forbidden):
                     await ctx.me.edit(suppress=False)
         except wavelink.ChannelTimeoutException:
-            await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}")
+            await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}", ephemeral=True)
             return None
         await vc._set_player_settings()
         return vc
@@ -289,9 +289,9 @@ class Music(core.Cog):
     @core.bot_has_guild_permissions(connect=True, speak=True)
     async def connect(self, ctx: PlayerContext):
         """Connects to a voice channel or stage."""
-        vc = await self._connect(ctx)
+        vc = await self._connect(ctx) or ctx.voice_client
         if not vc:
-            return await ctx.send("Could not connect to your channel.")
+            return await ctx.send("Could not connect to your channel.", ephemeral=True)
         return await vc.invoke_controller(None)
 
     @core.command()
