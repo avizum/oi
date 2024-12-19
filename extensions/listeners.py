@@ -163,6 +163,9 @@ class Important(core.Cog):
 
         _log.info(f"{ctx.author} ({user_id}) #{ctx.channel.name} ({guild_id}): {message}")
 
+        if self.bot.user.id != 867713143366746142:
+            return
+
         self._command_queue.append(
             {
                 "command_name": command_name,
