@@ -63,6 +63,7 @@ __all__ = (
 
 
 CogT = TypeVar("CogT", bound="Cog | None")
+ContextT = TypeVar("ContextT", bound="Context[Bot]")
 P = ParamSpec("P")
 T = TypeVar("T")
 type CommandType = int | app_commands.Command[Any, ..., Any] | HybridCommand[Any, ..., Any] | HybridGroup[Any, ..., Any]
@@ -277,7 +278,36 @@ class HybridGroup(commands.HybridGroup, Group[CogT, P, T]):
         return super().get_command(name)
 
 
-def command(name: str = MISSING, **attrs: Any) -> Callable[..., HybridCommand]:
+if TYPE_CHECKING:
+
+    class _CommandDecorator:
+        @overload
+        def __call__(self, func: Callable[Concatenate[CogT, ContextT, P], Coro[T]], /) -> HybridCommand[CogT, P, T]: ...
+
+        @overload
+        def __call__(self, func: Callable[Concatenate[ContextT, P], Coro[T]], /) -> HybridCommand[None, P, T]: ...
+
+        def __call__(self, func: Callable[..., Coro[T]], /) -> Any: ...
+
+    class _GroupDecorator:
+        @overload
+        def __call__(self, func: Callable[Concatenate[CogT, ContextT, P], Coro[T]], /) -> HybridGroup[CogT, P, T]: ...
+
+        @overload
+        def __call__(self, func: Callable[Concatenate[ContextT, P], Coro[T]], /) -> HybridGroup[None, P, T]: ...
+
+        def __call__(self, func: Callable[..., Coro[T]], /) -> Any: ...
+
+
+@overload
+def command(name: str = MISSING, **attrs: Any) -> _CommandDecorator: ...
+
+
+@overload
+def command(name: str = MISSING, **attrs: Any) -> Callable[..., HybridCommand]: ...
+
+
+def command(name: str = MISSING, **attrs: Any) -> Any:
     def decorator(func) -> HybridCommand:
         if isinstance(func, HybridCommand):
             raise TypeError("Callback is already a command.")
@@ -286,7 +316,15 @@ def command(name: str = MISSING, **attrs: Any) -> Callable[..., HybridCommand]:
     return decorator
 
 
-def group(name: str = MISSING, **attrs: Any) -> Callable[..., HybridGroup]:
+@overload
+def group(name: str = MISSING, **attrs: Any) -> _GroupDecorator: ...
+
+
+@overload
+def group(name: str = MISSING, **attrs: Any) -> Callable[..., HybridGroup]: ...
+
+
+def group(name: str = MISSING, **attrs: Any) -> Any:
     def decorator(func) -> HybridGroup:
         if isinstance(func, HybridGroup):
             raise TypeError("Callback is already a group.")

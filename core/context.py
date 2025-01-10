@@ -39,8 +39,8 @@ BotT = TypeVar("BotT", bound=commands.Bot | commands.AutoShardedBot)
 
 
 __all__ = (
-    "Context",
     "ConfirmResult",
+    "Context",
 )
 
 
@@ -276,7 +276,7 @@ class Context(commands.Context, Generic[BotT]):
             allowed = [self.author]
         if delete_message_after and remove_view_after:
             raise ValueError("Cannot have both delete_message_after and remove_view_after keyword arguments.")
-        if embed and message or embed:
+        if (embed and message) or embed:
             embed.description = f"{embed.description}\n\n{confirm_messsage}" if embed.description else confirm_messsage
         elif message:
             message = f"{message}\n\n{confirm_messsage}"
