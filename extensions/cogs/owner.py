@@ -49,12 +49,12 @@ from jishaku.repl import AsyncCodeExecutor
 from utils import BlacklistRecord
 
 from .music.cog import SEARCH_TYPES
+from .music.player import Player
 
 if TYPE_CHECKING:
     from core import Command, Context, OiBot
 
     from .music import Music
-    from .music.player import Player
 
 
 class ExtensionConverter(list[str]):
@@ -485,7 +485,7 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         return await msg.edit(content="Finished reconnecting all players.")
 
     @Feature.Command(parent="jsk_music", name="disconnect")
-    async def jsk_music_disconnect(self, ctx: Context):
+    async def jsk_music_disconnect(self, ctx: Context, *, message: str | None = None):
         """Disconnects the Lavalink Node."""
         try:
             node = wavelink.Pool.get_node("OiBot")
@@ -496,15 +496,32 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
             await node.close(eject=True)
             return await ctx.send("Disconnected the node.")
 
+        if message:
+            end = f"This message will be sent if players are disconnected:\n{message}"
+        else:
+            end = "No message will be sent if players are disconnected."
+
         conf = await ctx.confirm(
             message=(
                 f"Are you sure you want to disconnect the Node?\n"
-                f"There are {len(self.bot.voice_clients)} connected players."
+                f"There are {len(self.bot.voice_clients)} connected players.\n{end}"
             ),
             remove_view_after=True,
         )
+
         if conf.result:
             self._players_to_restore = node.players  # type: ignore
+
+            end = f"\n\nDeveloper message:\n{message}" if message else ""
+
+            for vc in self.bot.voice_clients:
+                if isinstance(vc, Player):
+                    await vc.ctx.send(
+                        "The music server is going to be disconnected.\n"
+                        f"Your player will reconnect when the music server reconnects.{end}"
+                    )
+                await vc.disconnect(force=True)
+
             await node.close(eject=True)
             return await conf.message.edit(content="Disconnected the node.")
         return await conf.message.edit(content="Okay, the node will not be disconnected.")
