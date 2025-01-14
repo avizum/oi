@@ -80,6 +80,7 @@ class Player(wavelink.Player):
     async def _set_player_settings(self) -> PlayerSettings | None:
         guild_id = self.ctx.guild.id
         settings = self.client.cache.player_settings.get(guild_id)
+        settings_dict = None
         if not settings:
             query = """
                 INSERT INTO player_settings (guild_id, dj_role, dj_enabled, labels)
@@ -90,8 +91,8 @@ class Player(wavelink.Player):
             """
             try:
                 settings = await self.client.pool.fetchrow(query, guild_id, 0, True, 1, record_class=PlayerSettingsRecord)
-                settings_dict: PlayerSettings = dict(settings)  # type: ignore
-                self.client.cache.player_settings[guild_id] = settings_dict
+                settings_dict = dict(settings)
+                self.client.cache.player_settings[guild_id] = settings_dict  # type: ignore
             except asyncpg.UniqueViolationError:
                 # If this happens, then the row somehow exists but doesn't?
                 return None
@@ -102,7 +103,7 @@ class Player(wavelink.Player):
         if self.dj_enabled and not self.dj_role:
             self.manager = self.ctx.author
 
-        return settings_dict
+        return settings_dict  # type: ignore
 
     def set_extras(self, playable: Playable, *, requester: str, requester_id: int):
         """Sets the `Playable.extras` attribute.
