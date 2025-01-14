@@ -70,6 +70,7 @@ from .views import LyricPageSource, PlaylistInfoModal, PlaylistModalView, Playli
 
 if TYPE_CHECKING:
     from core import Context, OiBot
+    from utils import PlayerSettings
 
     from .types import PlayerContext, TrackEnd, TrackException, TrackStart, TrackStuck
 
@@ -948,12 +949,25 @@ class Music(core.Cog):
         """DJ settings commands."""
         await ctx.send_help(ctx.command)
 
+    async def _get_player_settings(self, ctx: PlayerContext) -> PlayerSettings | None:
+        settings = self.bot.cache.player_settings.get(ctx.guild.id)
+        vc = ctx.voice_client
+        if not settings:
+            if not vc:
+                vc = Player(ctx=ctx)
+            settings = await vc._set_player_settings()
+        return settings
+
     @player_dj.command(name="enable")
     @core.has_guild_permissions(manage_guild=True)
     async def player_dj_enable(self, ctx: PlayerContext):
         """Enables DJ."""
         vc = ctx.voice_client
-        settings = self.bot.cache.player_settings[ctx.guild.id]
+        settings = await self._get_player_settings(ctx)
+
+        if not settings:
+            return await ctx.send("Could not enable DJ. Please try again later.", ephemeral=True)
+
         if settings["dj_enabled"] is True:
             return await ctx.send("DJ is already enabled.")
 
@@ -976,7 +990,11 @@ class Music(core.Cog):
     async def player_dj_disable(self, ctx: PlayerContext):
         """Disables DJ."""
         vc = ctx.voice_client
-        settings = self.bot.cache.player_settings[ctx.guild.id]
+        settings = await self._get_player_settings(ctx)
+
+        if not settings:
+            return await ctx.send("Could not disable DJ. Please try again later.", ephemeral=True)
+
         if settings["dj_enabled"] is False:
             return await ctx.send("DJ is already disabled.")
 
@@ -1001,7 +1019,10 @@ class Music(core.Cog):
         If not set, the DJ is whoever calls Oi into the channel first.
         """
         vc = ctx.voice_client
-        settings = self.bot.cache.player_settings[ctx.guild.id]
+        settings = await self._get_player_settings(ctx)
+
+        if not settings:
+            return await ctx.send("Could not set DJ role. Please try again later.", ephemeral=True)
         if role and settings["dj_role"] == role.id:
             return await ctx.send(f"DJ is already set to {role.mention}.", allowed_mentions=MENTIONS)
 
@@ -1041,6 +1062,14 @@ class Music(core.Cog):
         """Sets the controller's label format."""
         mapping = {0: "off", 1: "emojis only", 2: "emojis and labels"}
         vc = ctx.voice_client
+
+        settings = await self._get_player_settings(ctx)
+        if not settings:
+            return await ctx.send("Could set player labels. Please try again later.", ephemeral=True)
+
+        if settings["labels"] == state:
+            return await ctx.send(f"Labels are already set to {mapping[state]}")
+
         query = """
             UPDATE player_settings
             SET labels=$1
@@ -1051,7 +1080,7 @@ class Music(core.Cog):
         self.bot.cache.player_settings[ctx.guild.id] = dict(settings)  # type: ignore
         if vc:
             vc.labels = state
-        await ctx.send(f"Set player labels to {mapping[state]}.")
+        return await ctx.send(f"Set player labels to {mapping[state]}.")
 
     @player.command(name="current")
     @is_in_voice()

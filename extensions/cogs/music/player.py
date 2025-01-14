@@ -36,7 +36,7 @@ from .views import PlayerController
 if TYPE_CHECKING:
     from wavelink.types.tracks import TrackPayload
 
-    from utils import Song
+    from utils import PlayerSettings, Song
 
     from .cog import SEARCH_TYPES
 
@@ -77,8 +77,9 @@ class Player(wavelink.Player):
         self.dj_role: discord.Role | None = None
         self.labels: int = 1
 
-    async def _set_player_settings(self) -> None:
-        settings = self.client.cache.player_settings.get(self.channel.guild.id)
+    async def _set_player_settings(self) -> PlayerSettings | None:
+        guild_id = self.ctx.guild.id
+        settings = self.client.cache.player_settings.get(guild_id)
         if not settings:
             query = """
                 INSERT INTO player_settings (guild_id, dj_role, dj_enabled, labels)
@@ -88,19 +89,20 @@ class Player(wavelink.Player):
                 RETURNING guild_id, dj_role, dj_enabled, labels
             """
             try:
-                settings = await self.client.pool.fetchrow(
-                    query, self.channel.guild.id, 0, True, 1, record_class=PlayerSettingsRecord
-                )
-                self.client.cache.player_settings[self.channel.guild.id] = dict(settings)  # type: ignore
+                settings = await self.client.pool.fetchrow(query, guild_id, 0, True, 1, record_class=PlayerSettingsRecord)
+                settings_dict: PlayerSettings = dict(settings)  # type: ignore
+                self.client.cache.player_settings[guild_id] = settings_dict
             except asyncpg.UniqueViolationError:
                 # If this happens, then the row somehow exists but doesn't?
-                return
+                return None
 
         self.dj_enabled = settings["dj_enabled"]
         self.labels = settings["labels"]
-        self.dj_role = self.channel.guild.get_role(settings["dj_role"])
+        self.dj_role = self.ctx.guild.get_role(settings["dj_role"])
         if self.dj_enabled and not self.dj_role:
             self.manager = self.ctx.author
+
+        return settings_dict
 
     def set_extras(self, playable: Playable, *, requester: str, requester_id: int):
         """Sets the `Playable.extras` attribute.
