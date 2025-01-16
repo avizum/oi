@@ -284,7 +284,7 @@ class Utility(core.Cog):
         )
         if ctx.author in self.bot.votes:
             embed.description = "You already voted, thank you for voting for Oi!"
-        await ctx.send(embed=embed, view=view)
+        await ctx.send(embed=embed, view=view, no_tips=True)
 
     @core.group()
     async def oi(self, ctx: Context):
