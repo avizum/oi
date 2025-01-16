@@ -291,7 +291,7 @@ class Player(wavelink.Player):
         else:
             self.queue.put(track)
             end = "queue"
-        embed = discord.Embed(title="Enqueued Track", description=f"Added <{track.extras.hyperlink}> to the {end}.")
+        embed = discord.Embed(title="Enqueued Track", description=f"Added {track.extras.hyperlink} to the {end}.")
         embed.set_thumbnail(url=track.artwork)
         return embed
 
