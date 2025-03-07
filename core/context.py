@@ -83,6 +83,8 @@ def get_tip() -> list[str]:
                     "<:cr_ztheart:853385258762240041> If you vote for Oi, you might get a cookie!",
                     "Please Please Please vote for Oi!!",
                     "Why haven't you voted for Oi? Do it now!",
+                    "These messages will go away for 12 hours if you vote for Oi.",
+                    "Voting for Oi will help us grow!",
                 ]
             ),
             "Vote Here!",
