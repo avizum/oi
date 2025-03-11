@@ -613,7 +613,7 @@ class Utility(core.Cog):
     async def usage_session(self, ctx: Context):
         """Shows all command usage stats from last reboot."""
         usage = self.bot.command_usage
-        most_use = dict(sorted(usage.items(), key=lambda item: item[1]))
+        most_use = dict(sorted(usage.items(), key=lambda item: item[1], reverse=True))
 
         uh = humanize.precisedelta(datetime.datetime.now(tz=datetime.timezone.utc) - self.bot.launched_at)
         em = discord.Embed(
