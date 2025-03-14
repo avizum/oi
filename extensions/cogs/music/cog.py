@@ -131,7 +131,15 @@ class Music(core.Cog):
     @core.Cog.listener()
     async def on_wavelink_track_end(self, payload: TrackEnd) -> None:
         vc = payload.player
-        if vc is None or vc.autoplay == wavelink.AutoPlayMode.enabled:
+        if vc is None:
+            return
+        if vc.autoplay == wavelink.AutoPlayMode.enabled:
+            if vc._error_count >= 3:
+                _log.error(f"Auto play disabled in guild ID {vc.ctx.guild.id} due to concecutive errors.")
+                vc.autoplay = wavelink.AutoPlayMode.disabled
+                await vc.ctx.send("Auto play has been disabled due to a server issue.")
+                if vc.controller:
+                    await vc.controller.update()
             return
 
         vc.skip_votes.clear()
