@@ -199,7 +199,8 @@ class Player(wavelink.Player):
                 # soundcloud's track identifier is too long, so the prefix
                 # O:https://api-v2.soundcloud.com/media/ will be removed from all soundcloud tracks.
                 if track.source == "soundcloud":
-                    track._identifier = track._identifier.removeprefix("O:https://api-v2.soundcloud.com/media/")
+                    _, _, ident = track._identifier.partition("https://api-v2.soundcloud.com/media/")
+                    track._identifier = ident
 
                 gen_id = self.bot.id_generator.generate()
                 song = await self.bot.pool.fetchrow(
