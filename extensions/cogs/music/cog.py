@@ -373,6 +373,12 @@ class Music(core.Cog):
             await ctx.send(f"Could not join your channel. Use {self.connect.mention} to continue.")
             return
 
+        # Sometimes, the source for some reason is kept as commands.Parameter when used as a text command
+        # This is probably due to the nature of the consume rest. Flags can be used here but is not used
+        # because we want the user to use the slash command because the UX is way better.
+        if isinstance(source, commands.Parameter):
+            source = await source.get_default(ctx)
+
         search = await vc.fetch_tracks(query, source)
         if not search:
             msg = (
