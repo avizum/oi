@@ -197,8 +197,22 @@ class Context(commands.Context, Generic[BotT]):
 
         random_float = random.random()
         fmt_content = content
+        message = ""
+
+        if self.author.id in self.bot.thanked_votes:
+            timestamp = self.bot.thanked_votes[self.author.id]
+            label = "Vote Here"
+            url = "https://top.gg/bot/867713143366746142/vote"
+            if discord.utils.utcnow() > timestamp:
+                message = "Thank you for voting for Oi. It's time to vote again!"
+            else:
+                message = f"Thank you for voting for Oi. Please vote again {discord.utils.format_dt(timestamp, "R")}."
+            del self.bot.thanked_votes[self.author.id]
+
         if self.author.id not in self.bot.votes and random_float < CHANCE and not no_tips:
-            message, _, url = get_tip()
+            message, label, url = get_tip()
+
+        if message:
             fmt = f"-# {message} | <{url}>"
             fmt_content = f"{content}\n{fmt}" if content is not None else fmt
 
@@ -252,8 +266,7 @@ class Context(commands.Context, Generic[BotT]):
             await msg.delete(delay=delete_after)
 
         with contextlib.suppress():
-            if self.author.id not in self.bot.votes and random_float < CHANCE and not no_tips:
-                message, label, url = get_tip()
+            if message and label and url:
                 view = discord.ui.View()
                 view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label=label, url=url))
                 await self.interaction.followup.send(message, view=view, ephemeral=True)
@@ -266,7 +279,7 @@ class Context(commands.Context, Generic[BotT]):
         message: str | None = None,
         embed: discord.Embed | None = None,
         confirm_messsage: str = 'Press "yes" to accept, or press "no" to deny',
-        timeout: int = 60,
+        timeout: int = 60,  # noqa: ASYNC109
         delete_message_after: bool = False,
         remove_view_after: bool = False,
         no_reply: bool = False,

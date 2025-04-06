@@ -19,6 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
+import datetime
 import difflib
 import logging
 import random
@@ -187,15 +188,10 @@ class Important(core.Cog):
         user = await self.bot.fetch_user(user_id)
 
         self.bot.votes[user_id] = True
+        self.bot.thanked_votes[user_id] = discord.utils.utcnow() + datetime.timedelta(hours=12)
 
         embed = discord.Embed(title="Vote Received", description=f"User: {user} (ID: {user_id})", color=self.bot.theme)
-        await self.vote_webhook.send(embed=embed)
-
-        embed.description = "Thank you for voting for Oi!\nPlease vote again in 12 hours."
-
-        embed.set_image(url="https://media.discordapp.net/attachments/890645724243558431/934771253036867644/thanksvote.gif")
-        await user.send(embed=embed)
-        return None
+        return await self.vote_webhook.send(embed=embed)
 
     @core.Cog.listener()
     async def on_dbl_test(self, data: dict) -> None:

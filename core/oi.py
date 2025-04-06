@@ -95,6 +95,7 @@ class OiBot(Bot):
         )
         self._BotBase__cogs: dict[str, commands.Cog] = _CaseInsensitiveDict()
         self.votes: ExpiringCache = ExpiringCache(60 * 60 * 12)  # 12 hours
+        self.thanked_votes: dict[int, datetime] = {}
         self.cached_users: ExpiringCache = ExpiringCache(60 * 60 * 6)  # 1 hour
         self.maintenance: bool = False
         self.maintenance_cogs: list[Cog] = []
