@@ -512,18 +512,26 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         if conf.result:
             self._players_to_restore = node.players  # type: ignore
 
+            failed: int = 0
+
             end = f"\n\nDeveloper message:\n{message}" if message else ""
 
             for vc in self.bot.voice_clients:
                 if isinstance(vc, Player):
-                    await vc.ctx.send(
-                        "The music server is going to be disconnected.\n"
-                        f"Your player will reconnect when the music server reconnects.{end}"
-                    )
+                    try:
+                        await vc.ctx.send(
+                            "The music server is going to be disconnected.\n"
+                            f"Your player will reconnect when the music server reconnects.{end}"
+                        )
+                    except discord.HTTPException:
+                        failed += 1
                 await vc.disconnect(force=True)
 
             await node.close(eject=True)
-            return await conf.message.edit(content="Disconnected the node.")
+            content = "Disconnected the node and notified all players."
+            if failed:
+                content = f"Disconnected the node. Failed to notify {failed} of {len(self._players_to_restore)} players."
+            return await conf.message.edit(content=content)
         return await conf.message.edit(content="Okay, the node will not be disconnected.")
 
     @Feature.Command(parent="jsk_music", name="connect")
