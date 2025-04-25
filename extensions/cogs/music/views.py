@@ -75,6 +75,8 @@ class PlayerButton(ui.Button["PlayerController"]):
         if itn.user not in vc.channel.members:
             await itn.response.send_message(f"You need to be in {vc.channel.mention} to use this.", ephemeral=True)
             return False
+    
+        assert isinstance(itn.user, discord.Member)
 
         if not vc.dj_enabled or itn.user.guild_permissions.manage_guild:
             return True
