@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Callable, TYPE_CHECKING, TypeVar
 
-from discord import ButtonStyle
+from discord import ButtonStyle, Emoji, PartialEmoji
 from discord.ui import Button, View
 
 if TYPE_CHECKING:
@@ -41,10 +41,10 @@ def button(
     custom_id: str | None = None,
     disabled: bool = False,
     style: ButtonStyle = ButtonStyle.secondary,
-    emoji: str | None = None,
+    emoji: str | Emoji | PartialEmoji | None = None,
     row: int | None = None,
-) -> Callable[[ItemCallbackType[V_co, BT]], BT]:
-    def decorator(func: ItemCallbackType[V_co, BT]) -> ItemCallbackType[V_co, BT]:
+) -> Callable[[ItemCallbackType[BT]], BT]:
+    def decorator(func: ItemCallbackType[BT]) -> ItemCallbackType[BT]:
         func.__discord_ui_model_type__ = cls
         func.__discord_ui_model_kwargs__ = {
             "style": style,

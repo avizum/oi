@@ -32,6 +32,8 @@ from utils import embed_to_text, OiView
 from utils.helpers import _format_embeds
 
 if TYPE_CHECKING:
+    from discord.ui.view import BaseView
+
     from .commands import CommandGroupUnion
     from .oi import OiBot
 
@@ -157,7 +159,7 @@ class Context(commands.Context, Generic[BotT]):
         no_tips: bool = False,
         mention_author: bool | None = None,
         format_embeds: bool = True,
-        view: discord.ui.View | None = None,
+        view: BaseView | None = None,
         suppress_embeds: bool = False,
         ephemeral: bool = False,
         silent: bool = False,
