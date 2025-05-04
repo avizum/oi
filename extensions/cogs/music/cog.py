@@ -42,7 +42,7 @@ from wavelink import QueueMode
 import core
 from utils import (
     format_seconds,
-    Paginator,
+    LayoutPaginator,
     PlayerSettingsRecord,
     Playlist as PlaylistD,
     PlaylistRecord,
@@ -513,7 +513,7 @@ class Music(core.Cog):
             return await ctx.send("The queue is empty", ephemeral=True)
 
         source = QueuePageSource(vc)
-        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        paginator = LayoutPaginator(source, ctx=ctx, delete_message_after=True, nav_in_container=True)
         return await paginator.start()
 
     @queue.command(name="remove", extras=EXTRAS)
@@ -603,7 +603,7 @@ class Music(core.Cog):
     async def playlist(self, ctx: PlayerContext, playlist: Playlist):
         """Shows a playlist."""
         source = PlaylistPageSource(playlist)
-        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        paginator = LayoutPaginator(source, ctx=ctx, delete_message_after=True, nav_in_container=True)
         await paginator.start()
 
     @playlist.command(name="play")
@@ -1372,12 +1372,12 @@ class Music(core.Cog):
         if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             raise commands.BadArgument("No results found matching your search.")
         lyrics = lyrics_data["text"]
-        pag = commands.Paginator(max_size=320)
+        pag = commands.Paginator(max_size=500)
         for line in lyrics.splitlines():
             pag.add_line(line)
 
         source = LyricPageSource(title, pag)
-        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        paginator = LayoutPaginator(source, ctx=ctx, delete_message_after=True, nav_in_container=True)
         await paginator.start()
 
     @core.command()
