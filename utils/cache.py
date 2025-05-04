@@ -11,7 +11,7 @@ file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 GPL-3.0 LICENSE
 
-Copyright (C) 2021-2024  Shobhits7, avizum
+Copyright (C) 2021-present  Shobhits7, avizum
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
