@@ -215,18 +215,19 @@ class CogSelect(discord.ui.Select["HelpPaginator"]):
                 if isinstance(i, CommandSelect):
                     self.view.remove_item(i)
             await self.view.switch(Home(self.help.context, self.help), itn)
-            return None
+            return
 
         cog: core.Cog | None = self.help.context.bot.get_cog(self.values[0])  # type: ignore
 
         if cog is None:
-            return await itn.response.send_message("This module is unavailable.", ephemeral=True)
+            await itn.response.send_message("This module is unavailable.", ephemeral=True)
+            return
 
         menu = CogHelpPages(self.help, cog)
         commands = await menu.get_page(0)
         self.view.add_item(CommandSelect(self.help, commands))
         await self.view.switch(menu, itn)
-        return None
+        return
 
 
 class CommandSelect(discord.ui.Select["HelpPaginator"]):
@@ -263,7 +264,8 @@ class CommandSelect(discord.ui.Select["HelpPaginator"]):
         command: core.HybridCommand | None = self.help.context.bot.get_command(self.values[0])  # type: ignore
         self.selected = command
         if command is None:
-            return await itn.response.send_message("This command is unavailable.", ephemeral=True)
+            await itn.response.send_message("This command is unavailable.", ephemeral=True)
+            return None
         if isinstance(command, core.HybridGroup):
             menu = GroupHelpPages(self.help, command)
             commands = await menu.get_page(0)

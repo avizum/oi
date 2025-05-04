@@ -48,7 +48,7 @@ class SkipPage(discord.ui.Modal, title="Skip to page"):
         try:
             if not self.to_page.value:
                 await self.send_error(interaction, "Page number cannot be empty.")
-                return None
+                return
             page_num = int(self.to_page.value)
             max_pages = self.view.source.get_max_pages()
             await self.view.show_checked_page(interaction, int(self.to_page.value) - 1)
@@ -58,7 +58,8 @@ class SkipPage(discord.ui.Modal, title="Skip to page"):
                     f"Please enter a page number between 1 and {max_pages}.",
                 )
         except ValueError:
-            return await self.send_error(interaction, "Please enter a number.")
+            await self.send_error(interaction, "Please enter a number.")
+            return
 
 
 class Paginator(discord.ui.View):
