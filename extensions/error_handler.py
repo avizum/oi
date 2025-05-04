@@ -64,10 +64,11 @@ class ErrorHandler(core.Cog):
     async def on_tree_error(self, itn: discord.Interaction, exc: app_commands.AppCommandError):
         error = getattr(exc, "original", exc)
         if isinstance(error, app_commands.CommandNotFound):
-            return await itn.response.send_message("This command is unavailable right now.", ephemeral=True)
+            await itn.response.send_message("This command is unavailable right now.", ephemeral=True)
+            return
 
         _log.error(f"Ignoring exception in tree command {itn.command}:", exc_info=error)
-        return None
+        return
 
     @core.Cog.listener()
     async def on_command_error(self, ctx: Context, exc: commands.CommandError):

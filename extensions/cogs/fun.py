@@ -71,11 +71,13 @@ class RPSView(discord.ui.View):
             self.opponent_choice = random.choice([0, 1, 2])
         if itn.user.id == self.ctx.author.id:
             if self.player_choice is not None:
-                return await itn.response.defer()
+                await itn.response.defer()
+                return
             self.player_choice = button.value
         elif itn.user.id == self.opponent.id:
             if self.opponent_choice is not None:
-                return await itn.response.defer()
+                await itn.response.defer()
+                return
             self.opponent_choice = button.value
 
         if self.opponent.bot:
@@ -115,7 +117,7 @@ class RPSView(discord.ui.View):
                             item.style = discord.ButtonStyle.blurple
                     item.disabled = True
             await self.message.edit(embed=self.embed, view=self)
-        return None
+        return
 
 
 class GuessModal(discord.ui.Modal, title="Guess the Number"):
@@ -134,7 +136,8 @@ class GuessModal(discord.ui.Modal, title="Guess the Number"):
         try:
             int(self.guess.value)
         except ValueError:
-            return await itn.response.send_message("Please enter a number!", ephemeral=True)
+            await itn.response.send_message("Please enter a number!", ephemeral=True)
+            return
         if int(self.guess.value) == self.number:
             await itn.response.send_message("You guessed correctly!", ephemeral=True)
             await self.view.message.edit(
@@ -144,7 +147,7 @@ class GuessModal(discord.ui.Modal, title="Guess the Number"):
             await itn.response.send_message("Lower, try again!", ephemeral=True)
         elif int(self.guess.value) < self.number:
             await itn.response.send_message("Higher, try again!", ephemeral=True)
-        return None
+        return
 
 
 class GuessView(discord.ui.View):
