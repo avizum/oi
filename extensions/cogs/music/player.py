@@ -25,7 +25,7 @@ from typing import Any, TYPE_CHECKING
 import asyncpg
 import discord
 import wavelink
-from wavelink import ExtrasNamespace as Extras, Playable, Playlist, QueueMode
+from wavelink import ExtrasNamespace as Extras, Playable, Playlist
 
 from core import OiBot
 from utils import format_seconds, PlayerSettingsRecord, SongRecord
@@ -142,48 +142,6 @@ class Player(wavelink.Player):
         if self.controller:
             await self.controller.disable()
         return await super().disconnect(**kwargs)
-
-    def create_now_playing(self, track: Playable | None = None) -> discord.Embed:
-        """Creates an embed for the now playing screen."""
-        assert self.guild is not None
-
-        nothing = f"Nothing is in the queue. Add some songs with {self.ctx.cog.play.mention}."
-        if track is None:
-            embed = discord.Embed(
-                title="Now Playing",
-                description="[Nothing!](https://www.youtube.com/watch?v=dQw4w9WgXcQ)",
-                color=0x00FFB3,
-            )
-            if self.guild.icon:
-                embed.set_thumbnail(url=self.guild.icon.url)
-            embed.add_field(name="Up Next", value=nothing)
-            return embed
-
-        queue_mode = self.queue.mode
-        copy_queue = list(self.queue)
-        tng = copy_queue[:2] if queue_mode is QueueMode.loop else copy_queue[:3]
-        next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
-
-        if self.autoplay is not wavelink.AutoPlayMode.disabled:
-            nothing = f"Autoplay is enabled, but nothing is in the queue. Add some songs with {self.ctx.cog.play.mention}."
-
-        joined = "\n".join(next_tracks) or nothing
-        if queue_mode is QueueMode.loop:
-            ltrack = self.queue.get()
-            joined = (
-                f"> [[Looping] {ltrack.title}]({ltrack.uri}) | `{ltrack.extras.duration}` |"
-                f" {ltrack.extras.requester}\n{joined}"
-            )
-
-        embed = discord.Embed(
-            title="Now Playing",
-            description=f"{track.extras.hyperlink} | `{track.extras.duration}` | {track.extras.requester}",
-            color=0x00FFB3,
-        )
-        embed.add_field(name="Up Next", value=joined)
-        embed.set_thumbnail(url=track.artwork)
-
-        return embed
 
     async def save_tracks(self, tracks: wavelink.Search) -> dict[str, Song]:
         """Saves a search to the database, and then caches the search."""
@@ -307,32 +265,26 @@ class Player(wavelink.Player):
         if self.locked:
             return
 
-        embed = self.create_now_playing(playable)
         controller = self.controller
 
         if not controller:
             controller = PlayerController(ctx=self.ctx, vc=self)
             self.controller = controller
 
-        controller.update_buttons()
-
-        kwargs: dict[str, Any] = {
-            "embed": embed,
-            "view": controller,
-            "format_embeds": False,
-            "no_tips": True,
-        }
+        controller.update_actions()
+        controller.container.update_ui(playable)
 
         if controller.message is None:
-            controller.message = await self.ctx.send(**kwargs)
+            controller.message = await self.ctx.send(view=controller)
             return
 
         if controller.counter >= 10:
             with contextlib.suppress(discord.NotFound):
                 message = await controller.message.fetch()
-                await message.edit(view=None)
+                controller.set_actions_visible(False)
+                await message.edit(view=controller)
 
-            controller.message = await self.ctx.send(**kwargs)
+            controller.message = await self.ctx.send(view=controller)
             controller.counter = -1
             return
 
