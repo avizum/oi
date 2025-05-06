@@ -199,7 +199,7 @@ class Context(commands.Context, Generic[BotT]):
         fmt_content = content
         message = ""
 
-        if self.author.id in self.bot.thanked_votes:
+        if self.author.id in self.bot.thanked_votes and not no_tips:
             timestamp = self.bot.thanked_votes[self.author.id]
             label = "Vote Here"
             url = "https://top.gg/bot/867713143366746142/vote"
