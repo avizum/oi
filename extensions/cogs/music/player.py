@@ -284,8 +284,9 @@ class Player(wavelink.Player):
                 controller.set_actions_visible(False)
                 await message.edit(view=controller)
 
-            controller.message = await self.ctx.send(view=controller)
             controller.counter = -1
+            controller.update_actions()
+            controller.message = await self.ctx.send(view=controller)
             return
 
         await controller.update()
