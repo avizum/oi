@@ -25,19 +25,18 @@ import math
 from typing import Any, Callable, TYPE_CHECKING, TypeVar
 
 import discord
-from discord import ButtonStyle, ui
-from discord.ext import commands, menus
+from discord import ButtonStyle, ui, utils
+from discord.ext import menus
 from discord.ui import Button, View
 from wavelink import AutoPlayMode, Playable, QueueEmpty, QueueMode
 
 from core import ui as cui
-from utils import LayoutPaginator, OiView
+from utils import format_seconds, LayoutPaginator, OiView
 
 from .utils import hyperlink_song
 
 if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
-    from discord.ext.commands import Paginator as CPaginator
     from discord.ui.item import ItemCallbackType
 
     from utils import Playlist, PlaylistSong
@@ -654,13 +653,23 @@ class PlayerController(ui.LayoutView):
         if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             await itn.followup.send("Could not find lyrics.", ephemeral=True)
             return None
-        pag = commands.Paginator(max_size=500)
+        lyrics = lyrics_data["text"]
 
-        for line in lyrics_data["text"].splitlines():
-            pag.add_line(line)
+        chunked_lyrics = []
+
+        for chunk in utils.as_chunks(lyrics.splitlines(), 8):
+            joined = "\n".join(chunk)
+
+            if len(joined) > 3000:
+                # If for whatever reason that the lyrics exceed 3500 characters,
+                # (very unlikely) we just truncate it here. We leave some space for
+                # the title, hence 3500, not 4000.
+                chunked_lyrics.append(f"{joined[:3497]}...")
+            else:
+                chunked_lyrics.append(joined)
 
         paginator = LyricsPaginator(
-            LyricPageSource(self.vc.current.title, pag),
+            LyricPageSource(self.vc.current.title, chunked_lyrics),
             ctx=self.ctx,
             delete_message_after=True,
             timeout=((self.vc.current.length / 1000) * 2),
@@ -734,9 +743,9 @@ class PlaylistPageSource(menus.ListPageSource):
 
 
 class LyricPageSource(menus.ListPageSource):
-    def __init__(self, title: str, paginator: CPaginator):
+    def __init__(self, title: str, paginator: list[str]):
         self.title = title
-        super().__init__(paginator.pages, per_page=1)
+        super().__init__(paginator, per_page=1)
 
     async def format_page(self, _: menus.MenuPages, page: str) -> ui.Container:
         return ui.Container(*[ui.TextDisplay(f"### {self.title} lyrics\n{page}")], accent_color=0x00FFB3)
