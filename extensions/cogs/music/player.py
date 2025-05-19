@@ -268,7 +268,7 @@ class Player(wavelink.Player):
         controller = self.controller
 
         if not controller:
-            controller = PlayerController(ctx=self.ctx, vc=self)
+            controller = PlayerController(vc=self)
             self.controller = controller
 
         controller.update_actions()

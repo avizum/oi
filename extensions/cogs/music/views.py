@@ -185,11 +185,10 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
                 self.vc.queue.mode = QueueMode.loop
                 command_usage(itn, "player loop", mode="track")
 
-            container = self.controller.container
             action_loop = self.controller.action_loop
 
             action_loop.remove_item(self)
-            container.remove_item(self.controller.action_loop)
+            self.controller.container.remove_item(self.controller.action_loop)
             self.controller.loop_select = None
             await self.controller.update(itn)
 
@@ -284,94 +283,93 @@ class ControllerAction(ui.ActionRow["PlayerController"]):
 
 
 class ControllerContainer(ui.Container["PlayerController"]):
+    now_playing: ui.Section[PlayerController] = ui.Section(*(ui.TextDisplay("### Now Playing"),), accessory=ui.Thumbnail(""))
+    up_next_title: ui.TextDisplay[PlayerController] = ui.TextDisplay("**Up Next**")
+    up_next: ui.TextDisplay[PlayerController] = ui.TextDisplay("Nothing")
+    queue_length: ui.TextDisplay[PlayerController] = ui.TextDisplay("0")
 
-    def __init__(
-        self, /, *, ctx: PlayerContext, vc: Player, actions: tuple[ControllerAction, ControllerAction, ui.ActionRow]
-    ) -> None:
-        self.ctx: PlayerContext = ctx
+    def __init__(self, /, *, vc: Player) -> None:
+        self.ctx: PlayerContext = vc.ctx
         self.vc: Player = vc
 
         self.now_playing = ui.Section(*["\u200b"], accessory=ui.Thumbnail(""))
         self.up_next_title = ui.TextDisplay("**Up Next**")
         self.up_next = ui.TextDisplay("\u200b")
         self.separator = ui.Separator(spacing=discord.SeparatorSize.large)
-        self.actions: tuple[ControllerAction, ControllerAction, ui.ActionRow] = actions
 
         super().__init__(accent_color=0x00FFB3)
 
         self.update_ui()
-        self.create_ui()
-
-    def create_ui(self) -> None:
-        self.add_item(self.now_playing)
-        self.add_item(self.up_next_title)
-        self.add_item(self.up_next)
-        self.add_item(self.separator)
-        for action in self.actions:
-            self.add_item(action)
 
     def update_ui(self, track: Playable | None = None) -> None:
         ctx = self.ctx
         vc = self.vc
 
         self.now_playing.clear_items()
-
         self.now_playing.add_item("### Now Playing")
+
         placeholder_thumb = ctx.guild.icon.url if ctx.guild.icon else ctx.me.display_avatar.url
-
-        nothing_in_queue = f"There are no songs in the queue. Add some songs using {ctx.cog.play.mention}."
-
-        if track is None:
-            self.now_playing.add_item("[Nothing!](https://www.youtube.com/watch?v=dQw4w9WgXcQ)")
-            self.now_playing.accessory = ui.Thumbnail(placeholder_thumb)
-            self.up_next.content = nothing_in_queue
-            return
-
-        queue_mode = vc.queue.mode
+        # TODO: CHANGE TO OI EMOJI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        nothing_in_queue = f"Add some songs using <:TODO:1369174874525929483> or {ctx.cog.play.mention}."
         copy_queue = list(vc.queue)
-        tng = copy_queue[:2] if queue_mode is QueueMode.loop else copy_queue[:3]
+        tng = copy_queue[:2] if vc.queue.mode is QueueMode.loop else copy_queue[:3]
         next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
+        duration = format_seconds((sum(song.length for song in copy_queue) / 1000), friendly=True)
 
         if vc.autoplay is not AutoPlayMode.disabled:
             nothing_in_queue = (
-                "Autoplay is enabled. Songs will continue playing, even with an empty queue.\n"
-                f"Add some songs using {ctx.cog.play.mention}."
+                f"Autoplay is enabled. Songs will continue playing, even with an empty queue.\n{nothing_in_queue}"
             )
 
         joined = "\n".join(next_tracks) or nothing_in_queue
 
-        if queue_mode is QueueMode.loop:
+        if track is None:
+            self.now_playing.add_item(ui.TextDisplay("[Nothing!](https://www.youtube.com/watch?v=dQw4w9WgXcQ)"))
+            self.now_playing.accessory = ui.Thumbnail(placeholder_thumb)
+            self.up_next.content = nothing_in_queue
+
+        if track:
+            self.now_playing.add_item(ui.TextDisplay(f"{track.extras.hyperlink} | {track.extras.requester}"))
+            self.now_playing.add_item(
+                ui.TextDisplay(
+                    f"Position: `{format_seconds(self.vc.position / 1000)}/{track.extras.duration}`\n"
+                    f"Volume: `{self.vc.volume}%`",
+                )
+            )
+            self.now_playing.accessory = ui.Thumbnail(track.artwork or placeholder_thumb)
+
+        if vc.queue.mode is QueueMode.loop:
             loop_track = vc.queue.get()
             joined = (
                 f"> [[Looping] {loop_track.title}]({loop_track.uri}) |"
                 f" `{loop_track.extras.duration}` | {loop_track.extras.requester}\n{joined}"
             )
 
-        self.now_playing.add_item(f"{track.extras.hyperlink} | `{track.extras.duration}` | {track.extras.requester}")
-        self.now_playing.accessory = ui.Thumbnail(track.artwork or placeholder_thumb)
         self.up_next.content = joined
+
+        self.queue_length.content = f"-# {len(copy_queue)} tracks in queue ({duration})"
 
 
 class PlayerController(ui.LayoutView):
+    separator: ui.Separator = ui.Separator(spacing=discord.SeparatorSize.small)
     action_one = ControllerAction()
     action_two = ControllerAction()
-    action_loop = ui.ActionRow()
+    action_loop: ui.ActionRow = ui.ActionRow()
 
-    def __init__(self, /, *, ctx: PlayerContext, vc: Player) -> None:
-        self.ctx: PlayerContext = ctx
+    def __init__(self, /, *, vc: Player) -> None:
+        self.ctx: PlayerContext = vc.ctx
         self.vc: Player = vc
         self.message: discord.Message | None = None
         self.counter: int = -1
         self.is_updating: bool = False
         self.loop_select: LoopTypeSelect | None = None
         self.lyrics_paginators: dict[int, LayoutPaginator] = {}
+        self.container: ControllerContainer = ControllerContainer(vc=vc)
 
         super().__init__(timeout=None)
 
         self.clear_items()
-        container = ControllerContainer(ctx=ctx, vc=vc, actions=(self.action_one, self.action_two, self.action_loop))
-        self.add_item(container)
-        self.container = container
+        self.add_item(self.container)
 
     @property
     def labels(self) -> int:
@@ -419,18 +417,17 @@ class PlayerController(ui.LayoutView):
                     item.label = None
 
     def set_actions_visible(self, visible: bool = True) -> None:
-        container = self.container
-        container.remove_item(container.separator)
-        container.remove_item(self.action_one)
-        container.remove_item(self.action_two)
-        container.remove_item(self.action_loop)
+        self.container.remove_item(self.separator)
+        self.container.remove_item(self.action_one)
+        self.container.remove_item(self.action_two)
+        self.container.remove_item(self.action_loop)
 
         if visible:
-            container.add_item(container.separator)
-            container.add_item(self.action_one)
-            container.add_item(self.action_two)
+            self.container.add_item(self.separator)
+            self.container.add_item(self.action_one)
+            self.container.add_item(self.action_two)
             if self.action_loop.children:
-                container.add_item(self.action_loop)
+                self.container.add_item(self.action_loop)
 
     def update_actions(self) -> None:
         if self.labels == 0:
@@ -502,21 +499,23 @@ class PlayerController(ui.LayoutView):
 
         self.is_updating = False
 
-    def is_manager(self, itn: Interaction) -> bool:
+    def is_manager(self, itn: Interaction) -> tuple[bool, str | None]:
 
         vc = self.vc
 
-        assert vc.current is not None
         assert isinstance(itn.user, discord.Member)
 
         if not vc.dj_enabled or itn.user.guild_permissions.manage_guild:
-            return True
+            return True, None
 
         if vc.dj_role:
-            return vc.dj_role in itn.user.roles
+            return (
+                vc.dj_role in itn.user.roles,
+                f"You need to have {vc.dj_role.mention} or have `Manage Server` permissions to do this.",
+            )
         if not vc.dj_role:
-            return vc.manager == itn.user
-        return True
+            return vc.manager == itn.user, "You need to be DJ or have `Manage Server` permission to do this."
+        return True, None
 
     def command_usage(self, itn: Interaction, name: str, **kwargs: Any):
         # Using the buttons is equivalent to using the command, so we log it.
@@ -556,7 +555,8 @@ class PlayerController(ui.LayoutView):
 
         send = itn.followup.send if itn.response.is_done() else itn.response.send_message
 
-        if self.is_manager(itn):
+        is_manager, __ = self.is_manager(itn)
+        if is_manager:
             await self.vc.skip()
             await send(f"{itn.user} has skipped the track.")
         elif self.vc.current.extras.requester_id == itn.user.id:
@@ -616,16 +616,14 @@ class PlayerController(ui.LayoutView):
     async def loop(self, itn: Interaction, _: PlayerButton):
         assert self.vc.current is not None
 
-        container = self.container
-
         if not self.loop_select:
             new_select = LoopTypeSelect(self.vc)
             self.loop_select = new_select
             self.action_loop.add_item(new_select)
-            container.add_item(self.action_loop)
+            self.container.add_item(self.action_loop)
         else:
             self.action_loop.remove_item(self.loop_select)
-            container.remove_item(self.action_loop)
+            self.container.remove_item(self.action_loop)
             self.loop_select = None
 
         await self.update(itn)
