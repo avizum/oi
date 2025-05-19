@@ -298,8 +298,8 @@ class CommandHelpView(ui.LayoutView):
 
 
 class HelpPaginator(LayoutPaginator):
-    cog_select_action = ui.ActionRow(row=36)
-    command_select_action = ui.ActionRow(row=37)
+    cog_select_action = ui.ActionRow()
+    command_select_action = ui.ActionRow()
 
     def __init__(
         self,

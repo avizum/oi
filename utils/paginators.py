@@ -209,10 +209,9 @@ class Paginator(ui.View):
 
 
 class LayoutPaginator(ui.LayoutView):
-    # Ensure these stay at the bottom
     separator = ui.Separator()
-    navigation = ui.ActionRow(row=38)
-    stop_navigation = ui.ActionRow(row=39)
+    navigation = ui.ActionRow()
+    stop_navigation = ui.ActionRow()
 
     def __init__(
         self,
