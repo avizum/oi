@@ -565,7 +565,7 @@ class Utility(core.Cog):
         embed = discord.Embed(
             title=f"{cmd_type}Command Usage for {member}",
             description=(
-                f"{start} used {total_uses.uses} {cmd_type}commands.\n"
+                f"{start} used {total_uses.uses:,} {cmd_type}commands.\n"
                 f"Top {cmd_type}Commands reset in: {self.midnight_timestamp()}"
             ),
             timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
@@ -598,7 +598,7 @@ class Utility(core.Cog):
         embed = discord.Embed(
             title="Global Command Usage",
             description=(
-                f"{total_uses.uses} {cmd_type}commands used.\nTop {cmd_type}Commands reset in: {self.midnight_timestamp()}"
+                f"{total_uses.uses:,} {cmd_type}commands used.\nTop {cmd_type}Commands reset in: {self.midnight_timestamp()}"
             ),
             timestamp=total_uses.since.replace(tzinfo=datetime.timezone.utc),
         )
