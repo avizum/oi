@@ -490,10 +490,10 @@ class Utility(core.Cog):
             return "No command usage."
         if isinstance(record[0], UserUsesRecord):
             for count, row in enumerate(record, start=1):
-                fmt.append(f"{count}. {self.get_user(row.user_id)}: {row.uses} command uses")
+                fmt.append(f"{count}. {self.get_user(row.user_id)}: {row.uses:,} command uses")
         else:
             for count, row in enumerate(record, start=1):
-                fmt.append(f"{count}. {row.command_name}: {row.uses} uses")
+                fmt.append(f"{count}. {row.command_name}: {row.uses:,} uses")
         return "\n".join(fmt)
 
     def midnight_timestamp(self) -> str:
