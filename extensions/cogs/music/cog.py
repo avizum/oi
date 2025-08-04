@@ -538,7 +538,7 @@ class Music(core.Cog):
             return await ctx.send("Could not find any tracks with that name.")
 
         vc.queue.remove(tracks[0], count=len(tracks))
-        all_instances = "all instances of" if len(tracks) > 1 else ""
+        all_instances = "all instances of " if len(tracks) > 1 else ""
         return await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
 
     @queue_remove.autocomplete("item")
