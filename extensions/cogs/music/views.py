@@ -299,7 +299,7 @@ class ControllerContainer(ui.Container["PlayerController"]):
         self.now_playing = ui.Section(*["\u200b"], accessory=ui.Thumbnail(""))
         self.up_next_title = ui.TextDisplay("**Up Next**")
         self.up_next = ui.TextDisplay("\u200b")
-        self.separator = ui.Separator(spacing=discord.SeparatorSize.large)
+        self.separator = ui.Separator(spacing=discord.SeparatorSpacing.large)
 
         super().__init__(accent_color=0x00FFB3)
 
@@ -355,7 +355,7 @@ class ControllerContainer(ui.Container["PlayerController"]):
 
 
 class PlayerController(ui.LayoutView):
-    separator: ui.Separator = ui.Separator(spacing=discord.SeparatorSize.small)
+    separator: ui.Separator = ui.Separator(spacing=discord.SeparatorSpacing.small)
     action_one = ControllerAction()
     action_two = ControllerAction()
     action_loop: ui.ActionRow = ui.ActionRow()
