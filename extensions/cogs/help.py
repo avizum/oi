@@ -488,6 +488,11 @@ class OiHelp(commands.HelpCommand):
         member_perms, bot_perms = self.get_command_permissions(command)
         container.add_item(ui.TextDisplay(f"**Required Permissions**\n{member_perms}\n{bot_perms}"))
 
+        if not isinstance(command, core.HybridCommand):
+            container.add_item(
+                ui.TextDisplay(content=f"-# Go to the next page to see the subcommands of {command.qualified_name}.")
+            )
+
         return container
 
     async def filter_cogs(
@@ -529,9 +534,7 @@ class OiHelp(commands.HelpCommand):
         menu = CogHelpPages(self, command.cog)
         cogs = await self.filter_cogs()
         paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
-        command_view = CommandHelpView(
-            paginator.timeout, self, paginator, self.create_command_help_container(command)
-        )  # type: ignore
+        command_view = CommandHelpView(paginator.timeout, self, paginator, self.create_command_help_container(command))
 
         await self.context.send(view=command_view)
 
