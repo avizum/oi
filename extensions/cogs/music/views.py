@@ -315,10 +315,9 @@ class ControllerContainer(ui.Container["PlayerController"]):
         placeholder_thumb = ctx.guild.icon.url if ctx.guild.icon else ctx.me.display_avatar.url
         # TODO: CHANGE TO OI EMOJI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         nothing_in_queue = f"Add some songs using <:TODO:1369174874525929483> or {ctx.cog.play.mention}."
-        copy_queue = list(vc.queue)
-        tng = copy_queue[:2] if vc.queue.mode is QueueMode.loop else copy_queue[:3]
+        tng = vc.queue[:2] if vc.queue.mode is QueueMode.loop else vc.queue[:3]
         next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
-        duration = format_seconds((sum(song.length for song in copy_queue) / 1000), friendly=True)
+        duration = format_seconds((sum(song.length for song in vc.queue) / 1000), friendly=True)
 
         if vc.autoplay is not AutoPlayMode.disabled:
             nothing_in_queue = (
@@ -351,7 +350,7 @@ class ControllerContainer(ui.Container["PlayerController"]):
 
         self.up_next.content = joined
 
-        self.queue_length.content = f"-# {len(copy_queue)} tracks in queue ({duration})"
+        self.queue_length.content = f"-# {len(vc.queue)} tracks in queue ({duration})"
 
 
 class PlayerController(ui.LayoutView):
