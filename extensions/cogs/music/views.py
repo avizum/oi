@@ -27,7 +27,6 @@ from typing import Any, Callable, TYPE_CHECKING, TypeVar
 import discord
 from discord import ButtonStyle, ui, utils
 from discord.ext import menus
-from discord.ui import Button, View
 from wavelink import AutoPlayMode, Playable, QueueEmpty, QueueMode
 
 from core import ui as cui
@@ -37,16 +36,15 @@ from .utils import hyperlink_song
 
 if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
-    from discord.ui.item import ItemCallbackType
+    from discord.ui.item import ContainedItemCallbackType as ItemCallbackType
 
     from utils import Playlist, PlaylistSong
 
     from .player import Player
     from .types import PlayerContext
 
-
-V_co = TypeVar("V_co", bound="View", covariant=True)
-BT = TypeVar("BT", bound=Button)
+S_co = TypeVar("S_co", bound="ui.ActionRow | ui.LayoutView", covariant=True)
+BT = TypeVar("BT", bound=ui.Button)
 
 
 __all__ = (
@@ -67,8 +65,11 @@ class PlayerButton(ui.Button["PlayerController"]):
         url: str | None = None,
         emoji: str | Emoji | PartialEmoji | None = None,
         row: int | None = None,
+        id: int | None = None,
     ):
-        super().__init__(style=style, label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row)
+        super().__init__(
+            style=style, label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row, id=id
+        )
 
     async def interaction_check(self, itn: discord.Interaction) -> bool:
         assert self.view is not None
@@ -259,14 +260,16 @@ class ControllerAction(ui.ActionRow["PlayerController"]):
     def button(
         self,
         *,
-        cls: type[BT] = Button,
+        cls: type[BT] = ui.Button,
         label: str | None = None,
         custom_id: str | None = None,
         disabled: bool = False,
         style: ButtonStyle = ButtonStyle.secondary,
-        emoji: str | discord.Emoji | discord.PartialEmoji | None = None,
-    ) -> Callable[[ItemCallbackType[BT]], BT]:
-        def decorator(func: ItemCallbackType[BT]) -> ItemCallbackType[BT]:
+        emoji: str | Emoji | PartialEmoji | None = None,
+        id: int | None = None,
+    ) -> Callable[[ItemCallbackType[S_co, BT]], BT]:
+
+        def decorator(func: ItemCallbackType[S_co, BT]) -> ItemCallbackType[S_co, BT]:
             ret = cui.button(
                 cls=cls,
                 label=label,
@@ -275,6 +278,7 @@ class ControllerAction(ui.ActionRow["PlayerController"]):
                 style=style,
                 emoji=emoji,
                 row=None,
+                id=id,
             )(func)
             ret.__discord_ui_parent__ = self  # type: ignore
             return ret  # type: ignore
