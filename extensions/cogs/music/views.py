@@ -350,7 +350,9 @@ class ControllerContainer(ui.Container["PlayerController"]):
 
         self.up_next.content = joined
 
-        self.queue_length.content = f"-# {len(vc.queue)} tracks in queue ({duration})"
+        queue_len = len(vc.queue)
+        noun = "track" if queue_len == 1 else "tracks"
+        self.queue_length.content = f"-# {queue_len} {noun} in queue ({duration})"
 
 
 class PlayerController(ui.LayoutView):

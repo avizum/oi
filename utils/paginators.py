@@ -225,7 +225,7 @@ class LayoutPaginator(ui.LayoutView):
         nav_in_container: bool = False,
         message: discord.Message | None = None,
     ):
-        """A Paginator that supports components V2.
+        """A paginator that utilizes `ui.LayoutView` and related items.
 
         Parameters
         ----------
@@ -240,7 +240,7 @@ class LayoutPaginator(ui.LayoutView):
         disable_nav_after: `bool`
             Disables the navigation when pagination is complete.
         nav_in_container: `bool`
-            Whether to place the navigation bar inside the container if there is one.
+            Places the navigation bar inside the container if there is one.
         message: `Message`
             The message to be associated with the paginator.
         """
