@@ -22,26 +22,29 @@ from __future__ import annotations
 import contextlib
 import copy
 import math
-from typing import Any, TYPE_CHECKING
+from typing import Any, Callable, TYPE_CHECKING, TypeVar
 
 import discord
-from discord import ButtonStyle, ui
-from discord.ext import commands, menus
+from discord import ButtonStyle, ui, utils
+from discord.ext import menus
 from wavelink import AutoPlayMode, Playable, QueueEmpty, QueueMode
 
 from core import ui as cui
-from utils import OiView, Paginator
+from utils import format_seconds, LayoutPaginator, OiView
 
 from .utils import hyperlink_song
 
 if TYPE_CHECKING:
     from discord import Emoji, Interaction, PartialEmoji
-    from discord.ext.commands import Paginator as CPaginator
+    from discord.ui.item import ContainedItemCallbackType as ItemCallbackType
 
     from utils import Playlist, PlaylistSong
 
     from .player import Player
     from .types import PlayerContext
+
+S_co = TypeVar("S_co", bound="ui.ActionRow | ui.LayoutView", covariant=True)
+BT = TypeVar("BT", bound=ui.Button)
 
 
 __all__ = (
@@ -62,8 +65,11 @@ class PlayerButton(ui.Button["PlayerController"]):
         url: str | None = None,
         emoji: str | Emoji | PartialEmoji | None = None,
         row: int | None = None,
+        id: int | None = None,
     ):
-        super().__init__(style=style, label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row)
+        super().__init__(
+            style=style, label=label, disabled=disabled, custom_id=custom_id, url=url, emoji=emoji, row=row, id=id
+        )
 
     async def interaction_check(self, itn: discord.Interaction) -> bool:
         assert self.view is not None
@@ -75,7 +81,7 @@ class PlayerButton(ui.Button["PlayerController"]):
         if itn.user not in vc.channel.members:
             await itn.response.send_message(f"You need to be in {vc.channel.mention} to use this.", ephemeral=True)
             return False
-    
+
         assert isinstance(itn.user, discord.Member)
 
         if not vc.dj_enabled or itn.user.guild_permissions.manage_guild:
@@ -127,9 +133,9 @@ class PlayerPublicButton(PlayerButton):
 
 
 class LoopTypeSelect(ui.Select["PlayerController"]):
-    def __init__(self, controller: PlayerController):
-        self.vc = controller.vc
-        self.controller = controller
+    def __init__(self, vc: Player):
+        self.vc = vc
+        self.controller = vc.controller
         vc = self.vc
         assert vc.current is not None
         super().__init__(
@@ -158,25 +164,32 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
 
     async def callback(self, itn: Interaction) -> Any:
         assert self.view is not None
+        assert self.controller is not None
+
         if not self.values:
             await itn.response.defer()
         else:
+            command_usage = self.view.command_usage
             disable = self.values[0] == "DISABLE"
             loop_queue = self.values[0] == "QUEUE"
-            self.controller.loop.emoji = (
-                "<:loop_all:1294459877447696385>" if loop_queue else "<:loop_one:1294459971014230016>"
-            )
-            self.controller.loop.style = discord.ButtonStyle.green
+
+            loop_button = self.controller.loop
+            loop_button.emoji = "<:loop_all:1294459877447696385>" if loop_queue else "<:loop_one:1294459971014230016>"
+            loop_button.style = discord.ButtonStyle.green
             if disable:
                 self.vc.queue.mode = QueueMode.normal
-                self.view.command_usage(itn, "player loop", mode="off")
+                command_usage(itn, "player loop", mode="off")
             elif loop_queue:
                 self.vc.queue.mode = QueueMode.loop_all
-                self.view.command_usage(itn, "queue loop")
+                command_usage(itn, "queue loop")
             else:
                 self.vc.queue.mode = QueueMode.loop
-                self.view.command_usage(itn, "player loop", mode="track")
-            self.controller.remove_item(self)
+                command_usage(itn, "player loop", mode="track")
+
+            action_loop = self.controller.action_loop
+
+            action_loop.remove_item(self)
+            self.controller.container.remove_item(self.controller.action_loop)
             self.controller.loop_select = None
             await self.controller.update(itn)
 
@@ -243,17 +256,124 @@ class EnqueueModal(ui.Modal):
         return await msg.delete(delay=10)
 
 
-class PlayerController(ui.View):
-    def __init__(self, /, *, ctx: PlayerContext, vc: Player) -> None:
-        self.ctx: PlayerContext = ctx
+class ControllerAction(ui.ActionRow["PlayerController"]):
+    def button(
+        self,
+        *,
+        cls: type[BT] = ui.Button,
+        label: str | None = None,
+        custom_id: str | None = None,
+        disabled: bool = False,
+        style: ButtonStyle = ButtonStyle.secondary,
+        emoji: str | Emoji | PartialEmoji | None = None,
+        id: int | None = None,
+    ) -> Callable[[ItemCallbackType[S_co, BT]], BT]:
+
+        def decorator(func: ItemCallbackType[S_co, BT]) -> ItemCallbackType[S_co, BT]:
+            ret = cui.button(
+                cls=cls,
+                label=label,
+                custom_id=custom_id,
+                disabled=disabled,
+                style=style,
+                emoji=emoji,
+                row=None,
+                id=id,
+            )(func)
+            ret.__discord_ui_parent__ = self  # type: ignore
+            return ret  # type: ignore
+
+        return decorator  # type: ignore
+
+
+class ControllerContainer(ui.Container["PlayerController"]):
+    now_playing: ui.Section[PlayerController] = ui.Section(*(ui.TextDisplay("### Now Playing"),), accessory=ui.Thumbnail(""))
+    up_next_title: ui.TextDisplay[PlayerController] = ui.TextDisplay("**Up Next**")
+    up_next: ui.TextDisplay[PlayerController] = ui.TextDisplay("Nothing")
+    queue_length: ui.TextDisplay[PlayerController] = ui.TextDisplay("0")
+
+    def __init__(self, /, *, vc: Player) -> None:
+        self.ctx: PlayerContext = vc.ctx
+        self.vc: Player = vc
+
+        self.now_playing = ui.Section(*["\u200b"], accessory=ui.Thumbnail(""))
+        self.up_next_title = ui.TextDisplay("**Up Next**")
+        self.up_next = ui.TextDisplay("\u200b")
+        self.separator = ui.Separator(spacing=discord.SeparatorSpacing.large)
+
+        super().__init__(accent_color=0x00FFB3)
+
+        self.update_ui()
+
+    def update_ui(self, track: Playable | None = None) -> None:
+        ctx = self.ctx
+        vc = self.vc
+
+        self.now_playing.clear_items()
+        self.now_playing.add_item("### Now Playing")
+
+        placeholder_thumb = ctx.guild.icon.url if ctx.guild.icon else ctx.me.display_avatar.url
+        nothing_in_queue = f"Add some songs using <:queue_add:1310474338868138004> or {ctx.cog.play.mention}."
+        tng = vc.queue[:2] if vc.queue.mode is QueueMode.loop else vc.queue[:3]
+        next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
+        duration = format_seconds((sum(song.length for song in vc.queue) / 1000), friendly=True)
+
+        if vc.autoplay is not AutoPlayMode.disabled:
+            nothing_in_queue = (
+                f"Autoplay is enabled. Songs will continue playing, even with an empty queue.\n{nothing_in_queue}"
+            )
+
+        joined = "\n".join(next_tracks) or nothing_in_queue
+
+        if track is None:
+            self.now_playing.add_item(ui.TextDisplay("[Nothing!](https://www.youtube.com/watch?v=dQw4w9WgXcQ)"))
+            self.now_playing.accessory = ui.Thumbnail(placeholder_thumb)
+            self.up_next.content = nothing_in_queue
+
+        if track:
+            self.now_playing.add_item(ui.TextDisplay(f"{track.extras.hyperlink} | {track.extras.requester}"))
+            self.now_playing.add_item(
+                ui.TextDisplay(
+                    f"Position: `{format_seconds(self.vc.position / 1000)}/{track.extras.duration}`\n"
+                    f"Volume: `{self.vc.volume}%`",
+                )
+            )
+            self.now_playing.accessory = ui.Thumbnail(track.artwork or placeholder_thumb)
+
+        if vc.queue.mode is QueueMode.loop:
+            loop_track = vc.queue.get()
+            joined = (
+                f"> [[Looping] {loop_track.title}]({loop_track.uri}) |"
+                f" `{loop_track.extras.duration}` | {loop_track.extras.requester}\n{joined}"
+            )
+
+        self.up_next.content = joined
+
+        queue_len = len(vc.queue)
+        noun = "track" if queue_len == 1 else "tracks"
+        self.queue_length.content = f"-# {queue_len} {noun} in queue ({duration})"
+
+
+class PlayerController(ui.LayoutView):
+    separator: ui.Separator = ui.Separator(spacing=discord.SeparatorSpacing.small)
+    action_one = ControllerAction()
+    action_two = ControllerAction()
+    action_loop: ui.ActionRow = ui.ActionRow()
+
+    def __init__(self, /, *, vc: Player) -> None:
+        self.ctx: PlayerContext = vc.ctx
         self.vc: Player = vc
         self.message: discord.Message | None = None
         self.counter: int = -1
         self.is_updating: bool = False
         self.loop_select: LoopTypeSelect | None = None
-        self.lyrics_paginators: dict[int, Paginator] = {}
+        self.lyrics_paginators: dict[int, LayoutPaginator] = {}
+        self.container: ControllerContainer = ControllerContainer(vc=vc)
+
         super().__init__(timeout=None)
-        self.update_buttons()
+
+        self.clear_items()
+        self.add_item(self.container)
 
     @property
     def labels(self) -> int:
@@ -265,20 +385,22 @@ class PlayerController(ui.View):
 
     async def disable(self) -> None:
         self.stop()
+        self.set_actions_visible(False)
         self.vc.controller = None
         if self.message is None:
             return
         with contextlib.suppress(discord.HTTPException):
-            await self.message.edit(view=None)
+            await self.message.edit(view=self)
 
-    def set_disabled(self, disabled: bool) -> None:
-        for item in self.children:
+    def set_actions_disabled(self, disabled: bool) -> None:
+        for item in self.walk_children():
             if isinstance(item, (PlayerButton, LoopTypeSelect)):
                 item.disabled = disabled
         self.enqueue.disabled = False
 
-    def set_labels(self) -> None:
+    def set_actions_labels(self) -> None:
         vc = self.vc
+
         if self.labels == 2:
             self.rewind.label = "Rewind"
             self.pause.label = "Resume" if vc.paused else "Pause"
@@ -294,32 +416,31 @@ class PlayerController(ui.View):
             self.lyrics.label = "Lyrics"
             self.enqueue.label = "Enqueue"
         elif self.labels == 1:
-            for item in self.children:
+            for item in self.walk_children():
                 if isinstance(item, PlayerButton) and item.label is not None:
                     item.label = None
 
-    def set_visible(self, visible: bool = True) -> None:
-        self.clear_items()
-        if visible:
-            self.add_item(self.rewind)
-            self.add_item(self.pause)
-            self.add_item(self.skip)
-            self.add_item(self.autoplay)
-            self.add_item(self.enqueue)
-            self.add_item(self.shuffle)
-            self.add_item(self.loop)
-            self.add_item(self.lyrics)
-            if self.loop_select:
-                self.add_item(self.loop_select)
+    def set_actions_visible(self, visible: bool = True) -> None:
+        self.container.remove_item(self.separator)
+        self.container.remove_item(self.action_one)
+        self.container.remove_item(self.action_two)
+        self.container.remove_item(self.action_loop)
 
-    def update_buttons(self) -> None:
+        if visible:
+            self.container.add_item(self.separator)
+            self.container.add_item(self.action_one)
+            self.container.add_item(self.action_two)
+            if self.action_loop.children:
+                self.container.add_item(self.action_loop)
+
+    def update_actions(self) -> None:
         if self.labels == 0:
-            self.set_visible(False)
+            self.set_actions_visible(False)
             return
 
-        self.set_visible()
-        self.set_labels()
-        self.set_disabled(False)
+        self.set_actions_visible()
+        self.set_actions_labels()
+        self.set_actions_disabled(False)
 
         self.pause.style = ButtonStyle.gray
         self.loop.style = ButtonStyle.gray
@@ -343,7 +464,7 @@ class PlayerController(ui.View):
             self.shuffle.disabled = True
 
         if vc.current is None:
-            self.set_disabled(True)
+            self.set_actions_disabled(True)
 
     async def update(self, itn: Interaction | None = None, /, *, invoke: bool = True) -> None:
         if self.is_updating or self.is_finished() or self.message is None:
@@ -365,7 +486,8 @@ class PlayerController(ui.View):
         current = self.vc.current
 
         if self.counter >= 10:
-            await edit(view=None)
+            self.set_actions_visible(False)
+            await edit(view=self)
             if invoke:
                 self.message = None
                 self.counter = -1
@@ -375,26 +497,29 @@ class PlayerController(ui.View):
             self.is_updating = False
             return
 
-        self.update_buttons()
-        await edit(embed=self.vc.create_now_playing(current), view=self)
+        self.update_actions()
+        self.container.update_ui(current)
+        await edit(view=self)
 
         self.is_updating = False
 
-    def is_manager(self, itn: Interaction) -> bool:
+    def is_manager(self, itn: Interaction) -> tuple[bool, str | None]:
 
         vc = self.vc
 
-        assert vc.current is not None
         assert isinstance(itn.user, discord.Member)
 
         if not vc.dj_enabled or itn.user.guild_permissions.manage_guild:
-            return True
+            return True, None
 
         if vc.dj_role:
-            return vc.dj_role in itn.user.roles
+            return (
+                vc.dj_role in itn.user.roles,
+                f"You need to have {vc.dj_role.mention} or have `Manage Server` permissions to do this.",
+            )
         if not vc.dj_role:
-            return vc.manager == itn.user
-        return True
+            return vc.manager == itn.user, "You need to be DJ or have `Manage Server` permission to do this."
+        return True, None
 
     def command_usage(self, itn: Interaction, name: str, **kwargs: Any):
         # Using the buttons is equivalent to using the command, so we log it.
@@ -411,7 +536,7 @@ class PlayerController(ui.View):
         f_ctx.interaction = itn
         self.ctx.bot.dispatch("command", f_ctx)
 
-    @cui.button(cls=PlayerButton, emoji="<:skip_left:1294459900696461364>", row=0)
+    @action_one.button(cls=PlayerButton, emoji="<:skip_left:1294459900696461364>")
     async def rewind(self, itn: Interaction, _: PlayerButton):
         await self.vc.seek(0)
         if self.vc.paused:
@@ -419,13 +544,13 @@ class PlayerController(ui.View):
         self.command_usage(itn, "seek", time="0:00")
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:play_or_pause:1294459947572138069>", row=0)
+    @action_one.button(cls=PlayerButton, emoji="<:play_or_pause:1294459947572138069>")
     async def pause(self, itn: Interaction, _: PlayerButton):
         await self.vc.pause(not self.vc.paused)
         self.command_usage(itn, "resume" if not self.vc.paused else "pause")
         await self.update(itn)
 
-    @cui.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>", row=0)
+    @action_one.button(cls=PlayerSkipButton, emoji="<:skip_right:1294459785130934293>")
     async def skip(self, itn: Interaction, _: PlayerSkipButton):
         vc = self.vc
 
@@ -434,7 +559,8 @@ class PlayerController(ui.View):
 
         send = itn.followup.send if itn.response.is_done() else itn.response.send_message
 
-        if self.is_manager(itn):
+        is_manager, __ = self.is_manager(itn)
+        if is_manager:
             await self.vc.skip()
             await send(f"{itn.user} has skipped the track.")
         elif self.vc.current.extras.requester_id == itn.user.id:
@@ -454,15 +580,15 @@ class PlayerController(ui.View):
         self.command_usage(itn, "skip")
         await self.update(itn, invoke=False)
 
-    @cui.button(cls=PlayerButton, emoji="<:autoplay:1294460017348710420>", row=0)
-    async def autoplay(self, itn: Interaction, button: PlayerButton):
+    @action_one.button(cls=PlayerButton, emoji="<:autoplay:1294460017348710420>")
+    async def autoplay(self, itn: Interaction, _: PlayerButton):
         state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
         self.vc.autoplay = state
         self.command_usage(itn, "player autoplay", state=not bool(state.value))
         await self.update(itn)
 
-    @cui.button(cls=PlayerPublicButton, emoji="<:queue_add:1310474338868138004>", row=1)
-    async def enqueue(self, itn: Interaction, button: PlayerPublicButton):
+    @action_two.button(cls=PlayerPublicButton, emoji="<:queue_add:1310474338868138004>")
+    async def enqueue(self, itn: Interaction, _: PlayerPublicButton):
         if itn.user not in self.vc.channel.members:
             await itn.response.send_message(
                 f"You need to be in {self.vc.channel.mention} to add songs to the queue.", ephemeral=True
@@ -482,7 +608,7 @@ class PlayerController(ui.View):
 
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>", row=1)
+    @action_two.button(cls=PlayerButton, emoji="<:shuffle:1294459691119935600>")
     async def shuffle(self, itn: Interaction, _: PlayerButton):
         vc = self.vc
 
@@ -490,20 +616,25 @@ class PlayerController(ui.View):
         self.command_usage(itn, "queue shuffle")
         await self.update(itn)
 
-    @cui.button(cls=PlayerButton, emoji="<:loop_all:1294459877447696385>", row=1)
-    async def loop(self, itn: Interaction, button: PlayerButton):
+    @action_two.button(cls=PlayerButton, emoji="<:loop_all:1294459877447696385>")
+    async def loop(self, itn: Interaction, _: PlayerButton):
         assert self.vc.current is not None
 
         if not self.loop_select:
-            self.loop_select = LoopTypeSelect(self)
-            self.add_item(self.loop_select)
+            new_select = LoopTypeSelect(self.vc)
+            self.loop_select = new_select
+            self.action_loop.add_item(new_select)
+            self.container.add_item(self.action_loop)
         else:
-            self.remove_item(self.loop_select)
+            self.action_loop.remove_item(self.loop_select)
+            self.container.remove_item(self.action_loop)
             self.loop_select = None
+
         await self.update(itn)
 
-    @cui.button(cls=PlayerPublicButton, emoji="<:lyrics:1297669978635505675>", row=1)
-    async def lyrics(self, itn: Interaction, button: PlayerPublicButton):
+    @action_two.button(cls=PlayerPublicButton, emoji="<:lyrics:1297669978635505675>")
+    async def lyrics(self, itn: Interaction, _: PlayerPublicButton):
+
         if self.vc.current is None:
             return await itn.response.defer()
 
@@ -524,14 +655,27 @@ class PlayerController(ui.View):
         if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             await itn.followup.send("Could not find lyrics.", ephemeral=True)
             return None
-        pag = commands.Paginator(max_size=320)
+        lyrics = lyrics_data["text"]
 
-        for line in lyrics_data["text"].splitlines():
-            pag.add_line(line)
+        chunked_lyrics = []
 
-        source = LyricPageSource(self.vc.current.title, pag)
+        for chunk in utils.as_chunks(lyrics.splitlines(), 8):
+            joined = "\n".join(chunk)
+
+            if len(joined) > 3000:
+                # If for whatever reason that the lyrics exceed 3500 characters,
+                # (very unlikely) we just truncate it here. We leave some space for
+                # the title, hence 3500, not 4000.
+                chunked_lyrics.append(f"{joined[:3497]}...")
+            else:
+                chunked_lyrics.append(joined)
+
         paginator = LyricsPaginator(
-            source, ctx=self.ctx, delete_message_after=True, timeout=((self.vc.current.length / 1000) * 2)
+            LyricPageSource(self.vc.current.title, chunked_lyrics),
+            ctx=self.ctx,
+            delete_message_after=True,
+            timeout=((self.vc.current.length / 1000) * 2),
+            nav_in_container=True,
         )  # Double the track's length
 
         await paginator.start(itn)
@@ -544,20 +688,28 @@ class QueuePageSource(menus.ListPageSource):
         self.vc = player
         super().__init__(entries=list(enumerate(list(player.queue), start=1)), per_page=8)
 
-    async def format_page(self, _: menus.Menu, tracks: list[tuple[int, Playable]]):
+    async def format_page(self, _: menus.Menu, tracks: list[tuple[int, Playable]]) -> ui.Container:
         ctx = self.vc.ctx
-        embed = discord.Embed(title=f"Up Next in {ctx.guild.name}", color=0x00FFB3)
+
+        url = discord.PartialEmoji(name="music_note", id=1368398933696450620).url
+        container = ui.Container(accent_color=0x00FFB3)
+        section = ui.Section(
+            *[f"### Up Next in {ctx.guild.name}"],
+            accessory=ui.Thumbnail(url),
+        )
+
+        if ctx.guild.icon:
+            section.accessory = ui.Thumbnail(ctx.guild.icon.url)
         up_next = ""
         for count, track in tracks:
             if len(track._title) > 90:
                 track._title = f"{track._title[:50]}..."
                 track.extras.hyperlink = f"[{track.title}]({track.uri})"
             up_next = f"{up_next}\n{count}. {track.extras.hyperlink} | {track.extras.requester}"
-        embed.description = up_next
-        if ctx.guild.icon:
-            embed.set_thumbnail(url=ctx.guild.icon.url)
+        section.add_item(up_next)
+        container.add_item(section)
 
-        return embed
+        return container
 
 
 class PlaylistPageSource(menus.ListPageSource):
@@ -566,7 +718,7 @@ class PlaylistPageSource(menus.ListPageSource):
         self.songs: dict[int, PlaylistSong] = self.playlist["songs"]
         super().__init__(list(self.songs.keys()), per_page=8)
 
-    async def format_page(self, _: menus.Menu, playlist_ids: list[int]) -> discord.Embed:
+    async def format_page(self, _: menus.Menu, playlist_ids: list[int]) -> ui.Container:
         lines = []
 
         for p_id in playlist_ids:
@@ -575,22 +727,33 @@ class PlaylistPageSource(menus.ListPageSource):
                 song["title"] = f"{song["title"][: len(song["artist"])]}..."
             lines.append(f"{song["position"]}. {hyperlink_song(song)} - {song["artist"]}")
 
-        embed = discord.Embed(title=f"Playlist Info: {self.playlist["name"]}", description="\n".join(lines))
-        embed.set_thumbnail(url=self.playlist.get("image"))
-        embed.set_footer(text=f"{len(self.songs)} songs in {self.playlist["name"]}")
-        return embed
+        image = self.playlist.get("image")
+        accessory = ui.Thumbnail(image) if image else ui.Button(label="No Image", disabled=True)
+        return ui.Container(
+            *[
+                ui.Section(
+                    *[
+                        f"### Playlist Info: {self.playlist["name"]}",
+                        "\n".join(lines),
+                        f"-# {len(self.songs)} songs in {self.playlist["name"]}",
+                    ],
+                    accessory=accessory,
+                )
+            ],
+            accent_color=0x00FFB3,
+        )
 
 
 class LyricPageSource(menus.ListPageSource):
-    def __init__(self, title: str, paginator: CPaginator):
+    def __init__(self, title: str, paginator: list[str]):
         self.title = title
-        super().__init__(paginator.pages, per_page=1)
+        super().__init__(paginator, per_page=1)
 
-    async def format_page(self, menu: menus.MenuPages, page: str) -> discord.Embed:
-        return discord.Embed(title=f"{self.title} lyrics", description=page, color=0x00FFB3)
+    async def format_page(self, _: menus.MenuPages, page: str) -> ui.Container:
+        return ui.Container(*[ui.TextDisplay(f"### {self.title} lyrics\n{page}")], accent_color=0x00FFB3)
 
 
-class LyricsPaginator(Paginator):
+class LyricsPaginator(LayoutPaginator):
     async def interaction_check(self, _: Interaction):
         # All instances of this paginator are sent ephemerally
         return True
@@ -598,13 +761,13 @@ class LyricsPaginator(Paginator):
     async def start(self, itn: Interaction):
         await self.source._prepare_once()
         page = await self.source.get_page(self.current_page)
-        kwargs = await self._get_kwargs(page)
-        await self._update(self.current_page)
+        await self.update_view(page)
+        await self.update_navigation(self.current_page)
 
         if itn.response.is_done():
-            msg = await itn.followup.send(**kwargs, view=self, wait=True, ephemeral=True)
+            msg = await itn.followup.send(view=self, wait=True)
         else:
-            await itn.response.send_message(**kwargs, view=self, ephemeral=True)
+            await itn.response.send_message(view=self, ephemeral=True)
             msg = await itn.original_response()
 
         self.message = msg

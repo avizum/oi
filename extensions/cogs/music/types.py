@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import enum
 from typing import Any, TYPE_CHECKING, TypedDict
 
 import wavelink
@@ -34,19 +33,10 @@ if TYPE_CHECKING:
 
 __all__ = (
     "PlayerContext",
-    "SearchType",
     "TrackEnd",
     "TrackStart",
     "TrackStuck",
 )
-
-
-class SearchType(enum.Enum):
-    YouTubeMusic = 1
-    Spotify = 2
-    SoundCloud = 3
-    AppleMusic = 4
-    Deezer = 5
 
 
 class PlayerContext(core.Context):

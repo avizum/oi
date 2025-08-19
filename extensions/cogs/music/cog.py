@@ -33,7 +33,7 @@ import discord
 import humanize
 import wavelink
 from asyncpg import UniqueViolationError
-from discord import app_commands
+from discord import app_commands, utils
 from discord.ext import commands
 from discord.ext.commands import Range
 from rapidfuzz import process
@@ -42,7 +42,7 @@ from wavelink import QueueMode
 import core
 from utils import (
     format_seconds,
-    Paginator,
+    LayoutPaginator,
     PlayerSettingsRecord,
     Playlist as PlaylistD,
     PlaylistRecord,
@@ -513,7 +513,7 @@ class Music(core.Cog):
             return await ctx.send("The queue is empty", ephemeral=True)
 
         source = QueuePageSource(vc)
-        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        paginator = LayoutPaginator(source, ctx=ctx, delete_message_after=True, nav_in_container=True)
         return await paginator.start()
 
     @queue.command(name="remove", extras=EXTRAS)
@@ -603,7 +603,7 @@ class Music(core.Cog):
     async def playlist(self, ctx: PlayerContext, playlist: Playlist):
         """Shows a playlist."""
         source = PlaylistPageSource(playlist)
-        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        paginator = LayoutPaginator(source, ctx=ctx, delete_message_after=True, nav_in_container=True)
         await paginator.start()
 
     @playlist.command(name="play")
@@ -1372,12 +1372,22 @@ class Music(core.Cog):
         if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             raise commands.BadArgument("No results found matching your search.")
         lyrics = lyrics_data["text"]
-        pag = commands.Paginator(max_size=320)
-        for line in lyrics.splitlines():
-            pag.add_line(line)
 
-        source = LyricPageSource(title, pag)
-        paginator = Paginator(source, ctx=ctx, delete_message_after=True)
+        chunked_lyrics = []
+
+        for chunk in utils.as_chunks(lyrics.splitlines(), 8):
+            joined = "\n".join(chunk)
+
+            if len(joined) > 3000:
+                # If for whatever reason that the lyrics exceed 3500 characters,
+                # (very unlikely) we just truncate it here. We leave some space for
+                # the title, hence 3500, not 4000.
+                chunked_lyrics.append(f"{joined[:3497]}...")
+            else:
+                chunked_lyrics.append(joined)
+
+        source = LyricPageSource(title, chunked_lyrics)
+        paginator = LayoutPaginator(source, ctx=ctx, delete_message_after=True, nav_in_container=True)
         await paginator.start()
 
     @core.command()

@@ -22,12 +22,12 @@ from __future__ import annotations
 from typing import Any, Mapping, TYPE_CHECKING
 
 import discord
-from discord import app_commands
+from discord import app_commands, ui
 from discord.ext import commands, menus
 from discord.ext.commands.hybrid import _CallableDefault
 
 import core
-from utils import Paginator
+from utils import LayoutPaginator
 
 if TYPE_CHECKING:
     from discord.ext.commands.hybrid import HybridAppCommand
@@ -72,52 +72,48 @@ class Home(menus.PageSource):
     def get_max_pages(self) -> int:
         return 2
 
-    async def get_page(self, page_number: int) -> Home:
+    async def get_page(self, page_number: int) -> list[int]:
         self.index = page_number
-        return self
+        return [page_number]
 
-    async def format_page(self, menu: menus.Menu, page: Any) -> discord.Embed:
-        ctx = self.ctx
-        embed = discord.Embed(
-            title="Help Menu",
-            color=COLOR,
-        )
+    async def format_page(self, _: menus.Menu, __: Any) -> ui.Container:
+        container = ui.Container(*[ui.TextDisplay("### Help Menu")], accent_color=COLOR)
+        commands = list(self.ctx.bot.walk_commands())
+        can_use = await self.help.filter_commands(commands)
 
         if self.index == 0:
-            commands = list(ctx.bot.walk_commands())
-            can_use = await self.help.filter_commands(commands)
-            embed.description = (
-                f"Hello, {ctx.author.name}!\n"
-                "I am a multi-purpose bot, packed with a lot of features.\n"
-                f"There are {len(commands)} commands, and {len(can_use)} commands you can use."
+            container.add_item(
+                ui.TextDisplay(
+                    f"Hello, {self.ctx.author.name}!\n"
+                    "I am a multi-purpose bot, packed with a lot of features.\n"
+                    f"There are {len(commands)} commands, and {len(can_use)} commands you can use."
+                )
             )
-            embed.add_field(name="Bot News", value=f"{ctx.bot.news}", inline=False)
-            embed.set_footer(text="Use the dropdown menu to select a module.")
+            container.add_item(ui.TextDisplay(f"**Bot News**\n{self.ctx.bot.news}"))
 
         elif self.index == 1:
-            embed.description = "Need help using the help command?"
-            embed.add_field(
-                name="Command usage",
-                value=(
+            container.add_item(ui.TextDisplay("Need help using the help command?"))
+            container.add_item(
+                ui.TextDisplay(
+                    "**Command Usage**\n"
                     "Reading command signatures is easy.\n"
                     "Example: `/command <parameter_one> [parameter_two]`\n"
                     "When using the command, replace the parameters with your own values.\n"
                     "With slash commands, your Discord client will help you a lot."
-                ),
-                inline=False,
+                )
             )
-            embed.add_field(
-                name="Command parameters",
-                value=(
+            container.add_item(
+                ui.TextDisplay(
+                    "**Command Parameters**\n"
                     "Parameters are the values you need to provide to the command. "
                     "Some commands have parameters, while others don't.\n"
                     "`<parameter>` - is a required parameter.\n"
                     "`[parameter]` - is an optional parameter, there may be a default value.\n"
                     "`[parameter...]` - is a variadic parameter, you can provide multiple values."
-                ),
+                )
             )
-
-        return embed
+        container.add_item(ui.TextDisplay("-# Use the dropdown menu to select a module."))
+        return container
 
 
 class CogHelpPages(menus.ListPageSource):
@@ -127,20 +123,21 @@ class CogHelpPages(menus.ListPageSource):
         commands = cog.get_commands()
         super().__init__(commands, per_page=5)
 
-    async def format_page(self, menu: menus.Menu, commands: list[core.HybridCommand]) -> discord.Embed:
+    async def format_page(self, _: menus.Menu, commands: list[core.HybridCommand]) -> ui.Container:
         cog = self.cog
-        embed = discord.Embed(
-            title=f"{cog.qualified_name} Commands",
-            description=cog.description or "No description provided.",
-            color=COLOR,
+
+        return ui.Container(
+            *[
+                ui.TextDisplay(f"### {cog.qualified_name} Commands"),
+                ui.TextDisplay(cog.description or "No description provided."),
+                ui.TextDisplay(
+                    f"**Commands in {cog.qualified_name}**\n"
+                    f"{"\n".join(f"{command.name} - {command.short_doc or 'No help provided.'}" for command in commands)}"
+                ),
+                ui.TextDisplay("-# Use the dropdown menus to select a command or module."),
+            ],
+            accent_color=COLOR,
         )
-        embed.add_field(
-            name=f"Commands in {cog.qualified_name}",
-            value="\n".join(f"{command.name} - {command.short_doc or 'No help provided.'}" for command in commands),
-            inline=False,
-        )
-        embed.set_footer(text="Use the dropdown menus to select a command or module.")
-        return embed
 
     async def get_page(self, page_number: int) -> list[core.HybridCommand]:
         base = page_number * self.per_page
@@ -154,39 +151,38 @@ class GroupHelpPages(menus.ListPageSource):
         commands = []
         if isinstance(self.group, core.HybridGroup) and self.group.fallback:
             # If the group has a fallback, it means the group command has functionality, so we need to display a help page
-            # with `create_command_help_embed`. Without a fallback, the base group command only serves to hold
+            # with `create_command_help_container`. Without a fallback, the base group command only serves to hold
             # subcommands and has no other functionality besides showing a help message for the group.
             # To easily show a "front page" for the group command, we just append numbers and check for it in `format_page`.
             commands.extend([1, 2, 3, 4, 5])
         commands.extend(group.commands)
         super().__init__(commands, per_page=5)
 
-    async def format_page(self, menu: menus.Menu, group_commands: list[core.HybridGroup]) -> discord.Embed:
-        if isinstance(group_commands[0], int):
-            return self.help.create_command_help_embed(self.group)
-        embed = discord.Embed(
-            title=f"Command Group: {self.group.qualified_name}",
-            description=self.group.help or "No description provided.",
-            color=COLOR,
-        )
+    async def format_page(self, _: menus.Menu, commands: list[core.HybridGroup]) -> ui.Container:
+        if isinstance(commands[0], int):
+            return self.help.create_command_help_container(self.group)
 
         member_perms, bot_perms = self.help.get_command_permissions(self.group)
-        embed.add_field(name="Required Permissions", value=f"{member_perms}\n{bot_perms}", inline=False)
 
-        embed.add_field(
-            name="Commands in group",
-            value="\n".join(f"{command.name} - {command.short_doc or 'No help provided.'}" for command in group_commands),
-            inline=False,
+        return ui.Container(
+            *[
+                ui.TextDisplay(f"### Command Group: {self.group.qualified_name}"),
+                ui.TextDisplay(self.group.help or "No description provided."),
+                ui.TextDisplay(f"**Required Permissions**\n{member_perms}\n{bot_perms}"),
+                ui.TextDisplay(
+                    "**Commands in Group**\n"
+                    f"{"\n".join(f"{command.name} - {command.short_doc or 'No help provided.'}" for command in commands)}"
+                ),
+            ],
+            accent_color=COLOR,
         )
-
-        return embed
 
     async def get_page(self, page_number: int) -> list[core.HybridCommand]:
         base = page_number * self.per_page
         return list(self.entries[base : base + self.per_page])
 
 
-class CogSelect(discord.ui.Select["HelpPaginator"]):
+class CogSelect(ui.Select["HelpPaginator"]):
     def __init__(self, help: OiHelp, cogs: list[core.Cog]) -> None:
         self.help: OiHelp = help
         self.cogs: list[core.Cog] = cogs
@@ -211,9 +207,6 @@ class CogSelect(discord.ui.Select["HelpPaginator"]):
     async def callback(self, itn: discord.Interaction) -> None:
         assert self.view is not None
         if self.values[0] == "Home":
-            for i in self.view.children:
-                if isinstance(i, CommandSelect):
-                    self.view.remove_item(i)
             await self.view.switch(Home(self.help.context, self.help), itn)
             return
 
@@ -224,13 +217,11 @@ class CogSelect(discord.ui.Select["HelpPaginator"]):
             return
 
         menu = CogHelpPages(self.help, cog)
-        commands = await menu.get_page(0)
-        self.view.add_item(CommandSelect(self.help, commands))
         await self.view.switch(menu, itn)
         return
 
 
-class CommandSelect(discord.ui.Select["HelpPaginator"]):
+class CommandSelect(ui.Select["HelpPaginator"]):
     def __init__(self, help: OiHelp, commands: list[core.HybridCommand]) -> None:
         self.help: OiHelp = help
         self.commands: list[core.HybridCommand] = commands
@@ -268,24 +259,28 @@ class CommandSelect(discord.ui.Select["HelpPaginator"]):
             return None
         if isinstance(command, core.HybridGroup):
             menu = GroupHelpPages(self.help, command)
-            commands = await menu.get_page(0)
-            self.view.add_item(CommandSelect(self.help, commands))
             return await self.view.switch(menu, itn)
-        embed = self.help.create_command_help_embed(command)
-        previous = itn.message or self.view.message
-        previous_embed = previous.embeds[0]
-        await self.view.message.edit(
-            embed=embed, view=CommandHelpView(self.view.timeout, self.help, self.view, previous_embed=previous_embed)
+
+        await itn.response.edit_message(
+            view=CommandHelpView(
+                self.view.timeout, self.help, self.view, container=self.help.create_command_help_container(command)
+            )
         )
         return None
 
 
-class CommandHelpView(discord.ui.View):
-    def __init__(self, timeout: float | None, help: OiHelp, help_view: HelpPaginator, previous_embed: discord.Embed) -> None:
+class CommandHelpView(ui.LayoutView):
+    action = ui.ActionRow()
+
+    def __init__(self, timeout: float | None, help: OiHelp, help_view: HelpPaginator, container: ui.Container) -> None:
         super().__init__(timeout=timeout)
         self.help: OiHelp = help
         self.help_view: HelpPaginator = help_view
-        self.previous_embed: discord.Embed = previous_embed
+
+        self.clear_items()
+        container.add_item(self.help_view.separator)
+        container.add_item(self.action)
+        self.add_item(container)
 
     async def interaction_check(self, itn: discord.Interaction, /) -> bool:
         if itn.user.id != self.help.context.author.id:
@@ -293,16 +288,19 @@ class CommandHelpView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(emoji="<:left:1294459831733719100>", label="Back", style=discord.ButtonStyle.secondary)
-    async def back(self, itn: discord.Interaction, button: discord.ui.Button) -> None:
+    @action.button(emoji="<:left:1294459831733719100>", label="Back", style=discord.ButtonStyle.secondary)
+    async def back(self, itn: discord.Interaction, button: ui.Button) -> None:
         if self.help_view.started:
-            await itn.response.edit_message(view=self.help_view, embed=self.previous_embed)
+            await itn.response.edit_message(view=self.help_view)
         else:
             await self.help_view.start(itn)
         self.stop()
 
 
-class HelpPaginator(Paginator):
+class HelpPaginator(LayoutPaginator):
+    cog_select_action = ui.ActionRow()
+    command_select_action = ui.ActionRow()
+
     def __init__(
         self,
         source: menus.PageSource,
@@ -312,66 +310,75 @@ class HelpPaginator(Paginator):
         help: OiHelp,
         message: discord.Message | None = None,
     ) -> None:
-        super().__init__(source, ctx=ctx, timeout=120.0, check_embeds=True, delete_message_after=True, message=message)
+        self.container: ui.Container | None = None
+        super().__init__(source, ctx=ctx, timeout=120.0, delete_message_after=True, message=message, nav_in_container=True)
         self.help: OiHelp = help
         self.cogs: list[core.Cog] = cogs
         self.started: bool = False
 
-    async def _update(self, index: int) -> None:
-        for i in self.children:
+    async def update_navigation(self, index: int) -> None:
+        for i in self.walk_children():
             if isinstance(i, CommandSelect):
                 assert i.view is not None
                 cmds = await i.view.source.get_page(index)
                 i._update(cmds)
-        await super()._update(index)
+        await super().update_navigation(index)
+
+    async def update_view(self, page: int) -> None:
+
+        value = await discord.utils.maybe_coroutine(self.source.format_page, self, page)
+
+        self.clear_items()
+
+        if not isinstance(value, ui.Container):
+            raise TypeError(f"HelpPaginator sources must return Container, not {value.__class__.__name__}")
+
+        self.container = value
+        self.add_item(value)
+        self.add_navigation()
 
     async def switch(self, source: menus.PageSource, itn: discord.Interaction) -> None:
         self.source = source
         self.current_page = 0
-        cog_select = None
-        command_select = None
-        for i in self.children:
-            if isinstance(i, CogSelect):
-                cog_select = i
-            elif isinstance(i, CommandSelect):
-                command_select = i
-        self.clear_items()
-        if cog_select is not None:
-            self.add_item(cog_select)
-        if command_select is not None:
-            self.add_item(command_select)
-        self._fill_items()
+
         await self.source._prepare_once()
         page = await self.source.get_page(0)
-        kwargs = await self._get_kwargs(page)
-        await self._update(0)
-        await itn.response.edit_message(**kwargs, view=self)
+        await self.update_view(page)
+        await self.update_navigation(0)
+        await itn.response.edit_message(view=self)
 
-    async def _prepare(self) -> None:
-        self.clear_items()
-        self.add_item(CogSelect(self.help, self.cogs))
+    def add_navigation(self) -> None:
+        if self.container:
+            self.container.add_item(self.separator)
+            self.container.add_item(self.cog_select_action)
+            self.container.add_item(self.command_select_action)
+            if self.source.is_paginating():
+                self.container.add_item(self.navigation)
+            self.container.add_item(self.stop_navigation)
+        else:
+            self.add_item(self.cog_select_action)
+            self.add_item(self.command_select_action)
+            if self.source.is_paginating():
+                self.add_item(self.navigation)
+            self.add_item(self.stop_navigation)
+
+    async def start(self, entity: discord.Interaction | discord.Message | None = None) -> discord.Message:
+        self.cog_select_action.add_item(CogSelect(self.help, self.cogs))
         commands = await self.source.get_page(0)
-        self.add_item(CommandSelect(self.help, commands))
-        self._fill_items()
-
-    async def start(
-        self, entity: discord.Interaction | discord.Message | None = None, prepare: bool = True
-    ) -> discord.Message:
-        if prepare:
-            await self._prepare()
+        self.command_select_action.add_item(CommandSelect(self.help, commands))
         await self.source._prepare_once()
         page = await self.source.get_page(self.current_page)
-        kwargs = await self._get_kwargs(page)
-        await self._update(self.current_page)
+        await self.update_view(page)
+        await self.update_navigation(self.current_page)
         if isinstance(entity, discord.Message):
             self.message = entity
-            await entity.edit(**kwargs, view=self)
+            await entity.edit(view=self)
         elif isinstance(entity, discord.Interaction):
             assert entity.message is not None
             self.message = entity.message
-            await entity.response.edit_message(**kwargs, view=self)
+            await entity.response.edit_message(view=self)
         else:
-            self.message: discord.Message = await self.ctx.send(**kwargs, view=self)
+            self.message: discord.Message = await self.ctx.send(view=self)
         self.started = True
         return self.message
 
@@ -453,13 +460,8 @@ class OiHelp(commands.HelpCommand):
 
         return final_member, final_bot
 
-    def create_command_help_embed(self, command: core.HybridCommand | core.HybridGroup, /) -> discord.Embed:
+    def create_command_help_container(self, command: core.HybridCommand | core.HybridGroup, /) -> ui.Container:
         command_or_group = "Command" if isinstance(command, core.HybridCommand) else "Command Group"
-        embed = discord.Embed(
-            title=f"{command_or_group}: {command.qualified_name}",
-            description=command.help or "No command description provided.",
-            color=COLOR,
-        )
 
         value = f"`@{self.context.me.display_name} {command.qualified_name} {command.signature}`"
         if isinstance(command, core.HybridGroup):
@@ -469,18 +471,29 @@ class OiHelp(commands.HelpCommand):
             usage = f"`/{command.qualified_name} {command.signature}`"
             value = usage if self.context.interaction else f"{usage}\n{value}"
 
-        embed.add_field(name="Usage", value=value, inline=False)
+        container = ui.Container(
+            *[
+                ui.TextDisplay(f"### {command_or_group}: {command.qualified_name}"),
+                ui.TextDisplay(command.help or "No command description provided."),
+                ui.TextDisplay(f"**Usage**\n{value}"),
+            ],
+            accent_color=COLOR,
+        )
 
         params = self.get_parameter_info(command)
         if params:
             itms = [item.signature for item in params]
-            embed.add_field(name="Parameters", value="\n".join(itms), inline=False)
+            container.add_item(ui.TextDisplay(f"**Parameters**\n{"\n".join(itms)}"))
 
         member_perms, bot_perms = self.get_command_permissions(command)
+        container.add_item(ui.TextDisplay(f"**Required Permissions**\n{member_perms}\n{bot_perms}"))
 
-        embed.add_field(name="Required Permissions", value=f"{member_perms}\n{bot_perms}", inline=False)
+        if not isinstance(command, core.HybridCommand):
+            container.add_item(
+                ui.TextDisplay(content=f"-# Go to the next page to see the subcommands of {command.qualified_name}.")
+            )
 
-        return embed
+        return container
 
     async def filter_cogs(
         self, mapping: Mapping[core.Cog | None, list[core.HybridCommand[Any, (...), Any]]] | None = None, /
@@ -503,10 +516,7 @@ class OiHelp(commands.HelpCommand):
         cogs = await self.filter_cogs(mapping)
         menu = Home(self.context, self)
         paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
-        paginator.clear_items()
-        paginator.add_item(CogSelect(self, cogs))
-        paginator._fill_items()
-        await paginator.start(prepare=False)
+        await paginator.start()
 
     async def send_cog_help(self, cog: core.Cog, /) -> None:
         menu = CogHelpPages(self, cog)
@@ -524,10 +534,9 @@ class OiHelp(commands.HelpCommand):
         menu = CogHelpPages(self, command.cog)
         cogs = await self.filter_cogs()
         paginator = HelpPaginator(menu, ctx=self.context, cogs=cogs, help=self)
-        command_view = CommandHelpView(
-            paginator.timeout, self, paginator, await menu.format_page(menu, await menu.get_page(0))  # type: ignore
-        )
-        await self.context.send(embed=self.create_command_help_embed(command), view=command_view)
+        command_view = CommandHelpView(paginator.timeout, self, paginator, self.create_command_help_container(command))
+
+        await self.context.send(view=command_view)
 
 
 class HelpCommandCog(core.Cog):

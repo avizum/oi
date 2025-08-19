@@ -23,6 +23,7 @@ import math
 from typing import Any, ClassVar, Sequence, TYPE_CHECKING
 
 import discord
+from discord import ui
 
 if TYPE_CHECKING:
     from core import Context
@@ -57,6 +58,38 @@ def embed_to_text(embed: discord.Embed) -> str:
         output.append(f"\n-# {embed.footer.text}")
 
     return "\n".join(output)
+
+
+def embed_to_container(embed: discord.Embed) -> ui.Container:
+    """Converts a `discord.Embed` to a `discord.ui.Container`.
+
+    This is used as a helper to easilly convert to the Components V2.
+
+    Author and Footer fields will not render icon urls. This is a Discord limitation.
+
+    """
+    container = ui.Container()
+    container.accent_color = embed.color
+
+    if embed.author and embed.author.name:
+        container.add_item(ui.TextDisplay(f"-# **{embed.author.name}**"))
+
+    if embed.title or embed.description:
+        title = f"### {embed.title}" or ""
+        description = embed.description or ""
+        if title or description:
+            if embed.thumbnail and embed.thumbnail.url:
+                container.add_item(ui.Section(*[title, description], accessory=ui.Thumbnail(embed.thumbnail.url)))
+            else:
+                container.add_item(ui.TextDisplay(f"{title}\n{description}"))
+
+    for field in embed.fields:
+        container.add_item(ui.TextDisplay(f"**{field.name}**\n{field.value}"))
+
+    if embed.footer and embed.footer.text:
+        container.add_item(ui.TextDisplay(f"-# {embed.footer.text}"))
+
+    return container
 
 
 def _format_embeds(ctx: Context, embeds: Sequence[discord.Embed]) -> Sequence[discord.Embed]:

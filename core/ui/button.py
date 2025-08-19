@@ -21,15 +21,17 @@ from __future__ import annotations
 
 from typing import Callable, TYPE_CHECKING, TypeVar
 
-from discord import ButtonStyle
-from discord.ui import Button, View
+from discord import ButtonStyle, Emoji, PartialEmoji
+from discord.ui import ActionRow, Button, View
 
 if TYPE_CHECKING:
-    from discord.ui.item import ItemCallbackType
+    from discord.ui.item import ContainedItemCallbackType as ItemCallbackType
+    from discord.ui.view import BaseView
 
 
 __all__ = ("button",)
 
+S_co = TypeVar("S_co", bound="BaseView | ActionRow", covariant=True)
 V_co = TypeVar("V_co", bound="View", covariant=True)
 BT = TypeVar("BT", bound=Button)
 
@@ -41,10 +43,11 @@ def button(
     custom_id: str | None = None,
     disabled: bool = False,
     style: ButtonStyle = ButtonStyle.secondary,
-    emoji: str | None = None,
+    emoji: str | Emoji | PartialEmoji | None = None,
     row: int | None = None,
-) -> Callable[[ItemCallbackType[V_co, BT]], BT]:
-    def decorator(func: ItemCallbackType[V_co, BT]) -> ItemCallbackType[V_co, BT]:
+    id: int | None = None,
+) -> Callable[[ItemCallbackType[S_co, BT]], BT]:
+    def decorator(func: ItemCallbackType[S_co, BT]) -> ItemCallbackType[S_co, BT]:
         func.__discord_ui_model_type__ = cls
         func.__discord_ui_model_kwargs__ = {
             "style": style,
@@ -54,6 +57,7 @@ def button(
             "label": label,
             "emoji": emoji,
             "row": row,
+            "id": id,
         }
         return func
 
