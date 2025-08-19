@@ -313,8 +313,7 @@ class ControllerContainer(ui.Container["PlayerController"]):
         self.now_playing.add_item("### Now Playing")
 
         placeholder_thumb = ctx.guild.icon.url if ctx.guild.icon else ctx.me.display_avatar.url
-        # TODO: CHANGE TO OI EMOJI!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        nothing_in_queue = f"Add some songs using <:TODO:1369174874525929483> or {ctx.cog.play.mention}."
+        nothing_in_queue = f"Add some songs using <:queue_add:1310474338868138004> or {ctx.cog.play.mention}."
         tng = vc.queue[:2] if vc.queue.mode is QueueMode.loop else vc.queue[:3]
         next_tracks = [f"> {tk.extras.hyperlink} | `{tk.extras.duration}` | {tk.extras.requester}" for tk in tng]
         duration = format_seconds((sum(song.length for song in vc.queue) / 1000), friendly=True)
