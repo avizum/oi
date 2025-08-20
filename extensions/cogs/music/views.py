@@ -19,7 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import contextlib
 import copy
 import math
 from typing import Any, Callable, TYPE_CHECKING, TypeVar
@@ -389,8 +388,10 @@ class PlayerController(ui.LayoutView):
         self.vc.controller = None
         if self.message is None:
             return
-        with contextlib.suppress(discord.HTTPException):
+        try:
             await self.message.edit(view=self)
+        except discord.HTTPException:
+            pass
 
     def set_actions_disabled(self, disabled: bool) -> None:
         for item in self.walk_children():
@@ -645,8 +646,10 @@ class PlayerController(ui.LayoutView):
             assert isinstance(paginator.source, LyricPageSource)
 
             if paginator.message:
-                with contextlib.suppress(discord.NotFound):
+                try:
                     await paginator.message.delete()
+                except discord.HTTPException:
+                    pass
             paginator.stop()
             del self.lyrics_paginators[itn.user.id]
 
@@ -673,10 +676,8 @@ class PlayerController(ui.LayoutView):
         paginator = LyricsPaginator(
             LyricPageSource(self.vc.current.title, chunked_lyrics),
             ctx=self.ctx,
-            delete_message_after=True,
-            timeout=((self.vc.current.length / 1000) * 2),
-            nav_in_container=True,
-        )  # Double the track's length
+            track=self.vc.current,
+        )
 
         await paginator.start(itn)
         self.lyrics_paginators[itn.user.id] = paginator
@@ -754,6 +755,22 @@ class LyricPageSource(menus.ListPageSource):
 
 
 class LyricsPaginator(LayoutPaginator):
+    def __init__(
+        self,
+        source: LyricPageSource,
+        *,
+        track: Playable,
+        ctx: PlayerContext,
+    ) -> None:
+        self.track: Playable = track
+        super().__init__(
+            source,
+            ctx=ctx,
+            timeout=((track.length / 1000) * 2),  # double the track's length
+            delete_message_after=True,
+            nav_in_container=True,
+        )
+
     async def interaction_check(self, _: Interaction):
         # All instances of this paginator are sent ephemerally
         return True
