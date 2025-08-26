@@ -193,54 +193,63 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             await self.controller.update(itn)
 
 
-source_map = {
-    "youtube": "YouTube",
-    "you tube": "YouTube",
-    "youtube music": "YouTube Music",
-    "you tube music": "YouTube Music",
-    "spotify": "Spotify",
-    "soundcloud": "SoundCloud",
-    "sound cloud": "SoundCloud",
-    "applemusic": "Apple Music",
-    "apple music": "Apple Music",
-    "deezer": "Deezer",
+SOURCES: dict[str, int] = {
+    "YouTube": 0,
+    "YouTube Music": 1,
+    "Spotify": 2,
+    "SoundCloud": 3,
+    "Apple Music": 4,
+    "Deezer": 5,
 }
 
 
 class EnqueueModal(ui.Modal):
-    query = ui.TextInput(
-        label="Enter a song:",
-        placeholder="Search query or URL",
-        style=discord.TextStyle.short,
+    query = ui.Label(
+        text="Search Query",
+        description="You can enter a search query or URL",
+        component=ui.TextInput(placeholder="Search"),
     )
-    source = ui.TextInput(label="Source (Ignore if using URL):", placeholder="Spotify")
+
+    source = ui.Label(
+        text="Source Selection",
+        description="The source to use to search for the query (Ignore when using a URL)",
+        component=ui.Select(options=[discord.SelectOption(label=name, value=name) for name in SOURCES]),
+    )
 
     def __init__(self, controller: PlayerController):
         self.controller = controller
         self.vc = controller.vc
-        self.source.default = self.vc.ctx.cog.default_source
+
+        assert isinstance(self.source.component, ui.Select)
+        self.source.component.options[SOURCES[self.vc.ctx.cog.default_source]].default = True
+
         super().__init__(title="Enqueue")
 
     async def on_submit(self, itn: Interaction):
+        assert isinstance(self.query.component, ui.TextInput)
+        assert isinstance(self.source.component, ui.Select)
+
         await itn.response.defer(thinking=True, ephemeral=True)
+
         vc = self.vc
         cog = vc.ctx.cog
+        query = self.query.component.value
+        source = self.source.component.values[0]
+        tracks = await self.vc.fetch_tracks(self.query.component.value, source)  # type: ignore
+        kwargs = {"query": query, "source": source}
 
-        source = source_map.get(self.source.value.lower(), cog.default_source)
-        tracks = await self.vc.fetch_tracks(self.query.value, source)  # type: ignore
-        kwargs = {"query": self.query.value}
         if source != cog.default_source:
             kwargs["source"] = source
         self.controller.command_usage(itn, "play", **kwargs)
         if not tracks:
-            if self.query.value.startswith(("https://", "http://")):
+            if query.startswith(("https://", "http://")):
                 not_found = (
                     "No tracks found matching the provided URL.\n"
                     "-# Make sure your URL is valid or try using a different URL."
                 )
             else:
                 not_found = (
-                    f"No tracks found on {source} matching the query: {self.query.value}.\n"
+                    f"No tracks found on {source} matching the query: {query}.\n"
                     "-# Try changing the source, or check your spelling."
                 )
             return await itn.followup.send(not_found)
