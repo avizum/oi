@@ -314,10 +314,10 @@ class Music(core.Cog):
     async def _reconnect(self, voice_client: Player) -> bool:
         channel = voice_client.channel
         try:
-            position = voice_client.position
-
             vc = Player(ctx=voice_client.ctx)
-            vc.queue.put(list(voice_client.queue))
+
+            vc.autoplay = voice_client.autoplay
+            vc.queue = voice_client.queue
             if voice_client.current:
                 vc.queue.put_at(0, voice_client.current)
 
@@ -326,7 +326,13 @@ class Music(core.Cog):
             await channel.connect(cls=vc)  # type: ignore
 
             if vc.queue:
-                await vc.play(vc.queue.get(), start=position)
+                await vc.play(
+                    vc.queue.get(),
+                    start=voice_client.position,
+                    volume=voice_client.volume,
+                    paused=voice_client.paused,
+                    filters=voice_client.filters,
+                )
             if vc.controller is None:
                 await vc.invoke_controller(None)
         except Exception as exc:
