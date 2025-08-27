@@ -85,7 +85,7 @@ class Command(commands.Command[CogT, P, T]):
         self.bot_guild_permissions: list[str] = getattr(
             func, "__bot_guild_permissions__", extras.get("bot_guild_permissions", [])
         )
-        self.no_tips: bool = False
+        self.no_tips: bool = kwargs.pop("no_tips", False)
         super().__init__(func, **kwargs)
 
     def __repr__(self) -> str:
