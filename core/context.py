@@ -19,8 +19,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import contextlib
-import random
 import sys
 from typing import Any, Generic, overload, Sequence, TYPE_CHECKING, TypeVar
 
@@ -73,54 +71,6 @@ class ConfirmResult:
 
     def __repr__(self):
         return f"<ConfirmResult result={self.result}>"
-
-
-def get_tip() -> list[str]:
-    tips: list[list[str]] = [
-        [
-            random.choice(
-                [
-                    "Please vote for Oi. \U0001f97a\U0001f97a\U0001f97a",
-                    "Oi is free to use, please vote to support Oi. Thank you \U00002764\U0000fe0f.",
-                    "<:cr_ztheart:853385258762240041> Voting helps support Oi.",
-                    "<:cr_ztheart:853385258762240041> If you vote for Oi, you might get a cookie!",
-                    "Please Please Please vote for Oi!!",
-                    "Why haven't you voted for Oi? Do it now!",
-                    "These messages will go away for 12 hours if you vote for Oi.",
-                    "Voting for Oi will help us grow!",
-                ]
-            ),
-            "Vote Here!",
-            "https://top.gg/bot/867713143366746142/vote",
-        ],
-        [
-            random.choice(
-                [
-                    "Join the support server if you need help!",
-                    "Need Help? Use `/help` or join the support server!",
-                    "Have some feedback for us? Join the support server and send it our way.",
-                    "If you need to report a bug, report it in the support server.",
-                    "Create your own playlists with </playlist create:1301780161410371647>",
-                ]
-            ),
-            "Support Server",
-            "https://discord.gg/hWhGQ4QHE9",
-        ],
-        [
-            "Oi is made by people on their free time! Check out avizum's page!",
-            "avizum's page",
-            "https://github.com/avizum",
-        ],
-        [
-            "Oi is made by people on their free time! Check out ROLEX's page!",
-            "ROLEX's page",
-            "https://github.com/Shobhits7",
-        ],
-    ]
-    return random.choices(tips, [6, 4, 1, 1], k=1)[0]
-
-
-CHANCE = 3 / 20
 
 
 class Context(commands.Context, Generic[BotT]):
@@ -188,7 +138,6 @@ class Context(commands.Context, Generic[BotT]):
         allowed_mentions: discord.AllowedMentions = ...,
         reference: discord.Message | discord.MessageReference | discord.PartialMessage = ...,
         reply: bool = ...,
-        no_tips: bool = ...,
         mention_author: bool = ...,
         format_embeds: bool = ...,
         view: ui.View = ...,
@@ -212,7 +161,6 @@ class Context(commands.Context, Generic[BotT]):
         allowed_mentions: discord.AllowedMentions = ...,
         reference: discord.Message | discord.MessageReference | discord.PartialMessage = ...,
         reply: bool = ...,
-        no_tips: bool = ...,
         mention_author: bool = ...,
         format_embeds: bool = ...,
         view: ui.View = ...,
@@ -236,7 +184,6 @@ class Context(commands.Context, Generic[BotT]):
         allowed_mentions: discord.AllowedMentions = ...,
         reference: discord.Message | discord.MessageReference | discord.PartialMessage = ...,
         reply: bool = ...,
-        no_tips: bool = ...,
         mention_author: bool = ...,
         format_embeds: bool = ...,
         view: ui.View = ...,
@@ -260,7 +207,6 @@ class Context(commands.Context, Generic[BotT]):
         allowed_mentions: discord.AllowedMentions = ...,
         reference: discord.Message | discord.MessageReference | discord.PartialMessage = ...,
         reply: bool = ...,
-        no_tips: bool = ...,
         mention_author: bool = ...,
         format_embeds: bool = ...,
         view: ui.View = ...,
@@ -285,14 +231,13 @@ class Context(commands.Context, Generic[BotT]):
         allowed_mentions: discord.AllowedMentions | None = None,
         reference: discord.Message | discord.MessageReference | discord.PartialMessage | None = None,
         reply: bool = True,
-        no_tips: bool = False,
         mention_author: bool | None = None,
         format_embeds: bool = True,
         view: BaseView | None = None,
         suppress_embeds: bool = False,
         ephemeral: bool = False,
         silent: bool = False,
-        poll: discord.Poll = MISSING,
+        poll: discord.Poll | None = None,
     ) -> discord.Message:
         if content:
             content = str(content)
@@ -326,30 +271,9 @@ class Context(commands.Context, Generic[BotT]):
         if not self.permissions.read_message_history:
             reference = None
 
-        random_float = random.random()
-        fmt_content = content
-        message = ""
-
-        if self.author.id in self.bot.thanked_votes and not no_tips:
-            timestamp = self.bot.thanked_votes[self.author.id]
-            label = "Vote Here"
-            url = "https://top.gg/bot/867713143366746142/vote"
-            if discord.utils.utcnow() > timestamp:
-                message = "Thank you for voting for Oi. It's time to vote again!"
-            else:
-                message = f"Thank you for voting for Oi. Please vote again {discord.utils.format_dt(timestamp, "R")}."
-            del self.bot.thanked_votes[self.author.id]
-
-        if self.author.id not in self.bot.votes and random_float < CHANCE and not no_tips:
-            message, label, url = get_tip()
-
-        if message:
-            fmt = f"-# {message} | <{url}>"
-            fmt_content = f"{content}\n{fmt}" if content is not None else fmt
-
         if self.interaction is None or self.interaction.is_expired():
             return await super().send(
-                content=fmt_content,
+                content=content,
                 tts=tts,
                 embed=embed,
                 embeds=embeds,
@@ -380,10 +304,14 @@ class Context(commands.Context, Generic[BotT]):
             "suppress_embeds": suppress_embeds,
             "ephemeral": ephemeral,
             "silent": silent,
-            "poll": poll,
+            "poll": MISSING if poll is None else poll,
         }
 
-        if self.interaction and not self.channel.permissions_for(self.me).send_messages:
+        if (
+            self.interaction
+            and not self.channel.permissions_for(self.me).send_messages
+            and (not view or (view and view.has_components_v2()))
+        ):
             msg = "-# *I need the `Send Messages` permission in this channel. [Why?](https://gist.github.com/avizum/827fd8015a0605e68b5966ff5b2b449f)*"
             kwargs["content"] = f"{kwargs['content']}\n{msg}" if kwargs["content"] else msg
 
@@ -395,12 +323,6 @@ class Context(commands.Context, Generic[BotT]):
 
         if delete_after is not None:
             await msg.delete(delay=delete_after)
-
-        with contextlib.suppress():
-            if message and label and url:
-                view = discord.ui.View()
-                view.add_item(discord.ui.Button(style=discord.ButtonStyle.url, label=label, url=url))
-                await self.interaction.followup.send(message, view=view, ephemeral=True)
 
         return msg
 

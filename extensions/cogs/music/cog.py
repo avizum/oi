@@ -172,7 +172,7 @@ class Music(core.Cog):
         if not vc:
             return
 
-        await vc.ctx.send("Track got stuck. Skipping.", no_tips=True)
+        await vc.ctx.send("Track got stuck. Skipping.")
         await vc.skip()
 
     @core.Cog.listener()
@@ -198,7 +198,6 @@ class Music(core.Cog):
                 await vc.ctx.send(
                     "Sorry, your player has been disconnected due to a potential server issue. Please try again later.\n"
                     f"-# *(You can reconnect the player using {self.connect.mention})*",
-                    no_tips=True,
                 )
             await vc.disconnect(force=True)
             return
@@ -256,7 +255,7 @@ class Music(core.Cog):
         if (member == vc.manager and after.channel != vc.channel) or (not vc.manager and after.channel == vc.channel):
             manager: discord.Member | None = next((mem for mem in vc.channel.members if not mem.bot), None)
             if manager:
-                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS, no_tips=True)
+                await vc.ctx.send(f"The new DJ is {manager.mention}.", reply=False, allowed_mentions=MENTIONS)
             vc.manager = manager
 
     async def cog_after_invoke(self, ctx: PlayerContext) -> None:
@@ -292,7 +291,7 @@ class Music(core.Cog):
         await vc._set_player_settings()
         return vc
 
-    @core.command()
+    @core.command(no_tips=True)
     @is_not_deafened()
     @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
@@ -351,7 +350,7 @@ class Music(core.Cog):
             await self._reconnect(ctx.voice_client)
             return await ctx.send("Reconnected.")
 
-    @core.command()
+    @core.command(no_tips=True)
     @is_not_deafened()
     @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
@@ -1102,7 +1101,7 @@ class Music(core.Cog):
             vc.labels = state
         return await ctx.send(f"Set player labels to {mapping[state]}.")
 
-    @player.command(name="current")
+    @player.command(name="current", no_tips=True)
     @is_in_voice()
     async def player_current(self, ctx: PlayerContext):
         """Shows the current song, or move the bound channel to another channel."""
@@ -1114,7 +1113,7 @@ class Music(core.Cog):
         if ctx.channel != vc.ctx.channel:
             try:
                 await is_manager().predicate(ctx)
-                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}", no_tips=True)
+                await vc.ctx.send(f"{ctx.author} moved the controller to {ctx.channel.mention}")
             except commands.CheckFailure:
                 raise commands.CheckFailure(f"This command can only be ran in {vc.ctx.channel.mention}, not here.")
 

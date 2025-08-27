@@ -59,6 +59,54 @@ class CommandData(TypedDict):
     success: bool
 
 
+def get_tip() -> list[str]:
+    tips: list[list[str]] = [
+        [
+            random.choice(
+                [
+                    "Please vote for Oi. \U0001f97a\U0001f97a\U0001f97a",
+                    "Oi is free to use, please vote to support Oi. Thank you \U00002764\U0000fe0f.",
+                    "<:cr_ztheart:853385258762240041> Voting helps support Oi.",
+                    "<:cr_ztheart:853385258762240041> If you vote for Oi, you might get a cookie!",
+                    "Please Please Please vote for Oi!!",
+                    "Why haven't you voted for Oi? Do it now!",
+                    "These messages will go away for 12 hours if you vote for Oi.",
+                    "Voting for Oi will help us grow!",
+                ]
+            ),
+            "Vote Here!",
+            "https://top.gg/bot/867713143366746142/vote",
+        ],
+        [
+            random.choice(
+                [
+                    "Join the support server if you need help!",
+                    "Need Help? Use `/help` or join the support server!",
+                    "Have some feedback for us? Join the support server and send it our way.",
+                    "If you need to report a bug, report it in the support server.",
+                    "Create your own playlists with </playlist create:1301780161410371647>",
+                ]
+            ),
+            "Support Server",
+            "https://discord.gg/hWhGQ4QHE9",
+        ],
+        [
+            "Oi is made by people on their free time! Check out avizum's page!",
+            "avizum's page",
+            "https://github.com/avizum",
+        ],
+        [
+            "Oi is made by people on their free time! Check out ROLEX's page!",
+            "ROLEX's page",
+            "https://github.com/Shobhits7",
+        ],
+    ]
+    return random.choices(tips, [6, 4, 1, 1], k=1)[0]
+
+
+CHANCE = 3 / 20
+
+
 class Important(core.Cog):
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
@@ -71,6 +119,7 @@ class Important(core.Cog):
         self.update_status.start()
         self.insert_queue.add_exception_type(asyncpg.PostgresConnectionError)
         self.insert_queue.start()
+        self.bot.after_invoke(self.after_invoke)
 
     async def cog_unload(self) -> None:
         self.update_status.cancel()
@@ -254,6 +303,35 @@ class Important(core.Cog):
             embed.set_thumbnail(url=guild.icon.url)
         embed.set_footer(text=f"Now in {len(self.bot.guilds)} guilds")
         await self.guilds_webhook.send(username="Oi: Left Guild", embed=embed)
+
+    async def after_invoke(self, ctx: Context):
+        if not isinstance(ctx.command, core.Command):
+            return
+        if ctx.command.no_tips or not ctx.interaction:
+            return
+
+        message = label = url = None
+
+        if ctx.author.id in self.bot.thanked_votes and not ctx.command.no_tips:
+            timestamp = self.bot.thanked_votes[ctx.author.id]
+            label = "Vote Here"
+            url = "https://top.gg/bot/867713143366746142/vote"
+            if discord.utils.utcnow() > timestamp:
+                message = "Thank you for voting for Oi. It's time to vote again!"
+            else:
+                message = f"Thank you for voting for Oi. Please vote again {discord.utils.format_dt(timestamp, "R")}."
+            del self.bot.thanked_votes[ctx.author.id]
+
+        elif random.random() < CHANCE and not ctx.command.no_tips:
+            message, label, url = get_tip()
+
+        if message and label and url:
+            view = discord.ui.View()
+            view.add_item(discord.ui.Button(label=label, url=url, style=discord.ButtonStyle.url))
+            try:
+                await ctx.send(message, view=view, ephemeral=True)
+            except discord.HTTPException:
+                pass
 
 
 async def setup(bot: OiBot) -> None:

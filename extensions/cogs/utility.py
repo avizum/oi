@@ -263,7 +263,7 @@ class Utility(core.Cog):
             embed.description = description
         await ctx.send(embed=embed)
 
-    @core.command()
+    @core.command(no_tips=True)
     async def vote(self, ctx: Context):
         """Vote for Oi!"""
         embed = discord.Embed(
@@ -284,7 +284,7 @@ class Utility(core.Cog):
         )
         if ctx.author in self.bot.votes:
             embed.description = "You already voted, thank you for voting for Oi!"
-        await ctx.send(embed=embed, view=view, no_tips=True)
+        await ctx.send(embed=embed, view=view)
 
     @core.group()
     async def oi(self, ctx: Context):
@@ -296,7 +296,7 @@ class Utility(core.Cog):
         """Get Oi's invite link."""
         await ctx.send(self.bot.invite_url)
 
-    @oi.command()
+    @oi.command(no_tips=True)
     async def support(self, ctx: Context):
         """Get Oi's support server invite link."""
         await ctx.send(self.bot.support_server)
