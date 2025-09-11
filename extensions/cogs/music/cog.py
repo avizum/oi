@@ -612,7 +612,6 @@ class Music(core.Cog):
         await paginator.start()
 
     @playlist.command(name="play")
-    @core.describe(playlist="The playlist to show information of.")
     @is_not_deafened()
     @is_in_voice(bot=False)
     @core.bot_has_guild_permissions(connect=True, speak=True)
