@@ -311,6 +311,7 @@ class HelpPaginator(LayoutPaginator):
         message: discord.Message | None = None,
     ) -> None:
         self.container: ui.Container | None = None
+        self.separator: ui.Separator
         super().__init__(source, ctx=ctx, timeout=120.0, delete_message_after=True, message=message, nav_in_container=True)
         self.help: OiHelp = help
         self.cogs: list[core.Cog] = cogs

@@ -27,8 +27,6 @@ import discord
 from discord import ui
 from discord.ext import menus
 
-from .helpers import embed_to_container
-
 if TYPE_CHECKING:
     from core import Context, OiBot
 
@@ -209,13 +207,14 @@ class Paginator(ui.View):
 
 
 class LayoutPaginator(ui.LayoutView):
-    separator = ui.Separator()
+    container = ui.Container()
     navigation = ui.ActionRow()
     stop_navigation = ui.ActionRow()
 
     def __init__(
         self,
         source: menus.PageSource,
+        /,
         *,
         ctx: Context,
         timeout: float | None = 180.0,
@@ -223,6 +222,9 @@ class LayoutPaginator(ui.LayoutView):
         remove_nav_after: bool = False,
         disable_nav_after: bool = False,
         nav_in_container: bool = False,
+        separator: ui.Separator[LayoutPaginator] | None = ui.Separator(),
+        auto_container: bool = False,
+        allowed_users: list[discord.Object | discord.User | discord.Member] = [],
         message: discord.Message | None = None,
     ):
         """A paginator that utilizes `ui.LayoutView` and related items.
@@ -233,6 +235,8 @@ class LayoutPaginator(ui.LayoutView):
             The source to use.
         ctx: `Context`
             The command invocation context.
+        allowed_users: `list[discord.Object | discord.User | discord.Member]`
+            The users allowed to use this menu.
         delete_message_after: `bool`
             Whether to delete the message when pagination is complete.
         remove_nav_after: `bool`
@@ -241,22 +245,31 @@ class LayoutPaginator(ui.LayoutView):
             Disables the navigation when pagination is complete.
         nav_in_container: `bool`
             Places the navigation bar inside the container if there is one.
+        separator: `discord.ui.Separator | None`
+            This will be used to separate the navigation from the content. Pass `None` for no separator.
+        auto_container: `bool`
+            If `true`, anything returned in `PageSource.format_page` will be wrapped in a container.
         message: `Message`
             The message to be associated with the paginator.
         """
         super().__init__(timeout=timeout)
         self.source: menus.PageSource = source
         self.ctx: Context = ctx
+        self.allowed_users: list[discord.Object | discord.User | discord.Member] = allowed_users
         self.delete_message_after: bool = delete_message_after
         self.remove_nav_after: bool = remove_nav_after
         self.disable_nav_after: bool = disable_nav_after
         self.nav_in_container: bool = nav_in_container
+        self.separator: ui.Separator[LayoutPaginator] | None = separator
+        self.auto_container: bool = auto_container
         self.message: discord.Message | None = message
         self.current_page: int = 0
 
         self.add_navigation()
 
     async def interaction_check(self, itn: discord.Interaction[OiBot], /) -> bool:
+        if itn.user in self.allowed_users:
+            return True
         if itn.user.id != self.ctx.author.id:
             await itn.response.send_message("You can not use this menu.", ephemeral=True)
             return False
@@ -264,18 +277,27 @@ class LayoutPaginator(ui.LayoutView):
 
     async def update_view(self, page: int) -> None:
         value = await discord.utils.maybe_coroutine(self.source.format_page, self, page)
+        add_item = self.add_item if not self.auto_container else self.container.add_item
         self.clear_items()
+        self.container.clear_items()
         if isinstance(value, str):
-            self.add_item(ui.TextDisplay(value))
-        if isinstance(value, discord.Embed):
-            self.add_item(embed_to_container(value))
-        if isinstance(value, ui.Container):
+            add_item(ui.TextDisplay(value))
+        elif isinstance(value, ui.Container):
             self.add_item(value)
-        if isinstance(value, list):
+        elif isinstance(value, (list, tuple, set)):
             for item in value:
                 if not isinstance(item, ui.Item):
-                    raise TypeError(f"Expected Item, not {item.__class__.__name__}")
-                self.add_item(item)
+                    raise TypeError(f"Items in iterable must be an instance of ui.Item, not {item.__class__.__name__}")
+                if not isinstance(item, ui.Container):
+                    add_item(item)
+                else:
+                    self.add_item(item)
+        else:
+            raise TypeError(f"Expected value to be ui.Item, not {value.__class__.__name__}")
+
+        if self.auto_container and self.container.children:
+            self.add_item(self.container)
+
         self.add_navigation()
 
     async def on_timeout(self) -> None:
@@ -319,17 +341,19 @@ class LayoutPaginator(ui.LayoutView):
 
     def add_navigation(self) -> None:
         container = None
-        for item in self.walk_children():
-            if isinstance(item, ui.Container):
-                container = item
-                break
-
-        if container and self.nav_in_container:
-            container.add_item(self.separator)
-            if self.source.is_paginating():
-                container.add_item(self.navigation)
-            container.add_item(self.stop_navigation)
+        if self.nav_in_container:
+            for item in self.walk_children():
+                if isinstance(item, ui.Container):
+                    container = item
+            if container:
+                if self.separator:
+                    container.add_item(self.separator)
+                if self.source.is_paginating():
+                    container.add_item(self.navigation)
+                container.add_item(self.stop_navigation)
         else:
+            if self.separator:
+                self.add_item(self.separator)
             if self.source.is_paginating():
                 self.add_item(self.navigation)
             self.add_item(self.stop_navigation)
