@@ -221,7 +221,11 @@ class EnqueueModal(ui.Modal):
         self.vc = controller.vc
 
         assert isinstance(self.source.component, ui.Select)
-        self.source.component.options[SOURCES[self.vc.ctx.cog.default_source]].default = True
+
+        for option in self.source.component.options:
+            option.default = False
+            if option.value == self.vc.ctx.cog.default_source:
+                option.default = True
 
         super().__init__(title="Enqueue")
 
