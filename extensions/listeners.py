@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING, TypedDict
 import asyncpg
 import discord
 import humanize
+import topgg
 from discord.ext import commands, tasks
 
 import core
@@ -229,12 +230,15 @@ class Important(core.Cog):
         )
 
     @core.Cog.listener()
-    async def on_dbl_vote(self, data: dict) -> None:
-        if data["type"] == "test":
-            return self.bot.dispatch("dbl_test", data)
+    async def on_vote(self, vote: topgg.Vote) -> None:
+        if vote.is_test:
+            return self.bot.dispatch("dbl_test", vote)
 
-        user_id = int(data["user"])
-        user = await self.bot.fetch_user(user_id)
+        user_id = vote.voter_id
+        try:
+            user = await self.bot.fetch_user(user_id)
+        except discord.NotFound:
+            return None
 
         self.bot.votes[user_id] = True
         self.bot.thanked_votes[user_id] = discord.utils.utcnow() + datetime.timedelta(hours=12)
@@ -243,8 +247,8 @@ class Important(core.Cog):
         return await self.vote_webhook.send(embed=embed)
 
     @core.Cog.listener()
-    async def on_dbl_test(self, data: dict) -> None:
-        user = self.bot.fetch_user(int(data["user"]))
+    async def on_test_vote(self, vote: topgg.Vote) -> None:
+        user = self.bot.fetch_user(int(vote.voter_id))
         await user.send("Test vote received.")
 
     @core.Cog.listener()

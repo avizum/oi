@@ -303,7 +303,7 @@ def has_voted() -> Callable[[CommandCoro], CommandCoro]:
             return True
 
         if ctx.author not in bot.votes:
-            check = await bot.topgg.get_user_vote(ctx.author.id)
+            check = await bot.topgg.has_voted(ctx.author.id)
             bot.votes[ctx.author.id] = check
             if not check:
                 raise NotVoted()

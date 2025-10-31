@@ -31,12 +31,11 @@ import asyncpg
 import discord
 import jishaku
 import toml
+import topgg
 import wavelink
 from discord.ext import commands
 from discord.ext.commands.core import _CaseInsensitiveDict
 from discord.utils import _ColourFormatter
-from topgg.client import DBLClient
-from topgg.webhook import WebhookManager
 from waifuim import Client as WaifiImClient
 
 from extensions.logger import WebhookHandler
@@ -172,21 +171,27 @@ class OiBot(Bot):
             token=self.config["WAIFUIM_TOKEN"], session=aiohttp.ClientSession(), identifier=f"OiBot|{self.user.id}"
         )
 
-    async def start_topgg(self) -> None:
-        post = True
-        interval = 3600
-        if self.user.id != 867713143366746142:
-            post = False
-            interval = None
+    def _server_count(self) -> int:
+        return len(self.guilds)
 
+    def _on_vote(self, vote: topgg.Vote):
+        self.dispatch("vote", vote)
+
+    async def start_topgg(self) -> None:
         await self.wait_until_ready()
 
-        self.topgg = DBLClient(
-            self, token=self.config["TOPGG_TOKEN"], autopost=post, post_shard_count=post, autopost_interval=interval
-        )
+        client = topgg.Client(token=self.config["TOPGG_TOKEN"], session=self.session)
+        client.autopost_retrieval(self._server_count)
 
-        self.topgg_webhook = WebhookManager(self).dbl_webhook("/topgg", auth_key=self.config["TOPGG_AUTH"])
-        await self.topgg_webhook.run(2832)
+        webhook = topgg.Webhooks(auth=self.config["TOPGG_AUTH"], port=2832)
+        webhook.on_vote(route="/topgg", callback=self._on_vote)
+
+        if self.user.id == 867713143366746142:
+            client.start_autoposter()
+            await webhook.start()
+
+        self.topgg = client
+        self.topgg_webhook = webhook
 
     async def load_extensions(self) -> None:
         for extension in self.core_extensions + self.initial_extensions:

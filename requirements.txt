@@ -29,7 +29,7 @@ pytz==2024.1
 RapidFuzz==3.10.1
 six==1.16.0
 toml==0.10.2
-topggpy==1.4.0
+topggpy @ git+https://github.com/null8626/python-sdk@7e97f8386d0ffff8639e19a5027a7ac7e53de45f
 typing_extensions==4.12.2
 waifuim==1.1.1
 wavelink==3.4.1
