@@ -957,13 +957,8 @@ class Music(core.Cog):
             choices.append(app_commands.Choice(name=playlist["name"], value=str(playlist["id"])))
         return choices[:25]
 
-    @core.group()
-    async def player(self, ctx: PlayerContext):
-        """Music player commands."""
-        await ctx.send_help(ctx.command)
-
-    @player.group(name="dj")
-    async def player_dj(self, ctx: PlayerContext):
+    @core.group(name="dj")
+    async def dj(self, ctx: PlayerContext):
         """DJ settings commands."""
         await ctx.send_help(ctx.command)
 
@@ -976,9 +971,9 @@ class Music(core.Cog):
             settings = await vc._set_player_settings()
         return settings
 
-    @player_dj.command(name="enable")
+    @dj.command(name="enable")
     @core.has_guild_permissions(manage_guild=True)
-    async def player_dj_enable(self, ctx: PlayerContext):
+    async def dj_enable(self, ctx: PlayerContext):
         """Enables DJ."""
         vc = ctx.voice_client
         settings = await self._get_player_settings(ctx)
@@ -1003,9 +998,9 @@ class Music(core.Cog):
             vc.dj_enabled = True
         return await ctx.send("Enabled DJ.")
 
-    @player_dj.command(name="disable")
+    @dj.command(name="disable")
     @core.has_guild_permissions(manage_guild=True)
-    async def player_dj_disable(self, ctx: PlayerContext):
+    async def dj_disable(self, ctx: PlayerContext):
         """Disables DJ."""
         vc = ctx.voice_client
         settings = await self._get_player_settings(ctx)
@@ -1028,10 +1023,10 @@ class Music(core.Cog):
             vc.dj_enabled = False
         return await ctx.send("Disabled DJ.")
 
-    @player_dj.command(name="role")
+    @dj.command(name="role")
     @core.has_guild_permissions(manage_guild=True)
     @core.describe(role="The role to set as DJ")
-    async def player_dj_role(self, ctx: PlayerContext, role: discord.Role | None):
+    async def dj_role(self, ctx: PlayerContext, role: discord.Role | None):
         """Sets the DJ role.
 
         If not set, the DJ is whoever calls Oi into the channel first.
@@ -1073,7 +1068,7 @@ class Music(core.Cog):
             return await conf.message.edit(content=message, allowed_mentions=MENTIONS, view=None)
         return await ctx.send(message, allowed_mentions=MENTIONS)
 
-    @player.command(name="labels", extras=EXTRAS)
+    @core.command(name="player-labels", extras=EXTRAS)
     @core.has_guild_permissions(manage_guild=True)
     @core.describe(state="Pick the label format you want.")
     async def player_labels(self, ctx: PlayerContext, state: Labels):
@@ -1100,9 +1095,9 @@ class Music(core.Cog):
             vc.labels = state
         return await ctx.send(f"Set player labels to {mapping[state]}.")
 
-    @player.command(name="current", no_tips=True)
+    @core.command(name="current", no_tips=True)
     @is_in_voice()
-    async def player_current(self, ctx: PlayerContext):
+    async def current(self, ctx: PlayerContext):
         """Shows the current song, or move the bound channel to another channel."""
         vc = ctx.voice_client
 
@@ -1122,13 +1117,13 @@ class Music(core.Cog):
         vc.ctx = ctx
         return await vc.invoke_controller(vc.current)
 
-    @player.command(name="loop", extras=EXTRAS)
+    @core.command(name="loop", extras=EXTRAS)
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(mode="Whether to loop the queue, track, or disable.")
-    async def player_loop(self, ctx: PlayerContext, mode: Literal["track", "queue", "off"]):
+    async def loop(self, ctx: PlayerContext, mode: Literal["track", "queue", "off"]):
         """Options on looping."""
         vc = ctx.voice_client
 
@@ -1144,26 +1139,26 @@ class Music(core.Cog):
         vc.queue.mode = QueueMode.normal
         return await ctx.send("Disabled Loop.")
 
-    @player.command(name="volume")
+    @core.command(name="volume")
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(volume="The new volume of the player.")
-    async def player_volume(self, ctx: PlayerContext, volume: Range[int, 1, 200]):
+    async def volume(self, ctx: PlayerContext, volume: Range[int, 1, 200]):
         """Change the volume of the player."""
         vc = ctx.voice_client
 
         await vc.set_volume(volume)
         await ctx.send(f"Volume set to {volume}%")
 
-    @player.command(name="autoplay", extras=EXTRAS)
+    @core.command(name="autoplay", extras=EXTRAS)
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(state="Whether to autoplay.")
-    async def player_autoplay(self, ctx: PlayerContext, state: bool):
+    async def autoplay(self, ctx: PlayerContext, state: bool):
         """Enable or disable autoplay in this session."""
         vc = ctx.voice_client
         if state:
@@ -1173,19 +1168,19 @@ class Music(core.Cog):
             vc.autoplay = wavelink.AutoPlayMode.disabled
             await ctx.send("Autoplay is now disabled.")
 
-    @player.group(name="filter")
-    async def player_filter(self, ctx: PlayerContext):
+    @core.group(name="filter")
+    async def _filter(self, ctx: PlayerContext):
         """Filter commands."""
         await ctx.send_help(ctx.command)
 
-    @player_filter.command(name="speed")
+    @_filter.command(name="speed")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(speed="The speed multiplier.")
-    async def player_filter_speed(self, ctx: PlayerContext, speed: Range[float, 0.25, 3.0]):
+    async def _filter_speed(self, ctx: PlayerContext, speed: Range[float, 0.25, 3.0]):
         """Change the speed of the player."""
         vc = ctx.voice_client
 
@@ -1196,14 +1191,14 @@ class Music(core.Cog):
 
         await ctx.send(f"Set Speed filter to {speed}x speed.")
 
-    @player_filter.command(name="pitch")
+    @_filter.command(name="pitch")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(pitch="How much to change the pitch.")
-    async def player_filter_pitch(self, ctx: PlayerContext, pitch: Range[float, 0.1, 5.0]):
+    async def _filter_pitch(self, ctx: PlayerContext, pitch: Range[float, 0.1, 5.0]):
         """Change the pitch of the player."""
         vc = ctx.voice_client
 
@@ -1214,14 +1209,14 @@ class Music(core.Cog):
 
         await ctx.send(f"Set Pitch filter to {pitch}.")
 
-    @player_filter.command(name="rate")
+    @_filter.command(name="rate")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(rate="How much to change the speed and pitch.")
-    async def player_filter_rate(self, ctx: PlayerContext, rate: Range[float, 0.75, 4.5]):
+    async def _filter_rate(self, ctx: PlayerContext, rate: Range[float, 0.75, 4.5]):
         """Change the Speed and the Pitch of the player."""
         vc = ctx.voice_client
 
@@ -1232,16 +1227,14 @@ class Music(core.Cog):
 
         await ctx.send(f"Set Speed filter to {rate}.")
 
-    @player_filter.command(name="tremolo")
+    @_filter.command(name="tremolo")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(frequency="How frequently the volume should change.", depth="How much the volume should change.")
-    async def player_filter_tremolo(
-        self, ctx: PlayerContext, frequency: Range[float, 0.1, 100.0], depth: Range[float, 0.1, 1.0]
-    ):
+    async def _filter_tremolo(self, ctx: PlayerContext, frequency: Range[float, 0.1, 100.0], depth: Range[float, 0.1, 1.0]):
         """Adds a termolo effect to the player."""
         vc = ctx.voice_client
 
@@ -1252,16 +1245,14 @@ class Music(core.Cog):
 
         await ctx.send(f"Set Tremolo filter to {frequency} frequency and {depth} depth.")
 
-    @player_filter.command(name="vibrato")
+    @_filter.command(name="vibrato")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(frequency="How frequent the the pitch should change.", depth="How much the pitch should change.")
-    async def player_filter_vibrato(
-        self, ctx: PlayerContext, frequency: Range[float, 0.1, 14.0], depth: Range[float, 0.1, 1.0]
-    ):
+    async def _filter_vibrato(self, ctx: PlayerContext, frequency: Range[float, 0.1, 14.0], depth: Range[float, 0.1, 1.0]):
         """Adds a vibrato effect to the player."""
         vc = ctx.voice_client
         filters = vc.filters
@@ -1271,7 +1262,7 @@ class Music(core.Cog):
 
         await ctx.send(f"Set Vibrato filter to {frequency} frequency and {depth} depth.")
 
-    @player_filter.command(name="karaoke")
+    @_filter.command(name="karaoke")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
@@ -1283,7 +1274,7 @@ class Music(core.Cog):
         band="The filterband in Hz.",
         width="The filter's width.",
     )
-    async def player_filter_karaoke(
+    async def _filter_karaoke(
         self,
         ctx: PlayerContext,
         level: Range[float, 0.1, 1.0],
@@ -1300,14 +1291,14 @@ class Music(core.Cog):
 
         await ctx.send("Set Karaoke filter.")
 
-    @player_filter.command(name="lowpass")
+    @_filter.command(name="lowpass")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
     @core.describe(smoothing="How much smoothing to apply.")
-    async def player_filter_lowpass(self, ctx: PlayerContext, smoothing: Range[float, 0.1, 60.0]):
+    async def _filter_lowpass(self, ctx: PlayerContext, smoothing: Range[float, 0.1, 60.0]):
         """Allows only low frequencies to pass through."""
         vc = ctx.voice_client
         filters = vc.filters
@@ -1317,13 +1308,13 @@ class Music(core.Cog):
 
         await ctx.send(f"Set Lowpass filter, smoothing set to {smoothing}")
 
-    @player_filter.command(name="rotation")
+    @_filter.command(name="rotation")
     @core.has_voted()
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
-    async def player_filter_rotation(self, ctx: PlayerContext):
+    async def _filter_rotation(self, ctx: PlayerContext):
         """Creates a rotation effect in the player."""
         vc = ctx.voice_client
         filters = vc.filters
@@ -1333,12 +1324,12 @@ class Music(core.Cog):
 
         await ctx.send("Set Rotation filter.")
 
-    @player_filter.command(name="reset")
+    @_filter.command(name="reset")
     @is_manager()
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
-    async def player_filter_reset(self, ctx: PlayerContext):
+    async def _filter_reset(self, ctx: PlayerContext):
         """Removes all the filters."""
         vc = ctx.voice_client
 

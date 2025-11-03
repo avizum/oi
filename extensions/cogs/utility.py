@@ -286,22 +286,17 @@ class Utility(core.Cog):
             embed.description = "You already voted, thank you for voting for Oi!"
         await ctx.send(embed=embed, view=view)
 
-    @core.group()
-    async def oi(self, ctx: Context):
-        """Oi's informational commands."""
-        return await ctx.send_help(ctx.command)
-
-    @oi.command()
+    @core.command()
     async def invite(self, ctx: Context):
         """Get Oi's invite link."""
         await ctx.send(self.bot.invite_url)
 
-    @oi.command(no_tips=True)
+    @core.command(no_tips=True)
     async def support(self, ctx: Context):
         """Get Oi's support server invite link."""
         await ctx.send(self.bot.support_server)
 
-    @oi.command()
+    @core.command()
     async def information(self, ctx: Context):
         """Get information about Oi."""
         embed = discord.Embed(title="Oi Information", color=0x00FFB3)
@@ -360,7 +355,7 @@ class Utility(core.Cog):
 
         await ctx.send(embed=embed)
 
-    @oi.command()
+    @core.command()
     @core.describe(command="The command to show the source of")
     async def source(self, ctx: Context, command: str | None = None):
         """View the source of Oi.
@@ -400,7 +395,7 @@ class Utility(core.Cog):
             if current in cmd.qualified_name
         ][:25]
 
-    @oi.command()
+    @core.command()
     async def linecount(self, ctx: Context):
         """Check how many lines of code the bot has."""
         path = pathlib.Path("./")
@@ -441,13 +436,13 @@ class Utility(core.Cog):
         )
         await ctx.send(embed=embed)
 
-    @oi.command()
+    @core.command()
     async def uptime(self, ctx: Context):
         """Check Oi's uptime."""
         delta_uptime = datetime.datetime.now(tz=datetime.timezone.utc) - self.bot.launched_at
         await ctx.send(f"Oi has been up for {humanize.precisedelta(delta_uptime, format='%.2g')}")
 
-    @oi.command()
+    @core.command()
     async def shards(self, ctx: Context):
         """Shows informations about the shards."""
         shard_list = []
@@ -500,7 +495,7 @@ class Utility(core.Cog):
         midnight = (datetime.datetime.now() + datetime.timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
         return discord.utils.format_dt(midnight, "R")
 
-    @oi.group(fallback="server")
+    @core.group(fallback="server")
     @core.describe(command_type="What type of command usage to show.")
     @app_commands.rename(command_type="type")
     @commands.cooldown(1, 10, commands.BucketType.user)
@@ -627,7 +622,7 @@ class Utility(core.Cog):
         paginator = Paginator(source=source, ctx=ctx, remove_view_after=True)
         await paginator.start()
 
-    @oi.command()
+    @core.command()
     @commands.cooldown(1, 60, commands.BucketType.user)
     @core.describe(message="The message to send to the support server.")
     async def report(self, ctx: Context, *, message: str):
@@ -637,7 +632,7 @@ class Utility(core.Cog):
         await self.report_webhook.send(content=f"**{ctx.author}**:\n{message}\n")
         return await ctx.send("Report sent!")
 
-    @oi.command()
+    @core.command()
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def diagnose(self, ctx: Context):
         """Check which commands can't be ran by the bot."""
