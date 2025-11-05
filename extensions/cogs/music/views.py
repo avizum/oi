@@ -177,13 +177,13 @@ class LoopTypeSelect(ui.Select["PlayerController"]):
             loop_button.style = discord.ButtonStyle.green
             if disable:
                 self.vc.queue.mode = QueueMode.normal
-                command_usage(itn, "player loop", mode="off")
+                command_usage(itn, "loop", mode="off")
             elif loop_queue:
                 self.vc.queue.mode = QueueMode.loop_all
                 command_usage(itn, "queue loop")
             else:
                 self.vc.queue.mode = QueueMode.loop
-                command_usage(itn, "player loop", mode="track")
+                command_usage(itn, "loop", mode="track")
 
             action_loop = self.controller.action_loop
 
@@ -598,7 +598,7 @@ class PlayerController(ui.LayoutView):
     async def autoplay(self, itn: Interaction, _: PlayerButton):
         state = AutoPlayMode.disabled if self.vc.autoplay == AutoPlayMode.enabled else AutoPlayMode.enabled
         self.vc.autoplay = state
-        self.command_usage(itn, "player autoplay", state=not bool(state.value))
+        self.command_usage(itn, "autoplay", state=not bool(state.value))
         await self.update(itn)
 
     @action_two.button(cls=PlayerPublicButton, emoji="<:queue_add:1310474338868138004>")
