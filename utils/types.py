@@ -39,6 +39,8 @@ __all__ = (
     "Song",
     "SongRecord",
     "UrbanData",
+    "UserSettings",
+    "UserSettingsRecord",
     "WeatherDict",
 )
 
@@ -115,6 +117,12 @@ class Record(PGRecord):
         return self[attr]
 
 
+class UserSettingsRecord(Record):
+    user_id: int
+    tips_opt_out: bool
+    accepted_terms: bool
+
+
 class BlacklistRecord(Record):
     user_id: int
     reason: str
@@ -148,6 +156,12 @@ class PlaylistRecord(Record):
 
 class PlaylistSongRecord(SongRecord):
     position: str
+
+
+class UserSettings(TypedDict):
+    user_id: int
+    tips_opt_out: bool
+    accepted_terms: bool
 
 
 class Blacklist(TypedDict):

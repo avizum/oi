@@ -42,6 +42,8 @@ from .types import (
     PlaylistSongRecord,
     Song,
     SongRecord,
+    UserSettings,
+    UserSettingsRecord,
 )
 
 if TYPE_CHECKING:
@@ -84,6 +86,7 @@ class DBCache:
     def __init__(self, bot: OiBot) -> None:
         self.bot: OiBot = bot
 
+        self.users: dict[int, UserSettings] = {}
         self.blacklisted: dict[int, Blacklist] = {}
         self.player_settings: dict[int, PlayerSettings] = {}
         self.songs: dict[str, Song] = {}
@@ -91,6 +94,10 @@ class DBCache:
 
     async def populate(self) -> None:
         pool = self.bot.pool
+
+        users: list[UserSettingsRecord] = await pool.fetch(
+            "SELECT user_id, tips_opt_out, accepted_terms FROM user_settings", record_class=UserSettingsRecord
+        )
 
         blacklisted: list[BlacklistRecord] = await pool.fetch(
             "SELECT user_id, reason, moderator, permanent FROM blacklist", record_class=BlacklistRecord
@@ -104,6 +111,9 @@ class DBCache:
         playlists: list[PlaylistRecord] = await pool.fetch(
             "SELECT id, author, name, image FROM playlists", record_class=PlaylistRecord
         )
+
+        for user in users:
+            self.users[user.user_id] = dict(user)  # type: ignore
 
         for blacklist in blacklisted:
             self.blacklisted[blacklist.user_id] = dict(blacklist)  # type: ignore

@@ -32,7 +32,7 @@ import topgg
 from discord.ext import commands, tasks
 
 import core
-from utils import ANSIFormat, Blacklisted, embed_to_text, Maintenance
+from utils import ANSIFormat, Blacklisted, embed_to_text, Maintenance, UserSettingsRecord
 
 if TYPE_CHECKING:
     from core import Context, OiBot
@@ -73,6 +73,9 @@ def get_tip() -> list[str]:
                     "Why haven't you voted for Oi? Do it now!",
                     "These messages will go away for 12 hours if you vote for Oi.",
                     "Voting for Oi will help us grow!",
+                    "Find these tips annoying? You can make them go away in the /settings command.",
+                    "Use /settings to get rid of these messages.",
+                    "Hate these tips? Get rid of them using /settings!",
                 ]
             ),
             "Vote Here!",
@@ -120,6 +123,7 @@ class Important(core.Cog):
         self.update_status.start()
         self.insert_queue.add_exception_type(asyncpg.PostgresConnectionError)
         self.insert_queue.start()
+        self.bot.before_invoke(self.before_invoke)
         self.bot.after_invoke(self.after_invoke)
 
     async def cog_unload(self) -> None:
@@ -308,10 +312,27 @@ class Important(core.Cog):
         embed.set_footer(text=f"Now in {len(self.bot.guilds)} guilds")
         await self.guilds_webhook.send(username="Oi: Left Guild", embed=embed)
 
+    async def before_invoke(self, ctx: Context):
+        user = self.bot.cache.users.get(ctx.author.id)
+        if not user:
+            query = """
+                INSERT INTO user_settings (user_id)
+                VALUES ($1)
+                ON CONFLICT (user_id) DO
+                UPDATE SET user_id = $1
+                RETURNING *
+            """
+            inserted = await self.bot.pool.fetchrow(query, ctx.author.id, record_class=UserSettingsRecord)
+            self.bot.cache.users[ctx.author.id] = dict(inserted)  # type: ignore
+
     async def after_invoke(self, ctx: Context):
         if not isinstance(ctx.command, core.Command):
             return
         if ctx.command.no_tips or not ctx.interaction:
+            return
+
+        cached_user = self.bot.cache.users.get(ctx.author.id)
+        if cached_user and cached_user["tips_opt_out"]:
             return
 
         message = label = url = None

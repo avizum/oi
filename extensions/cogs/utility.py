@@ -29,14 +29,14 @@ import discord
 import humanize
 import psutil
 import pytz
-from discord import app_commands
+from discord import app_commands, ui
 from discord.ext import commands, menus
 from discord.utils import _human_join as human_join
 from jishaku.math import natural_size
 
 import core
 from utils import Paginator
-from utils.types import Record
+from utils.types import Record, UserSettings
 
 if TYPE_CHECKING:
     from core import Context, OiBot
@@ -235,6 +235,47 @@ class Query:
         ORDER BY uses DESC
         LIMIT 5
     """
+
+
+class SettingsView(ui.LayoutView):
+    def __init__(self, user_data: UserSettings) -> None:
+        self.data: UserSettings = user_data
+        super().__init__()
+        self.container = SettingsContainer(accent_color=0x00FFB3)
+        self.add_item(self.container)
+        assert isinstance(self.container.tips_toggle.accessory, TipButton)
+        self.container.tips_toggle.accessory._update()
+
+
+class TipButton(ui.Button["SettingsView"]):
+    def _update(self) -> None:
+        assert self.view is not None
+
+        opted_out = self.view.data["tips_opt_out"]
+
+        self.style = discord.ButtonStyle.success if opted_out else discord.ButtonStyle.danger
+        self.label = "Enable Tips" if opted_out else "Disable Tips"
+
+    async def callback(self, itn: discord.Interaction[OiBot]):
+        assert self.view is not None
+
+        opted_out = self.view.data["tips_opt_out"]
+        self.view.data["tips_opt_out"] = not opted_out
+
+        await itn.client.pool.execute(
+            "UPDATE user_settings SET tips_opt_out=$1 WHERE user_id=$2",
+            not opted_out,
+            itn.user.id,
+        )
+        self._update()
+        await itn.response.edit_message(view=self.view)
+
+
+class SettingsContainer(ui.Container["SettingsView"]):
+    title = ui.TextDisplay("### Settings")
+    tips_toggle = ui.Section(
+        "**Tips**\nOi sends voting reminders and tips.\nUse this setting to configure the tips.", accessory=TipButton()
+    )
 
 
 class Utility(core.Cog):
@@ -831,6 +872,18 @@ class Utility(core.Cog):
 
         embed.set_thumbnail(url=f"https:{conditions['icon']}")
         return await ctx.send(embed=embed)
+
+    @core.command()
+    async def settings(self, ctx: Context):
+        """Edit your user settings."""
+
+        data = self.bot.cache.users.get(ctx.author.id)
+        if not data:
+            # Global before invoke should have already handled this
+            return
+
+        view = SettingsView(data)
+        await ctx.send(view=view, ephemeral=True)
 
 
 async def setup(bot: OiBot):
