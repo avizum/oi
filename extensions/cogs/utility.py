@@ -23,7 +23,7 @@ import datetime
 import inspect
 import pathlib
 from enum import Enum
-from typing import Annotated, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, ClassVar
 
 import discord
 import humanize
@@ -442,7 +442,7 @@ class Utility(core.Cog):
         path = pathlib.Path("./")
         comments = coros = funcs = classes = lines = imports = files = char = 0
         for item in path.rglob("*.py"):
-            if str(item).startswith(".env"):
+            if str(item).startswith(".venv"):
                 continue
             files += 1
             with item.open() as of:
