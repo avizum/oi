@@ -335,7 +335,7 @@ class Music(core.Cog):
             if vc.controller is None:
                 await vc.invoke_controller(None)
         except Exception as exc:
-            _log.error("Ignoring exception while reconnecting player:", exc_info=exc)
+            _log.error(f"Ignoring exception while reconnecting player in guild id {channel.guild.id}:", exc_info=exc)
             return False
         else:
             return True
