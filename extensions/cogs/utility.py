@@ -23,7 +23,7 @@ import datetime
 import inspect
 import pathlib
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, ClassVar
+from typing import TYPE_CHECKING, Annotated, ClassVar, Sequence
 
 import discord
 import humanize
@@ -551,12 +551,14 @@ class Utility(core.Cog):
             if not total_uses.uses:
                 return await ctx.send(f"No {cmd_type}command usage logged for {ctx.guild} yet.")
 
-            top_uses: list[UsesRecord] = await pool.fetch(Query.GUILD_TOP_USES, *args, record_class=UsesRecord)
-            top_uses_today: list[UsesRecord] = await pool.fetch(Query.GUILD_TOP_USES_TODAY, *args, record_class=UsesRecord)
-            top_users: list[UserUsesRecord] = await pool.fetch(Query.GUILD_TOP_USERS, *args, record_class=UserUsesRecord)
+            top_uses: Sequence[UsesRecord] = await pool.fetch(Query.GUILD_TOP_USES, *args, record_class=UsesRecord)
+            top_uses_today: Sequence[UsesRecord] = await pool.fetch(
+                Query.GUILD_TOP_USES_TODAY, *args, record_class=UsesRecord
+            )
+            top_users: Sequence[UserUsesRecord] = await pool.fetch(Query.GUILD_TOP_USERS, *args, record_class=UserUsesRecord)
             await self.bot.fetch_users(*[row.user_id for row in top_users])
 
-            top_users_today: list[UserUsesRecord] = await pool.fetch(
+            top_users_today: Sequence[UserUsesRecord] = await pool.fetch(
                 Query.GUILD_TOP_USERS_TODAY, *args, record_class=UserUsesRecord
             )
             await self.bot.fetch_users(*[row.user_id for row in top_users_today])
@@ -594,8 +596,10 @@ class Utility(core.Cog):
             if not total_uses.uses:
                 noun = member if member != ctx.author else "you"
                 return await ctx.send(f"No {cmd_type}command usage logged for {noun} yet.")
-            top_uses: list[UsesRecord] = await pool.fetch(Query.MEMBER_TOP_USES, *args, record_class=UsesRecord)
-            top_uses_today: list[UsesRecord] = await pool.fetch(Query.MEMBER_TOP_USES_TODAY, *args, record_class=UsesRecord)
+            top_uses: Sequence[UsesRecord] = await pool.fetch(Query.MEMBER_TOP_USES, *args, record_class=UsesRecord)
+            top_uses_today: Sequence[UsesRecord] = await pool.fetch(
+                Query.MEMBER_TOP_USES_TODAY, *args, record_class=UsesRecord
+            )
 
         start = f"{member} has" if member != ctx.author else "You have"
         embed = discord.Embed(
@@ -628,8 +632,10 @@ class Utility(core.Cog):
                 # This should only happen if there are no entries in the database, which would be very bad.
                 return await ctx.send("No command usage logged for some reason.")
 
-            top_uses: list[UsesRecord] = await pool.fetch(Query.TOP_USES, command_type, record_class=UsesRecord)
-            top_uses_today: list[UsesRecord] = await pool.fetch(Query.TOP_USES_TODAY, command_type, record_class=UsesRecord)
+            top_uses: Sequence[UsesRecord] = await pool.fetch(Query.TOP_USES, command_type, record_class=UsesRecord)
+            top_uses_today: Sequence[UsesRecord] = await pool.fetch(
+                Query.TOP_USES_TODAY, command_type, record_class=UsesRecord
+            )
 
         embed = discord.Embed(
             title="Global Command Usage",
