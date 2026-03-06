@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import copy
 import math
-from typing import Any, Callable, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
 import discord
 from discord import ButtonStyle, ui, utils
@@ -29,7 +29,7 @@ from discord.ext import menus
 from wavelink import AutoPlayMode, Playable, QueueEmpty, QueueMode
 
 from core import ui as cui
-from utils import format_seconds, LayoutPaginator, OiView
+from utils import LayoutPaginator, OiView, format_seconds
 
 from .utils import hyperlink_song
 
@@ -216,6 +216,27 @@ class EnqueueModal(ui.Modal):
         component=ui.Select(options=[discord.SelectOption(label=name, value=name) for name in SOURCES]),
     )
 
+    extras = ui.Label(
+        text="Options",
+        component=ui.CheckboxGroup(
+            required=False,
+            max_values=3,
+            options=[
+                discord.CheckboxGroupOption(
+                    label="Play Now",
+                    description="Skips the current track and plays this one after submission.",
+                    value="play_now",
+                ),
+                discord.CheckboxGroupOption(
+                    label="Play Next", description="Adds the track to the top of the queue.", value="play_next"
+                ),
+                discord.CheckboxGroupOption(
+                    label="Shuffle", description="Adds the track to the queue, then shuffles the queue.", value="shuffle"
+                ),
+            ],
+        ),
+    )
+
     def __init__(self, controller: PlayerController):
         self.controller = controller
         self.vc = controller.vc
@@ -232,6 +253,7 @@ class EnqueueModal(ui.Modal):
     async def on_submit(self, itn: Interaction):
         assert isinstance(self.query.component, ui.TextInput)
         assert isinstance(self.source.component, ui.Select)
+        assert isinstance(self.extras.component, ui.CheckboxGroup)
 
         await itn.response.defer(thinking=True, ephemeral=True)
 
@@ -241,6 +263,17 @@ class EnqueueModal(ui.Modal):
         source = self.source.component.values[0]
         tracks = await self.vc.fetch_tracks(self.query.component.value, source)  # type: ignore
         kwargs = {"query": query, "source": source}
+        checked = self.extras.component.values
+        play_now = "play_now" in checked
+        play_next = "play_next" in checked
+
+        is_manager, _ = self.controller.is_manager(itn)
+
+        if not is_manager and (play_now or play_next):
+            play_now = False
+            play_next = False
+
+        self.extras_values = checked
 
         if source != cog.default_source:
             kwargs["source"] = source
@@ -258,7 +291,8 @@ class EnqueueModal(ui.Modal):
                 )
             return await itn.followup.send(not_found)
         assert isinstance(itn.user, discord.Member)
-        embed = vc.enqueue_tracks(tracks, requester=itn.user)
+
+        embed = vc.enqueue_tracks(tracks, requester=itn.user, top=play_now or play_next)
         assert embed.description is not None
         description = embed.description
         embed.description = description.replace("Added", f"{itn.user} added")
@@ -280,7 +314,6 @@ class ControllerAction(ui.ActionRow["PlayerController"]):
         emoji: str | Emoji | PartialEmoji | None = None,
         id: int | None = None,
     ) -> Callable[[ItemCallbackType[S_co, BT]], BT]:
-
         def decorator(func: ItemCallbackType[S_co, BT]) -> ItemCallbackType[S_co, BT]:
             ret = cui.button(
                 cls=cls,
@@ -518,7 +551,6 @@ class PlayerController(ui.LayoutView):
         self.is_updating = False
 
     def is_manager(self, itn: Interaction) -> tuple[bool, str | None]:
-
         vc = self.vc
 
         assert isinstance(itn.user, discord.Member)
@@ -609,8 +641,24 @@ class PlayerController(ui.LayoutView):
             )
             return
         modal = EnqueueModal(self)
+
+        is_manager, __ = self.is_manager(itn)
+
+        if not is_manager:
+            modal.remove_item(modal.extras)
         await itn.response.send_modal(modal)
         await modal.wait()
+
+        checked = modal.extras_values
+        shuffle = "shuffle" in checked
+        play_now = "play_now" in checked
+
+        if not self.is_manager and shuffle:
+            # This should not happen
+            return
+
+        if shuffle:
+            self.vc.queue.shuffle()
 
         if not self.vc.current:
             try:
@@ -619,6 +667,11 @@ class PlayerController(ui.LayoutView):
                 pass
             else:
                 return
+
+        if self.vc.paused:
+            await self.vc.pause(False)
+        elif play_now:
+            await self.vc.skip()
 
         await self.update(itn)
 
@@ -648,7 +701,6 @@ class PlayerController(ui.LayoutView):
 
     @action_two.button(cls=PlayerPublicButton, emoji="<:lyrics:1297669978635505675>")
     async def lyrics(self, itn: Interaction, _: PlayerPublicButton):
-
         if self.vc.current is None:
             return await itn.response.defer()
 
@@ -738,8 +790,8 @@ class PlaylistPageSource(menus.ListPageSource):
         for p_id in playlist_ids:
             song = self.songs[p_id]
             if len(song["title"]) > 90:
-                song["title"] = f"{song["title"][: len(song["artist"])]}..."
-            lines.append(f"{song["position"]}. {hyperlink_song(song)} - {song["artist"]}")
+                song["title"] = f"{song['title'][: len(song['artist'])]}..."
+            lines.append(f"{song['position']}. {hyperlink_song(song)} - {song['artist']}")
 
         image = self.playlist.get("image")
         accessory = ui.Thumbnail(image) if image else ui.Button(label="No Image", disabled=True)
@@ -747,9 +799,9 @@ class PlaylistPageSource(menus.ListPageSource):
             *[
                 ui.Section(
                     *[
-                        f"### Playlist Info: {self.playlist["name"]}",
+                        f"### Playlist Info: {self.playlist['name']}",
                         "\n".join(lines),
-                        f"-# {len(self.songs)} songs in {self.playlist["name"]}",
+                        f"-# {len(self.songs)} songs in {self.playlist['name']}",
                     ],
                     accessory=accessory,
                 )
