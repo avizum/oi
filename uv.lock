@@ -845,8 +845,8 @@ wheels = [
 
 [[package]]
 name = "wavelink"
-version = "3.5.0"
-source = { git = "https://github.com/atefcodes/Wavelink#aac4e0fef5adbced68b1c0d721467322d187c3d0" }
+version = "3.7.0"
+source = { git = "https://github.com/atefcodes/Wavelink#f6b55281f3df978008db070934a00c06121b6ffa" }
 dependencies = [
     { name = "aiohttp" },
     { name = "async-timeout" },
