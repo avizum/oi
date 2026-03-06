@@ -19,16 +19,16 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-import contextlib
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import asyncpg
 import discord
 import wavelink
-from wavelink import ExtrasNamespace as Extras, Playable, Playlist
+from wavelink import ExtrasNamespace as Extras
+from wavelink import Playable, Playlist
 
 from core import OiBot
-from utils import format_seconds, PlayerSettingsRecord, SongRecord
+from utils import PlayerSettingsRecord, SongRecord, format_seconds
 
 from .types import Lyrics, PlayerContext
 from .views import PlayerController
@@ -214,7 +214,6 @@ class Player(wavelink.Player):
         return tracks if isinstance(tracks, wavelink.Playlist) else tracks[0]
 
     def enqueue_tracks(self, tracks: Playable | Playlist, *, requester: discord.Member, top: bool = False) -> discord.Embed:
-
         if isinstance(tracks, wavelink.Playlist):
             playlist = tracks  # reduces confusion
 
@@ -250,7 +249,7 @@ class Player(wavelink.Player):
         else:
             self.queue.put(track)
             end = "queue"
-        embed = discord.Embed(title="Enqueued Track", description=f"Added {track.extras.hyperlink} to the {end}.")
+        embed = discord.Embed(title="Enqueued Track", description=f"Added {track.extras.hyperlink} to the {end}")
         embed.set_thumbnail(url=track.artwork)
         return embed
 
@@ -279,10 +278,12 @@ class Player(wavelink.Player):
             return
 
         if controller.counter >= 10:
-            with contextlib.suppress(discord.NotFound):
+            try:
                 message = await controller.message.fetch()
-                controller.set_actions_visible(False)
-                await message.edit(view=controller)
+            except discord.NotFound:
+                return
+            controller.set_actions_visible(False)
+            await message.edit(view=controller)
 
             controller.counter = -1
             controller.update_actions()
