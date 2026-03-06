@@ -262,10 +262,13 @@ class EnqueueModal(ui.Modal):
         query = self.query.component.value
         source = self.source.component.values[0]
         tracks = await self.vc.fetch_tracks(self.query.component.value, source)  # type: ignore
-        kwargs = {"query": query, "source": source}
         checked = self.extras.component.values
+
         play_now = "play_now" in checked
         play_next = "play_next" in checked
+
+        usage_kwargs: dict[str, Any] = {"query": query}
+        usage_kwargs.update({opt: True for opt in ["play_now", "play_next", "shuffle"] if opt in checked})
 
         is_manager, _ = self.controller.is_manager(itn)
 
@@ -276,8 +279,8 @@ class EnqueueModal(ui.Modal):
         self.extras_values = checked
 
         if source != cog.default_source:
-            kwargs["source"] = source
-        self.controller.command_usage(itn, "play", **kwargs)
+            usage_kwargs["source"] = source
+        self.controller.command_usage(itn, "play", **usage_kwargs)
         if not tracks:
             if query.startswith(("https://", "http://")):
                 not_found = (
