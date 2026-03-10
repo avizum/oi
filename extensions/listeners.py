@@ -32,7 +32,7 @@ import topgg
 from discord.ext import commands, tasks
 
 import core
-from utils import ANSIFormat, Blacklisted, embed_to_text, Maintenance, UserSettingsRecord
+from utils import ANSIFormat, Blacklisted, Maintenance, UserSettingsRecord, embed_to_text
 
 if TYPE_CHECKING:
     from core import Context, OiBot

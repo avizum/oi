@@ -24,8 +24,7 @@ from typing import TYPE_CHECKING, Any
 import asyncpg
 import discord
 import wavelink
-from wavelink import ExtrasNamespace as Extras
-from wavelink import Playable, Playlist
+from wavelink import ExtrasNamespace as Extras, Playable, Playlist
 
 from core import OiBot
 from utils import PlayerSettingsRecord, SongRecord, format_seconds

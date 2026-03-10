@@ -29,7 +29,7 @@ import itertools
 import re
 import sys
 from importlib.metadata import distribution, packages_distributions
-from typing import Any, Callable, Generator, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, Generator
 
 import discord
 import psutil

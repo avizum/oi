@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import datetime
 import re
-from typing import Annotated, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 import discord
 import humanize

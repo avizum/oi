@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import discord
 from discord import ui

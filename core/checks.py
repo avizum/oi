@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import functools
 import inspect
-from typing import Any, Callable, Coroutine, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Coroutine, TypeVar
 
 import discord
 from discord.ext import commands

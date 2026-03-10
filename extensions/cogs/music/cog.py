@@ -26,7 +26,7 @@ import logging
 import math
 import time
 from collections import defaultdict
-from typing import cast, Literal, TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, cast
 from urllib import parse
 
 import discord
@@ -41,30 +41,30 @@ from wavelink import QueueMode
 
 import core
 from utils import (
-    format_seconds,
     LayoutPaginator,
     PlayerSettingsRecord,
     Playlist as PlaylistD,
     PlaylistRecord,
     PlaylistSong,
-    readable_bytes,
     Song as SongD,
+    format_seconds,
+    readable_bytes,
 )
 
 from .player import Player
 from .types import Playlist as UserPlaylist
 from .utils import (
+    Labels,
+    Playlist,
+    PlaylistConverter,
+    Song,
+    Time,
     find_song_matches,
     hyperlink_song,
     is_in_channel,
     is_in_voice,
     is_manager,
     is_not_deafened,
-    Labels,
-    Playlist,
-    PlaylistConverter,
-    Song,
-    Time,
 )
 from .views import LyricPageSource, PlaylistInfoModal, PlaylistModalView, PlaylistPageSource, QueuePageSource
 
@@ -203,7 +203,7 @@ class Music(core.Cog):
             return
         # In some cases, track.hyperlink can possibly be unset when
         # wavelink_track_exception is called before wavelink_track start.
-        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, "hyperlink", track.title)}.")
+        await vc.ctx.send(f"An error occured while playing {getattr(track.extras, 'hyperlink', track.title)}.")
 
     @core.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
@@ -392,8 +392,7 @@ class Music(core.Cog):
             )
             if query.startswith(("https://", "http://")):
                 msg = (
-                    "No tracks found matching the provided URL.\n"
-                    "-# Make sure your URL is valid or try using a diffrent url."
+                    "No tracks found matching the provided URL.\n-# Make sure your URL is valid or try using a diffrent url."
                 )
 
             await ctx.send(msg, ephemeral=True)
@@ -642,7 +641,7 @@ class Music(core.Cog):
 
         if not playlist["songs"]:
             await ctx.send(
-                f"{playlist["name"]} does not have any songs. To add some songs, use {self.playlist_songs_add}.",
+                f"{playlist['name']} does not have any songs. To add some songs, use {self.playlist_songs_add}.",
                 ephemeral=True,
             )
             return
@@ -819,8 +818,8 @@ class Music(core.Cog):
         embed = discord.Embed(
             title="Added song to playlist",
             description=(
-                f"{hyperlink_song(song)} was added to playlist {playlist["name"]}\n"
-                f"There are now {len(playlist["songs"])} songs now in your playlist."
+                f"{hyperlink_song(song)} was added to playlist {playlist['name']}\n"
+                f"There are now {len(playlist['songs'])} songs now in your playlist."
             ),
         )
         embed.set_thumbnail(url=playlist["image"])
@@ -846,7 +845,7 @@ class Music(core.Cog):
             raise commands.BadArgument(f"Could not find song named {song}.")
 
         if song["id"] not in playlist["songs"]:
-            raise commands.BadArgument(f"{hyperlink_song(song)} is not in playlist {playlist["name"]}.")
+            raise commands.BadArgument(f"{hyperlink_song(song)} is not in playlist {playlist['name']}.")
 
         delete_query = """
             DELETE FROM playlist_songs
@@ -869,7 +868,7 @@ class Music(core.Cog):
                 if pl_song["position"] > position:
                     pl_song["position"] = pl_song["position"] - 1
 
-        await ctx.send(f"Removed {hyperlink_song(song)} from playlist {playlist["name"]}")
+        await ctx.send(f"Removed {hyperlink_song(song)} from playlist {playlist['name']}")
 
     @playlist_songs_remove.autocomplete("song")
     async def playlist_remove_song_autocomplete(self, itn: Interaction, current: str) -> list[app_commands.Choice[str]]:
@@ -900,7 +899,7 @@ class Music(core.Cog):
         async with ctx.typing():
             await self.bot.pool.execute(query, playlist["id"])
             del self.bot.cache.playlists[playlist["id"]]
-        await ctx.send(f"Deleted playlist named {playlist["name"]}.")
+        await ctx.send(f"Deleted playlist named {playlist['name']}.")
 
     @playlist.command(name="edit")
     @core.describe(
@@ -918,7 +917,6 @@ class Music(core.Cog):
                 raise commands.BadArgument("Image URL provided is invalid.")
 
         if name == playlist["name"] and image == playlist["image"]:
-
             if message:
                 return await message.edit(content="Playlist was not edited.", view=None)
             return await ctx.send("Playlist was not edited.")
@@ -1403,7 +1401,7 @@ class Music(core.Cog):
         uptime = datetime.timedelta(milliseconds=stats.uptime)
 
         embed = discord.Embed(title="Node Information")
-        embed.add_field(name="Uptime", value=f"{humanize.precisedelta(uptime, minimum_unit="days")}")
+        embed.add_field(name="Uptime", value=f"{humanize.precisedelta(uptime, minimum_unit='days')}")
         embed.add_field(name="Latency", value=f"`{(now - before) * 1000:.2f}ms`")
         embed.add_field(name="Players", value=f"{stats.players} ({stats.playing} active)")
         embed.add_field(

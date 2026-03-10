@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import datetime
-from typing import Annotated, Any, ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Any, ClassVar
 
 import discord
 from discord import app_commands
@@ -177,13 +177,13 @@ def format_option_name(song: SongD) -> str:
 
     If the total length is longer than 100 characters, the song name will be truncated.
     """
-    suffix = f" - {song["artist"]} ({SOURCES[song["source"]]})"
+    suffix = f" - {song['artist']} ({SOURCES[song['source']]})"
     max_title_length = 100 - len(suffix)
 
     title = song["title"]
 
     if len(title) > max_title_length:
-        title = f"{title[:max_title_length - 3]}..."
+        title = f"{title[: max_title_length - 3]}..."
     return f"{title}{suffix}"
 
 
@@ -216,7 +216,7 @@ def find_song_matches(items: dict[str, Any], current: str) -> list[app_commands.
 def hyperlink_song(song: SongD) -> str:
     """Creates a hyperlink from `Song`."""
     if song["uri"]:
-        return f"[{song["title"]}](<{song["uri"]}>)"
+        return f"[{song['title']}](<{song['uri']}>)"
     return song["title"]
 
 

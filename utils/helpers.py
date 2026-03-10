@@ -20,7 +20,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import math
-from typing import Any, ClassVar, Sequence, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar, Sequence
 
 import discord
 from discord import ui

@@ -19,7 +19,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-from typing import Callable, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Callable, TypeVar
 
 from discord import ButtonStyle, Emoji, PartialEmoji
 from discord.ui import ActionRow, Button, View
