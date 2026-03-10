@@ -37,6 +37,7 @@ if TYPE_CHECKING:
 
 
 __all__ = (
+    "MusicMissingPermissions",
     "Playlist",
     "Song",
     "Time",
@@ -155,6 +156,14 @@ class LabelsConverter(app_commands.Transformer):
     @classmethod
     async def transform(cls, _: Interaction, argument: int) -> int:
         return argument
+
+
+class MusicMissingPermissions(commands.BotMissingPermissions):
+    """Raised when the bot does not have sufficient permissions to start a music session."""
+
+    def __init__(self, voice_permissions: list[str], text_permissions: list[str], *args: Any) -> None:
+        self.voice_permissions = voice_permissions
+        self.text_permissions = text_permissions
 
 
 Playlist = Annotated[PlaylistD, PlaylistConverter]

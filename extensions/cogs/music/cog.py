@@ -55,6 +55,7 @@ from .player import Player
 from .types import Playlist as UserPlaylist
 from .utils import (
     Labels,
+    MusicMissingPermissions,
     Playlist,
     PlaylistConverter,
     Song,
@@ -96,6 +97,19 @@ type Interaction = discord.Interaction[OiBot]
 
 Default = commands.parameter(default=lambda ctx: ctx.cog.default_source)
 
+TEXT_PERMISSIONS = discord.Permissions(
+    view_channel=True,
+    read_message_history=True,
+    embed_links=True,
+    use_external_emojis=True,
+    send_messages=True,
+)
+
+VOICE_PERMISSIONS = discord.Permissions(
+    connect=True,
+    speak=True,
+)
+
 
 class Music(core.Cog):
     """Music commands for your server."""
@@ -117,6 +131,30 @@ class Music(core.Cog):
         except wavelink.InvalidNodeException as e:
             raise commands.CheckFailure("Music server is down. Please try again later.") from e
         return True
+
+    async def cog_command_error(self, ctx: PlayerContext, error: Exception) -> None:
+        if isinstance(error, MusicMissingPermissions):
+            ctx.command.extras["handled"] = True
+            assert ctx.author.voice is not None
+            assert ctx.author.voice.channel is not None
+
+            missing_voice = error.voice_permissions
+            missing_text = error.text_permissions
+            fmt_missing_voice = (
+                f"\n{ctx.author.voice.channel.mention} Permissions: {', '.join(missing_voice)}" if missing_voice else ""
+            )
+            fmt_missing_text = f"\n{ctx.channel.mention} Permissions: {', '.join(missing_text)}" if missing_text else ""
+
+            container = discord.ui.Container(
+                discord.ui.TextDisplay(
+                    "### Missing Permissions\nIn order to start a music session, you must give Oi the following permissions:"
+                ),
+                discord.ui.TextDisplay(f"{fmt_missing_voice}{fmt_missing_text}"),
+                accent_color=discord.Color.red(),
+            )
+            view = discord.ui.LayoutView()
+            view.add_item(container)
+            await ctx.send(view=view, ephemeral=True)
 
     @core.Cog.listener()
     async def on_wavelink_node_ready(self, payload: wavelink.NodeReadyEventPayload) -> None:
@@ -270,24 +308,41 @@ class Music(core.Cog):
         if vc.ctx.interaction and ctx.interaction:
             vc.ctx.interaction = ctx.interaction
 
+    def _check_music_permissions(self, ctx: PlayerContext) -> bool:
+        assert ctx.author.voice is not None
+        assert ctx.author.voice.channel is not None
+
+        voice_channel = ctx.author.voice.channel.permissions_for(ctx.me)
+        text_channel = ctx.channel.permissions_for(ctx.me)
+
+        missing_voice = [perm.replace("_", " ").title() for perm, value in ~voice_channel & VOICE_PERMISSIONS if value]
+        missing_text = [perm.replace("_", " ").title() for perm, value in ~text_channel & TEXT_PERMISSIONS if value]
+
+        if not missing_voice and not missing_text:
+            return True
+        raise MusicMissingPermissions(missing_voice, missing_text)
+
     async def _connect(self, ctx: PlayerContext) -> Player | None:
         assert ctx.author.voice is not None
         channel = ctx.author.voice.channel
         assert channel is not None
+
         if ctx.voice_client:
             await ctx.send(f"Already connected to {ctx.voice_client.channel.mention}", ephemeral=True)
             vc = ctx.voice_client
             return None
-        try:
-            vc = Player(ctx=ctx)
-            await channel.connect(cls=vc, self_deaf=True)  # type: ignore
-            await ctx.send(f"Connected to {vc.channel.mention}")
-            if isinstance(channel, discord.StageChannel):
-                with contextlib.suppress(discord.Forbidden):
-                    await ctx.me.edit(suppress=False)
-        except wavelink.ChannelTimeoutException:
-            await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}", ephemeral=True)
-            return None
+
+        async with ctx.typing():
+            try:
+                vc = Player(ctx=ctx)
+                await channel.connect(cls=vc, self_deaf=True)  # type: ignore
+                await ctx.send(f"Connected to {vc.channel.mention}")
+                if isinstance(channel, discord.StageChannel):
+                    with contextlib.suppress(discord.Forbidden):
+                        await ctx.me.edit(suppress=False)
+            except wavelink.ChannelTimeoutException:
+                await ctx.send(f"Timed out while trying to connect to {vc.channel.mention}", ephemeral=True)
+                return None
         await vc._set_player_settings()
         return vc
 
@@ -297,6 +352,7 @@ class Music(core.Cog):
     @core.bot_has_guild_permissions(connect=True, speak=True)
     async def connect(self, ctx: PlayerContext):
         """Connects to a voice channel or stage."""
+        self._check_music_permissions(ctx)
         vc = await self._connect(ctx) or ctx.voice_client
         if not vc:
             return await ctx.send("Could not connect to your channel.", ephemeral=True)
@@ -372,6 +428,9 @@ class Music(core.Cog):
         shuffle: bool = False,
     ) -> None:
         """Play a song from a selected source."""
+
+        if not ctx.voice_client:
+            self._check_music_permissions(ctx)
         vc = ctx.voice_client or await self._connect(ctx)
 
         if vc is None:
@@ -1422,4 +1481,6 @@ class Music(core.Cog):
             ),
         )
 
+        return await ctx.send(embed=embed)
+        return await ctx.send(embed=embed)
         return await ctx.send(embed=embed)
