@@ -279,7 +279,7 @@ class Player(wavelink.Player):
         if controller.counter >= 10:
             try:
                 message = await controller.message.fetch()
-            except discord.NotFound:
+            except (discord.NotFound, discord.Forbidden):
                 return
             controller.set_actions_visible(False)
             await message.edit(view=controller)

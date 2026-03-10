@@ -528,7 +528,7 @@ class PlayerController(ui.LayoutView):
         if not itn and type(self.message) is not discord.Message:
             try:
                 self.message = await self.message.fetch()
-            except discord.NotFound:
+            except (discord.NotFound, discord.Forbidden):
                 self.message = None
                 return
 
