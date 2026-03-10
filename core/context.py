@@ -20,14 +20,14 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 from __future__ import annotations
 
 import sys
-from typing import Any, Generic, overload, Sequence, TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Sequence, TypeVar, overload
 
 import discord
 from discord import ui
 from discord.ext import commands
 from discord.utils import MISSING
 
-from utils import embed_to_text, OiView
+from utils import OiView, embed_to_text
 from utils.helpers import _format_embeds
 
 if TYPE_CHECKING:
@@ -310,7 +310,7 @@ class Context(commands.Context, Generic[BotT]):
         if (
             self.interaction
             and not self.channel.permissions_for(self.me).send_messages
-            and (not view or (view and view.has_components_v2()))
+            and (not view or (view and not view.has_components_v2()))
         ):
             msg = "-# *I need the `Send Messages` permission in this channel. [Why?](https://gist.github.com/avizum/827fd8015a0605e68b5966ff5b2b449f)*"
             kwargs["content"] = f"{kwargs['content']}\n{msg}" if kwargs["content"] else msg
