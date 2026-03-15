@@ -390,6 +390,9 @@ class Music(core.Cog):
                 )
             if vc.controller is None:
                 await vc.invoke_controller(None)
+        except wavelink.ChannelTimeoutException as exc:
+            _log.error(f"Timed out while reconnecting player in guild id {channel.guild.id}:", exc_info=exc)
+            return False
         except Exception as exc:
             _log.error(f"Ignoring exception while reconnecting player in guild id {channel.guild.id}:", exc_info=exc)
             return False
@@ -1098,7 +1101,7 @@ class Music(core.Cog):
 
         conf = None
 
-        if not vc.dj_enabled:
+        if vc and not vc.dj_enabled:
             conf = await ctx.confirm(message="DJ is disabled. Would you like to enable it and set the DJ role?")
             if not conf.result:
                 return await conf.message.edit(content="DJ will remain disabled.", view=None)
