@@ -72,7 +72,7 @@ class ErrorHandler(core.Cog):
 
     @core.Cog.listener()
     async def on_command_error(self, ctx: Context, exc: commands.CommandError):
-        if ctx.command.extras.get("handled"):
+        if ctx.command and ctx.command.extras.get("handled"):
             return None
 
         error = getattr(exc, "original", exc)
