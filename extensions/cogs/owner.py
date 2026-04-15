@@ -29,7 +29,7 @@ import itertools
 import re
 import sys
 from importlib.metadata import distribution, packages_distributions
-from typing import TYPE_CHECKING, Any, Callable, Generator
+from typing import TYPE_CHECKING, Any, Callable, Generator, cast
 
 import discord
 import psutil
@@ -49,7 +49,7 @@ from jishaku.repl import AsyncCodeExecutor
 from utils import BlacklistRecord
 
 from .music.cog import SEARCH_TYPES
-from .music.player import Player
+from .music.player import Node, Player
 
 if TYPE_CHECKING:
     from core import Command, Context, OiBot
@@ -535,18 +535,21 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
         return await conf.message.edit(content="Okay, the node will not be disconnected.")
 
     @Feature.Command(parent="jsk_music", name="connect")
-    async def jsk_music_connect(self, ctx: Context):
+    async def jsk_music_connect(self, ctx: Context, name: str = "OiBot"):
         """Connects the Lavalink node."""
         try:
-            node = wavelink.Pool.get_node("OiBot")
-            if node:
-                return await ctx.send("Node is already connected.")
+            node = wavelink.Pool.get_node(name)
         except wavelink.InvalidNodeException:
             pass
+        else:
+            return await ctx.send("Node is already connected.")
+
         msg = await ctx.send("Starting nodes...")
         await self.bot.start_wavelink_nodes()
         try:
-            wavelink.Pool.get_node("OiBot")
+            node = wavelink.Pool.get_node(name)
+            if node.identifier != name:
+                return await msg.edit(content=f"Couldn't start Node `{name}`")
         except wavelink.InvalidNodeException:
             return await msg.edit(content="Couldn't start node.")
         await msg.edit(content="Started Node.")
@@ -570,49 +573,27 @@ class Owner(*OPTIONAL_FEATURES, *STANDARD_FEATURES):
     @Feature.Command(parent="jsk_music", name="refresh")
     async def jsk_music_refresh(self, ctx: Context, *, flags: ConfigFlags):
         """Refresh the API tokens used by Lavalink."""
-
-        node = wavelink.Pool.get_node("OiBot")
+        msg = []
+        node = cast(Node, wavelink.Pool.get_node("OiBot"))
         if flags.po_token or flags.visitor_data or flags.refresh_token:
-            yt_data = {}
-            yt_changed = []
-            if flags.po_token:
-                yt_data["poToken"] = flags.po_token
-                yt_changed.append("`po_token`")
-            if flags.visitor_data:
-                yt_data["visitorData"] = flags.visitor_data
-                yt_changed.append("`visitor_data`")
-            if flags.refresh_token:
-                yt_data["refreshToken"] = flags.refresh_token
-                yt_changed.append("`refresh_token`")
-            try:
-                await node.send("POST", path="youtube", data=yt_data)
-                await ctx.send(f"Set YouTube data: {', '.join(yt_changed)}")
-            except (wavelink.LavalinkException, wavelink.NodeException) as exc:
-                await ctx.send(f"Could not set YouTube data: {exc}")
+            await node.update_youtube_config(
+                refresh_token=flags.refresh_token, po_token=flags.po_token, visitor_data=flags.visitor_data
+            )
+            msg.append("YouTube config")
 
-        data = {}
-        changed = []
-        for name, value in flags:
-            if not value:
-                continue
-            try:
-                changed.append(f"`{name}`")
-                if config_mapping_sources[name] not in data:
-                    data[config_mapping_sources[name]] = {}
-                data[config_mapping_sources[name]][config_mapping_names[name]] = value
-            except KeyError:
-                # KeyError happens when po_token, visitor_data or refresh_token are set.
-                # These were already set so we can just ignore it.
-                continue
+        if flags.client_id or flags.client_secret or flags.sp_dc or flags.media_api_token:
+            msg.append("Spotify config")
+            if flags.media_api_token:
+                msg.append("Apple Music config")
 
-        if not changed:
-            await ctx.send("Nothing was set.")
-            return
-        try:
-            await node.send("PATCH", path="v4/lavasrc/config", data=data)
-            await ctx.send(f"The following was set:\n{', '.join(changed)}.")
-        except (wavelink.LavalinkException, wavelink.NodeException) as exc:
-            await ctx.send(f"Could not set\n{', '.join(changed)}: {exc}")
+            await node.update_lavasrc_config(
+                client_id=flags.client_id,
+                client_secret=flags.client_secret,
+                sp_dc=flags.sp_dc,
+                media_api_token=flags.media_api_token,
+            )
+
+        await ctx.send(f"Updated the following: {'\n'.join(msg)}")
 
     @Feature.Command(parent="jsk_music", name="source")
     async def jsk_music_source(self, ctx: Context, *, source: SEARCH_TYPES):

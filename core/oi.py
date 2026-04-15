@@ -38,12 +38,14 @@ from discord.ext.commands.core import _CaseInsensitiveDict
 from discord.utils import _ColourFormatter
 from waifuim import Client as WaifiImClient
 
+from extensions.cogs.music.player import Node
 from extensions.logger import WebhookHandler
 from utils import DBCache, ExpiringCache, IDGenerator
 
 from .commands import Bot, Cog, MentionableTree
 
 _log = logging.getLogger(__name__)
+
 
 jishaku.Flags.HIDE = True
 jishaku.Flags.RETAIN = True
@@ -155,14 +157,18 @@ class OiBot(Bot):
     async def start_wavelink_nodes(self) -> None:
         await self.wait_until_ready()
 
-        nodes: dict[str, wavelink.Node] = await wavelink.Pool.connect(
-            nodes=[wavelink.Node(**self.config["LAVALINK"], session=self.session, retries=5)], client=self
+        pool = wavelink.Pool()
+
+        nodes: dict[str, wavelink.Node] = await pool.connect(
+            nodes=[Node(**self.config["LAVALINK"], session=self.session, retries=5)], client=self
         )
         for node in nodes.values():
             if node.status == wavelink.NodeStatus.DISCONNECTED:
                 _log.warning(f"Node {node.identifier} failed to connect.")
             else:
                 _log.info(f"Node {node.identifier} connected.")
+
+        self.wl_pool = pool
 
     async def start_waifuim(self) -> None:
         await self.wait_until_ready()
@@ -238,5 +244,6 @@ class OiBot(Bot):
 
     async def close(self):
         _log.info("Logging out.")
+        await self.wl_pool.close()
         await self.session.close()
         await super().close()

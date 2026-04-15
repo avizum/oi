@@ -17,9 +17,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from core import OiBot
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 from .cog import Music
+
+if TYPE_CHECKING:
+    from core import OiBot
 
 
 async def setup(bot: OiBot) -> None:

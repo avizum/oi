@@ -37,7 +37,7 @@ from discord import app_commands, utils
 from discord.ext import commands
 from discord.ext.commands import Range
 from rapidfuzz import process
-from wavelink import QueueMode
+from wavelink import AutoPlayMode, QueueMode
 
 import core
 from utils import (
@@ -73,6 +73,7 @@ if TYPE_CHECKING:
     from core import Context, OiBot
     from utils import PlayerSettings
 
+    from .player import Node
     from .types import PlayerContext, TrackEnd, TrackException, TrackStart, TrackStuck
 
 __all__ = ("Music",)
@@ -128,8 +129,8 @@ class Music(core.Cog):
     async def cog_check(self, _: PlayerContext) -> bool:
         try:
             wavelink.Pool.get_node()
-        except wavelink.InvalidNodeException as e:
-            raise commands.CheckFailure("Music server is down. Please try again later.") from e
+        except wavelink.InvalidNodeException as exc:
+            raise commands.CheckFailure("Music server is not connected. Please try again later.") from exc
         return True
 
     async def cog_command_error(self, ctx: PlayerContext, error: Exception) -> None:
@@ -711,7 +712,7 @@ class Music(core.Cog):
 
         tracks: list[wavelink.Playable] = []
         for song in playlist["songs"].values():
-            track = await vc.decode_track(song["encoded"])
+            track = await vc.node.decode_track(song["encoded"])
             if track:
                 vc.set_extras(track, requester=str(ctx.author), requester_id=ctx.author.id)
                 tracks.append(track)
@@ -840,7 +841,7 @@ class Music(core.Cog):
             raise commands.CheckFailure(f"{self.connect.mention} to search for more songs.")
 
         if isinstance(song, str):
-            search = await vc.fetch_tracks(song, source, save_tracks=False)
+            search = await vc.fetch_tracks(song, source, save_search=False)
             if not search:
                 msg = (
                     f"No tracks found on {source} matching the query: {song}.\n"
@@ -855,7 +856,8 @@ class Music(core.Cog):
 
             if isinstance(search, wavelink.Playlist):
                 return await ctx.send("Only individual songs can be added to a playlist.")
-            song = (await vc.save_tracks([search]))[search.identifier]
+
+            song = await vc.save_track(search)
 
         if song["id"] in playlist["songs"]:
             return await ctx.send(f"{hyperlink_song(song)} is already in the playlist.")
@@ -1223,10 +1225,10 @@ class Music(core.Cog):
         """Enable or disable autoplay in this session."""
         vc = ctx.voice_client
         if state:
-            vc.autoplay = wavelink.AutoPlayMode.enabled
+            vc.autoplay = AutoPlayMode.enabled
             await ctx.send("Autoplay is now enabled.")
         else:
-            vc.autoplay = wavelink.AutoPlayMode.disabled
+            vc.autoplay = AutoPlayMode.disabled
             await ctx.send("Autoplay is now disabled.")
 
     @core.group(name="filter")
@@ -1420,10 +1422,15 @@ class Music(core.Cog):
             lyrics_data = await vc.fetch_current_lyrics()
 
         else:
-            fetch = await Player.fetch_lyrics(search)
-            if not fetch:
+            node: Node = cast(Node, wavelink.Pool.get_node())
+            result = await wavelink.Playable.search(search, source=self.default_source)
+
+            if not result or isinstance(result, wavelink.Playlist):
                 raise commands.BadArgument("No results found matching your search.")
-            title, lyrics_data = fetch
+
+            track = result[0]
+            lyrics_data = await node.fetch_lyrics(track.encoded)
+            title = track.title
 
         if not lyrics_data or (lyrics_data and not lyrics_data["text"]):
             raise commands.BadArgument("No results found matching your search.")

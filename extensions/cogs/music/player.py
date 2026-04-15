@@ -19,14 +19,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import asyncpg
 import discord
 import wavelink
 from wavelink import ExtrasNamespace as Extras, Playable, Playlist
 
-from core import OiBot
 from utils import PlayerSettingsRecord, SongRecord, format_seconds
 
 from .types import Lyrics, PlayerContext
@@ -35,11 +34,12 @@ from .views import PlayerController
 if TYPE_CHECKING:
     from wavelink.types.tracks import TrackPayload
 
+    from core import OiBot
     from utils import PlayerSettings, Song
 
     from .cog import SEARCH_TYPES
 
-__all__ = ("Player",)
+__all__ = ("Node", "Player")
 
 
 source_map = {
@@ -52,14 +52,85 @@ source_map = {
 }
 
 
+class Node(wavelink.Node):
+    async def decode_track(self, encoded: str) -> Playable | None:
+        """Builds a track from a track's encoded information."""
+        try:
+            data: TrackPayload = await self.send("GET", path="v4/decodetrack", params={"encodedTrack": encoded})
+            return Playable(data)
+        except wavelink.LavalinkException:
+            return None
+
+    # youtube-source plugin REST routes
+    async def update_youtube_config(
+        self,
+        /,
+        *,
+        refresh_token: str | None = None,
+        skip_initialization: str | None = None,
+        po_token: str | None = None,
+        visitor_data: str | None = None,
+    ) -> bool:
+        """POSTs to /youtube. Used for refreshing tokens the plugin uses."""
+
+        data = {}
+        if refresh_token:
+            data["refreshToken"] = refresh_token
+        if skip_initialization:
+            data["skipInitialization"] = skip_initialization
+        if po_token:
+            data["poToken"] = po_token
+        if visitor_data:
+            data["visitorData"] = visitor_data
+
+        if not data:
+            return True
+
+        await self.send("POST", path="/youtube", data=data)
+        return True
+
+    async def update_lavasrc_config(
+        self,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        sp_dc: str | None = None,
+        media_api_token: str | None = None,
+    ):
+        data = {}
+        if client_id or client_secret or sp_dc:
+            spotify_data = {}
+            if client_id:
+                spotify_data["clientId"] = client_id
+            if client_secret:
+                spotify_data["clientSecret"] = client_secret
+            if sp_dc:
+                spotify_data["spDc"] = sp_dc
+            data["spotify"] = spotify_data
+        if media_api_token:
+            data["applemusic"] = {"mediaAPIToken": media_api_token}
+
+        if not data:
+            return True
+
+        await self.send("PATCH", path="v4/lavasrc/config", data=data)
+        return True
+
+    async def fetch_lyrics(self, encoded: str, *, skip_source: bool = False) -> Lyrics:
+        data: Lyrics = await self.send("GET", path="/v4/lyrics", params={"track": encoded, "skipTrackSource": skip_source})  # type: ignore  # This should always return a dict of Lyrics.
+        return data
+
+
 class Player(wavelink.Player):
     channel: discord.VoiceChannel | discord.StageChannel
     client: OiBot
 
-    def __call__(self, client: discord.Client, channel: discord.VoiceChannel | discord.StageChannel) -> Player:
-        super(wavelink.Player, self).__init__(client, channel)
+    @property
+    def node(self) -> Node:
+        return cast(Node, self._node)
 
-        return self
+    @property
+    def bot(self) -> OiBot:
+        return self.client
 
     def __init__(self, *args: Any, ctx: PlayerContext, **kwargs: Any):
         super().__init__(*args, **kwargs)
@@ -70,7 +141,6 @@ class Player(wavelink.Player):
         self.members: list[discord.Member] = []
         self.controller: PlayerController | None = None
         self.locked: bool = False
-        self.bot: OiBot = self.client
 
         self.dj_enabled: bool = False
         self.dj_role: discord.Role | None = None
@@ -126,64 +196,59 @@ class Player(wavelink.Player):
             hyperlink=f"[{playable.title}{suffix}](<{playable.uri}>)",
         )
 
-    async def skip(self) -> Playable | None:
-        """Stops the currently playing track.
-
-        Returns
-        -------
-        Playable | None
-            The track that was stopped. None if there was no track playing.
-        """
-        await super().skip(force=False)
-
     async def disconnect(self, **kwargs: Any) -> None:
         """Disconnects and disables the player's controller if there is one."""
         if self.controller:
             await self.controller.disable()
         return await super().disconnect(**kwargs)
 
-    async def save_tracks(self, tracks: wavelink.Search) -> dict[str, Song]:
-        """Saves a search to the database, and then caches the search."""
+    async def save_track(self, track: Playable) -> Song:
+        """Saves a track to the database, caches, and returns the DB entry."""
 
         query = """
             INSERT INTO songs (id, identifier, uri, encoded, source, title, artist)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id, identifier, uri, encoded, source, title, artist
         """
-        songs_data: dict[str, Song] = {}
-        for track in tracks:
-            if track.identifier not in self.bot.cache.songs:
-                # soundcloud's track identifier is too long, so the prefix
-                # O:https://api-v2.soundcloud.com/media/ will be removed from all soundcloud tracks.
-                if track.source == "soundcloud":
-                    _, _, ident = track._identifier.partition("https://api-v2.soundcloud.com/media/")
-                    track._identifier = ident
+        if track.identifier not in self.bot.cache.songs:
+            # soundcloud's track identifier is too long, so the prefix
+            # O:https://api-v2.soundcloud.com/media/ will be removed from all soundcloud tracks.
+            if track.source == "soundcloud":
+                _, _, ident = track._identifier.partition("https://api-v2.soundcloud.com/media/")
+                track._identifier = ident
 
-                gen_id = self.bot.id_generator.generate()
-                song = await self.bot.pool.fetchrow(
-                    query,
-                    gen_id,
-                    track.identifier,
-                    track.uri,
-                    track.encoded,
-                    track.source,
-                    track.title,
-                    track.author,
-                    record_class=SongRecord,
-                )
-                self.bot.cache.songs[track.identifier] = dict(song)  # type: ignore
-                songs_data[track.identifier] = dict(song)  # type: ignore
-        return songs_data
+            gen_id = self.bot.id_generator.generate()
+            song = await self.bot.pool.fetchrow(
+                query,
+                gen_id,
+                track.identifier,
+                track.uri,
+                track.encoded,
+                track.source,
+                track.title,
+                track.author,
+                record_class=SongRecord,
+            )
+            inserted = dict(song)
+            self.client.cache.songs[track.identifier] = inserted  # type: ignore
 
-    async def decode_track(self, encoded: str) -> Playable | None:
-        """Builds a track from a track's encoded information."""
-        try:
-            data: TrackPayload = await self.node.send("GET", path="v4/decodetrack", params={"encodedTrack": encoded})
-            return Playable(data)
-        except wavelink.LavalinkException:
+        return self.client.cache.songs[track.identifier]
+
+    async def save_search(self, search: wavelink.Search) -> dict[str, Song] | None:
+        """Saves a search to the database, and then caches the search."""
+
+        if not search:
             return None
 
-    async def fetch_tracks(self, query: str, source: SEARCH_TYPES, save_tracks: bool = True) -> Playable | Playlist | None:
+        songs_data: dict[str, Song] = {}
+
+        for track in search:
+            data = await self.save_track(track)
+            songs_data[track.identifier] = data
+
+        return songs_data
+
+    async def fetch_tracks(self, query: str, source: SEARCH_TYPES, save_search: bool = True) -> Playable | Playlist | None:
         """Searches a source for tracks.
 
         Parameters
@@ -201,19 +266,21 @@ class Player(wavelink.Player):
             The results returned by Lavalink.
         """
         try:
-            tracks = await Playable.search(query, source=source_map.get(source, "ytsearch"))
-            if save_tracks:
-                self.bot.loop.create_task(self.save_tracks(tracks if isinstance(tracks, Playlist) else tracks[:1]))
+            search = await Playable.search(query, source=source_map.get(source, "ytsearch"))
         except wavelink.LavalinkLoadException:
-            tracks = None
-
-        if not tracks:
             return None
 
-        return tracks if isinstance(tracks, wavelink.Playlist) else tracks[0]
+        if self.save_search:
+            self.client.loop.create_task(self.save_search(search))
+
+        if isinstance(search, Playlist):
+            return search
+        if not search:
+            return None
+        return search[0]
 
     def enqueue_tracks(self, tracks: Playable | Playlist, *, requester: discord.Member, top: bool = False) -> discord.Embed:
-        if isinstance(tracks, wavelink.Playlist):
+        if isinstance(tracks, Playlist):
             playlist = tracks  # reduces confusion
 
             for track in playlist:
@@ -229,6 +296,7 @@ class Player(wavelink.Player):
                 end = "queue."
 
             title = "Enqueued Playlist"
+
             if playlist.type and playlist.type == "user_created":
                 title = "Enqueued Personal Playlist"
 
@@ -297,26 +365,35 @@ class Player(wavelink.Player):
             data: Lyrics = await self.node.send(
                 "GET",
                 path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/track/lyrics",
-            )
+            )  # type: ignore  # This should always return a dict of Lyrics.
         except (wavelink.LavalinkException, wavelink.NodeException):
             return None
         else:
             return data
 
-    @classmethod
-    async def fetch_lyrics(cls, query: str) -> tuple[str, Lyrics] | None:
-        """Search YouTube for lyrics."""
+    async def subscribe_lyrics(self) -> bool:
+        """Subscribes the player to timed lyrics events."""
         try:
-            tracks = await Playable.search(query, source="ytmsearch")
-            if isinstance(tracks, Playlist) or not tracks:
-                return None
-            track = tracks[0]
-        except wavelink.LavalinkLoadException:
-            return None
-        try:
-            node = wavelink.Pool.get_node("OiBot")
-            data: Lyrics = await node.send("GET", path="v4/lyrics", params={"track": f"{track.encoded}"})
+            await self.node.send(
+                "POST",
+                path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/lyrics/subscribe",
+                data={"skipTrackSource": True},
+            )
         except (wavelink.LavalinkException, wavelink.NodeException):
-            return None
-        else:
-            return track.title, data
+            return False
+
+        self.live_lyrics = True
+        return True
+
+    async def unsubscribe_lyrics(self):
+        """Unsubscribes the player from timed lyrics events."""
+        try:
+            await self.node.send(
+                "DELETE",
+                path=f"v4/sessions/{self.node.session_id}/players/{self.ctx.guild.id}/lyrics/subscribe",
+            )
+        except (wavelink.LavalinkException, wavelink.NodeException):
+            return False
+
+        self.live_lyrics = False
+        return True
