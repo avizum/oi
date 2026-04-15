@@ -31,6 +31,7 @@ from wavelink import AutoPlayMode, Playable, QueueEmpty, QueueMode
 from core import ui as cui
 from utils import LayoutPaginator, OiView, format_seconds
 
+from .types import LyricsLineEvent
 from .utils import hyperlink_song
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class PlayerButton(ui.Button["PlayerController"]):
     async def interaction_check(self, itn: discord.Interaction) -> bool:
         assert self.view is not None
         vc: Player = self.view.vc
-        if vc is None or (vc and vc.locked) or not vc.connected or vc.current is None:
+        if vc is None or (vc and vc.locked) or vc.current is None:
             await itn.response.defer()
             return False
         vc = self.view.vc
@@ -109,7 +110,7 @@ class PlayerSkipButton(PlayerButton):
         assert self.view is not None
         vc = self.view.vc
 
-        if not vc or (vc and vc.locked) or not vc.current or not vc.connected:
+        if not vc or (vc and vc.locked) or not vc.current:
             await itn.response.defer()
             return False
 
@@ -124,7 +125,7 @@ class PlayerPublicButton(PlayerButton):
         assert self.view is not None
         vc = self.view.vc
 
-        if not vc or (vc and vc.locked) or not vc.connected:
+        if not vc or (vc and vc.locked):
             await itn.response.defer()
             return False
 
@@ -415,7 +416,7 @@ class PlayerController(ui.LayoutView):
         self.counter: int = -1
         self.is_updating: bool = False
         self.loop_select: LoopTypeSelect | None = None
-        self.lyrics_paginators: dict[int, LayoutPaginator] = {}
+        self.lyrics_paginators: dict[int, LyricsPaginator] = {}
         self.container: ControllerContainer = ControllerContainer(vc=vc)
 
         super().__init__(timeout=None)
@@ -771,7 +772,7 @@ class QueuePageSource(menus.ListPageSource):
             section.accessory = ui.Thumbnail(ctx.guild.icon.url)
         up_next = ""
         for count, track in tracks:
-            if len(track._title) > 90:
+            if len(track.title) > 90:
                 track._title = f"{track._title[:50]}..."
                 track.extras.hyperlink = f"[{track.title}]({track.uri})"
             up_next = f"{up_next}\n{count}. {track.extras.hyperlink} | {track.extras.requester}"
@@ -856,6 +857,32 @@ class LyricsPaginator(LayoutPaginator):
             msg = await itn.original_response()
 
         self.message = msg
+
+    async def show_page(self, itn: Interaction | None, page_num: int):
+        page = await self.source.get_page(page_num)
+        self.current_page = page_num
+        await self.update_view(page)
+        await self.update_navigation(page_num)
+
+        if not itn or itn.response.is_done():
+            if self.message:
+                await self.message.edit(view=self)
+        else:
+            await itn.response.edit_message(view=self)
+
+    async def show_checked_page(self, itn: Interaction | None, page_num: int):
+        max_pages = self.source.get_max_pages()
+        try:
+            if max_pages is None or max_pages > page_num >= 0:
+                await self.show_page(itn, page_num)
+        except IndexError:
+            pass
+
+    async def lyric_line(self, data: LyricsLineEvent) -> None:
+        if not self.message:
+            return
+        if data["lineIndex"] % 8 == 0:
+            await self.show_checked_page(None, self.current_page + 1)
 
 
 class PlaylistInfoModal(ui.Modal):

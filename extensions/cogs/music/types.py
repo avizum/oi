@@ -32,6 +32,9 @@ if TYPE_CHECKING:
     from .player import Player
 
 __all__ = (
+    "Lyrics",
+    "LyricsLine",
+    "LyricsLineEvent",
     "PlayerContext",
     "TrackEnd",
     "TrackStart",
@@ -61,7 +64,7 @@ class TrackException(wavelink.TrackExceptionEventPayload):
     player: Player
 
 
-class LyricLine(TypedDict):
+class LyricsLine(TypedDict):
     timestamp: int
     duration: int
     line: str
@@ -72,8 +75,14 @@ class Lyrics(TypedDict):
     sourceName: str
     provider: str
     text: str
-    lines: list[LyricLine]
+    lines: list[LyricsLine]
     plugin: Any
+
+
+class LyricsLineEvent(TypedDict):
+    lineIndex: int
+    line: LyricsLine
+    skipped: bool
 
 
 class Playlist(wavelink.Playlist):
