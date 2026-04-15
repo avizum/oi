@@ -17,13 +17,12 @@ dependencies = [
     "toml>=0.10.2",
     "topggpy",
     "waifuim>=1.1.1",
-    "wavelink>=3.4.1",
+    "wavelink>=3.5.1",
 ]
 
 [tool.uv.sources]
 discord-ext-menus = { git = "https://github.com/Rapptz/discord-ext-menus" }
 topggpy = { git = "https://github.com/null8626/python-sdk", rev = "7e97f8386d0ffff8639e19a5027a7ac7e53de45f" }
-wavelink = { git = "https://github.com/atefcodes/Wavelink" }
 
 [tool.pyright]
 typeCheckingMode = "basic"

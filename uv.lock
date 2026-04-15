@@ -608,7 +608,7 @@ requires-dist = [
     { name = "toml", specifier = ">=0.10.2" },
     { name = "topggpy", git = "https://github.com/null8626/python-sdk?rev=7e97f8386d0ffff8639e19a5027a7ac7e53de45f" },
     { name = "waifuim", specifier = ">=1.1.1" },
-    { name = "wavelink", git = "https://github.com/atefcodes/Wavelink" },
+    { name = "wavelink", specifier = ">=3.5.1" },
 ]
 
 [[package]]
@@ -845,14 +845,18 @@ wheels = [
 
 [[package]]
 name = "wavelink"
-version = "3.7.0"
-source = { git = "https://github.com/atefcodes/Wavelink#f6b55281f3df978008db070934a00c06121b6ffa" }
+version = "3.5.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
     { name = "async-timeout" },
     { name = "discord-py" },
     { name = "typing-extensions" },
     { name = "yarl" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d0/f7/9b7ddab7bb66ac6dfdcd88e0142663fbf359cf5e9568a7b4594e928600d9/wavelink-3.5.1.tar.gz", hash = "sha256:8f014d8229041a531fece00a9feeb3187ecb09f7c6ea7e6727f551f30e233a58", size = 50584, upload-time = "2026-04-11T09:18:46.364Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/29/f9/972b19fe46dd46cbd0f1519680341421cd0d543049b43df688bd0228ae3f/wavelink-3.5.1-py3-none-any.whl", hash = "sha256:4d6dddef1c109e528460b2ed1d1fc51a7fdd14b44290229eb1985ab372eaf073", size = 66695, upload-time = "2026-04-11T09:18:45.117Z" },
 ]
 
 [[package]]
