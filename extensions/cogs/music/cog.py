@@ -587,8 +587,9 @@ class Music(core.Cog):
     @is_not_deafened()
     @is_in_channel()
     @is_in_voice()
-    @core.describe(item="The track to remove from the queue.")
-    async def queue_remove(self, ctx: PlayerContext, item: str):
+    @core.describe(item="The track to remove from the queue.", _all="Remove all instances of the track from the queue.")
+    @app_commands.rename(_all="all")
+    async def queue_remove(self, ctx: PlayerContext, item: str, _all: bool = False):
         """Removes a song from the queue.
 
         If there are multiple of the same track, all of them will be removed.
@@ -603,8 +604,8 @@ class Music(core.Cog):
         if not tracks:
             return await ctx.send("Could not find any tracks with that name.")
 
-        vc.queue.remove(tracks[0], count=len(tracks))
-        all_instances = "all instances of " if len(tracks) > 1 else ""
+        vc.queue.remove(tracks[0], count=None if _all else 1)
+        all_instances = "all instances of " if _all else ""
         return await ctx.send(f"Removed {all_instances}{tracks[0].extras.hyperlink} from the queue.")
 
     @queue_remove.autocomplete("item")
@@ -1484,6 +1485,4 @@ class Music(core.Cog):
             ),
         )
 
-        return await ctx.send(embed=embed)
-        return await ctx.send(embed=embed)
         return await ctx.send(embed=embed)
