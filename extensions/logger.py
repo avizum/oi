@@ -60,7 +60,7 @@ class WebhookLogger(core.Cog):
 
     @tasks.loop(seconds=10.0)
     async def batch_send(self):
-        if self.handler.level <= logging.DEBUG:
+        if self.handler.level == logging.DEBUG:
             return
         batch = self.handler.batch
         if not batch:
