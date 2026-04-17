@@ -54,6 +54,7 @@ __all__ = (
     "ExpiringCache",
 )
 
+
 # fmt: off
 # Begin MPL 2.0 licensed code
 class ExpiringCache(dict):

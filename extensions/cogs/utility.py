@@ -702,7 +702,7 @@ class Utility(core.Cog):
         if cant_run:
             embed.description = (
                 f"I can run {len(bot_commands) - len(cant_run)} out of {len(bot_commands)} commands.\n"
-                f"Please [reauthorize]({self.bot.invite_url}) me to fix this."
+                f"Please [reauthorize]({self.bot.invite_url}) me to fix this, or edit my permissions."
             )
             nl = "\n"
             embed.add_field(name="Can't Run", value=f"{nl.join(cant_run)}", inline=False)
