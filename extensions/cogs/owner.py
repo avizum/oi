@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import datetime
@@ -29,7 +27,7 @@ import itertools
 import re
 import sys
 from importlib.metadata import distribution, packages_distributions
-from typing import TYPE_CHECKING, Any, Callable, Generator, cast
+from typing import Any, Callable, Generator, cast
 
 import discord
 import psutil
@@ -46,15 +44,12 @@ from jishaku.math import natural_size
 from jishaku.modules import package_version
 from jishaku.repl import AsyncCodeExecutor
 
+from core import Command, Context, OiBot
 from utils import BlacklistRecord
 
+from .music import Music
 from .music.cog import SEARCH_TYPES
-from .music.player import Node, Player
-
-if TYPE_CHECKING:
-    from core import Command, Context, OiBot
-
-    from .music import Music
+from .music.models import Node, Player
 
 
 class ExtensionConverter(list[str]):

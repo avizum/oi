@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import copy
 import math
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
@@ -40,7 +38,7 @@ if TYPE_CHECKING:
 
     from utils import Playlist, PlaylistSong
 
-    from .player import Player
+    from .models import Player
     from .types import PlayerContext
 
 S_co = TypeVar("S_co", bound="ui.ActionRow | ui.LayoutView", covariant=True)

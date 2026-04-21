@@ -17,20 +17,12 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
-from typing import TYPE_CHECKING
-
 import discord
 from discord import app_commands
 from discord.ext import commands
 
 import core
-
-if TYPE_CHECKING:
-
-    from core import Context, OiBot
-
+from core import Context, OiBot
 
 RESOLVED = 1019838841005289513
 HELP_FORUM = 1019682191749423155

@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import math
 from typing import TYPE_CHECKING, Any, ClassVar, Sequence
 
@@ -140,7 +138,7 @@ def readable_bytes(size_in_bytes: int) -> str:
 
     power = int(math.log(max(abs(size_in_bytes), 1), 1000))
 
-    return f"{size_in_bytes / (1000 ** power):.2f} {units[power]}"
+    return f"{size_in_bytes / (1000**power):.2f} {units[power]}"
 
 
 class ANSIFormat:

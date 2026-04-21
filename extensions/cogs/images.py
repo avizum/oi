@@ -17,24 +17,18 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import random
 from io import BytesIO
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import discord
 from discord import app_commands
 from discord.ext import commands, menus
+from waifuim import Image as WaifuImage
 
 import core
+from core import Context, OiBot
 from utils import Paginator
-
-if TYPE_CHECKING:
-    from waifuim import Image as WaifuImage
-
-    from core import Context, OiBot
-
 
 SFW_TAGS: list[app_commands.Choice] = [
     app_commands.Choice(name="maid", value="MAID"),

@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, Mapping
 
 import discord
@@ -132,7 +130,7 @@ class CogHelpPages(menus.ListPageSource):
                 ui.TextDisplay(cog.description or "No description provided."),
                 ui.TextDisplay(
                     f"**Commands in {cog.qualified_name}**\n"
-                    f"{"\n".join(f"{command.name} - {command.short_doc or 'No help provided.'}" for command in commands)}"
+                    f"{'\n'.join(f'{command.name} - {command.short_doc or "No help provided."}' for command in commands)}"
                 ),
                 ui.TextDisplay("-# Use the dropdown menus to select a command or module."),
             ],
@@ -171,7 +169,7 @@ class GroupHelpPages(menus.ListPageSource):
                 ui.TextDisplay(f"**Required Permissions**\n{member_perms}\n{bot_perms}"),
                 ui.TextDisplay(
                     "**Commands in Group**\n"
-                    f"{"\n".join(f"{command.name} - {command.short_doc or 'No help provided.'}" for command in commands)}"
+                    f"{'\n'.join(f'{command.name} - {command.short_doc or "No help provided."}' for command in commands)}"
                 ),
             ],
             accent_color=COLOR,
@@ -326,7 +324,6 @@ class HelpPaginator(LayoutPaginator):
         await super().update_navigation(index)
 
     async def update_view(self, page: int) -> None:
-
         value = await discord.utils.maybe_coroutine(self.source.format_page, self, page)
 
         self.clear_items()
@@ -484,7 +481,7 @@ class OiHelp(commands.HelpCommand):
         params = self.get_parameter_info(command)
         if params:
             itms = [item.signature for item in params]
-            container.add_item(ui.TextDisplay(f"**Parameters**\n{"\n".join(itms)}"))
+            container.add_item(ui.TextDisplay(f"**Parameters**\n{'\n'.join(itms)}"))
 
         member_perms, bot_perms = self.get_command_permissions(command)
         container.add_item(ui.TextDisplay(f"**Required Permissions**\n{member_perms}\n{bot_perms}"))

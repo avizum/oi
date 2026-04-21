@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import datetime
 import difflib
 import logging
@@ -209,11 +207,11 @@ class Important(core.Cog):
         _ = ANSIFormat
         if ctx.interaction:
             namespace = ctx.interaction.namespace
-            params = [f"{_(f"{i[0]}:"):*;d} {i[1]}" for i in namespace]
-            message = f"{_(f"/{command_name}"):**} {" ".join(params)}"
+            params = [f"{_(f'{i[0]}:'):*;d} {i[1]}" for i in namespace]
+            message = f"{_(f'/{command_name}'):**} {' '.join(params)}"
         else:
             message = ctx.message.content.replace(
-                f"{ctx.prefix}{command_name}", f"{_(f"{ctx.clean_prefix}{command_name}"):**}"
+                f"{ctx.prefix}{command_name}", f"{_(f'{ctx.clean_prefix}{command_name}'):**}"
             )
 
         _log.info(f"{ctx.author} ({user_id}) #{ctx.channel.name} ({guild_id}): {message}")
@@ -344,7 +342,7 @@ class Important(core.Cog):
             if discord.utils.utcnow() > timestamp:
                 message = "Thank you for voting for Oi. It's time to vote again!"
             else:
-                message = f"Thank you for voting for Oi. Please vote again {discord.utils.format_dt(timestamp, "R")}."
+                message = f"Thank you for voting for Oi. Please vote again {discord.utils.format_dt(timestamp, 'R')}."
             del self.bot.thanked_votes[ctx.author.id]
 
         elif random.random() < CHANCE and not ctx.command.no_tips:

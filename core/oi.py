@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import datetime as dt
 import json
 import logging
@@ -38,7 +36,7 @@ from discord.ext.commands.core import _CaseInsensitiveDict
 from discord.utils import _ColourFormatter
 from waifuim import Client as WaifiImClient
 
-from extensions.cogs.music.player import Node
+from extensions.cogs.music.models import Node
 from extensions.logger import WebhookHandler
 from utils import DBCache, ExpiringCache, IDGenerator
 

@@ -17,13 +17,11 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import datetime
 import inspect
 import pathlib
 from enum import Enum
-from typing import TYPE_CHECKING, Annotated, ClassVar, Sequence
+from typing import Annotated, ClassVar, Sequence
 
 import discord
 import humanize
@@ -35,13 +33,9 @@ from discord.utils import _human_join as human_join
 from jishaku.math import natural_size
 
 import core
-from utils import Paginator
+from core import Context, OiBot
+from utils import Paginator, WeatherDict
 from utils.types import Record, UserSettings
-
-if TYPE_CHECKING:
-    from core import Context, OiBot
-    from utils import WeatherDict
-
 
 NORMAL_PERMISSONS = discord.Permissions(1644942454270)
 SOURCE_URL = "https://github.com/avizum/oi"

@@ -17,21 +17,16 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import random
 import re
-from typing import TYPE_CHECKING, Literal
+from typing import Literal
 
 import discord
 from discord.ext import menus
 
 import core
-from utils import Paginator
-
-if TYPE_CHECKING:
-    from core import Context, OiBot
-    from utils import UrbanData
+from core import Context, OiBot
+from utils import Paginator, UrbanData
 
 
 class RPSButton(discord.ui.Button["RPSView"]):
@@ -172,7 +167,7 @@ class UrbanSource(menus.ListPageSource):
     def cleanup_definition(self, definition: str, *, regex: re.Pattern = BRACKETED) -> str:
         def repl(m):
             word = m.group(2)
-            return f'[{word}](http://{word.replace(" ", "-")}.urbanup.com)'
+            return f"[{word}](http://{word.replace(' ', '-')}.urbanup.com)"
 
         ret = regex.sub(repl, definition)
         if len(ret) >= 1024:

@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import wavelink
@@ -29,7 +27,7 @@ if TYPE_CHECKING:
     from utils import Playlist as PlaylistData
 
     from .cog import Music
-    from .player import Player
+    from .models import Player
 
 __all__ = (
     "Lyrics",

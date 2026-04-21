@@ -17,23 +17,17 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import datetime
 import re
-from typing import TYPE_CHECKING, Annotated
+from typing import Annotated
 
 import discord
 import humanize
-from discord import app_commands
+from discord import Interaction, Member, User, app_commands
 from discord.ext import commands
 
 import core
-
-if TYPE_CHECKING:
-    from discord import Interaction, Member, User
-
-    from core import Context, OiBot
+from core import Context, OiBot
 
 
 class TargetConverter(app_commands.Transformer):

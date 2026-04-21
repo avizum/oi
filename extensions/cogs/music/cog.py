@@ -17,8 +17,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-from __future__ import annotations
-
 import asyncio
 import contextlib
 import datetime
@@ -26,7 +24,7 @@ import logging
 import math
 import time
 from collections import defaultdict
-from typing import TYPE_CHECKING, Literal, cast
+from typing import Literal, cast
 from urllib import parse
 
 import discord
@@ -40,8 +38,10 @@ from rapidfuzz import process
 from wavelink import AutoPlayMode, QueueMode
 
 import core
+from core import Context
 from utils import (
     LayoutPaginator,
+    PlayerSettings,
     PlayerSettingsRecord,
     Playlist as PlaylistD,
     PlaylistRecord,
@@ -51,8 +51,8 @@ from utils import (
     readable_bytes,
 )
 
-from .player import Player
-from .types import Playlist as UserPlaylist
+from .models import Node, Player
+from .types import PlayerContext, Playlist as UserPlaylist, TrackEnd, TrackException, TrackStart, TrackStuck
 from .utils import (
     Labels,
     MusicMissingPermissions,
@@ -68,13 +68,6 @@ from .utils import (
     is_not_deafened,
 )
 from .views import LyricPageSource, PlaylistInfoModal, PlaylistModalView, PlaylistPageSource, QueuePageSource
-
-if TYPE_CHECKING:
-    from core import Context, OiBot
-    from utils import PlayerSettings
-
-    from .player import Node
-    from .types import PlayerContext, TrackEnd, TrackException, TrackStart, TrackStuck
 
 __all__ = ("Music",)
 
@@ -94,7 +87,7 @@ SEARCH_TYPES = Literal[
 ]
 
 
-type Interaction = discord.Interaction[OiBot]
+type Interaction = discord.Interaction[core.OiBot]
 
 Default = commands.parameter(default=lambda ctx: ctx.cog.default_source)
 
@@ -115,8 +108,8 @@ VOICE_PERMISSIONS = discord.Permissions(
 class Music(core.Cog):
     """Music commands for your server."""
 
-    def __init__(self, bot: OiBot) -> None:
-        self.bot: OiBot = bot
+    def __init__(self, bot: core.OiBot) -> None:
+        self.bot: core.OiBot = bot
         self.next_cooldown: commands.CooldownMapping = commands.CooldownMapping.from_cooldown(
             3, 10, type=commands.BucketType.guild
         )
