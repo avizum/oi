@@ -373,6 +373,7 @@ class Music(core.Cog):
             await voice_client.disconnect()
             await asyncio.sleep(1)
             await channel.connect(cls=vc)  # type: ignore
+            await vc._set_player_settings()
 
             if vc.queue:
                 await vc.play(
