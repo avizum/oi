@@ -215,11 +215,12 @@ class Music(core.Cog):
 
         if not vc or (vc and vc.locked):
             return
-
+        message = exception.get("message") or ""
+        severity = exception.get("severity") or ""
+        cause = exception.get("cause") or ""
         _log.error(
             f"Lavalink exception occured: {track.title} ({track.source}:{track.identifier}) in guild ID {vc.ctx.guild.id}\n"
-            f"Message: {exception.get('message')}\nSeverity: {exception.get('severity')}\n"
-            f"Cause: {exception.get('cause')}"
+            f"Message: {message.splitlines()[0]}\nSeverity: {severity}\nCause: {cause.splitlines()[0]}"
         )
 
         cooldown = self.next_cooldown.update_rate_limit(vc.ctx)
