@@ -34,7 +34,6 @@ import wavelink
 from discord.ext import commands
 from discord.ext.commands.core import _CaseInsensitiveDict
 from discord.utils import _ColourFormatter
-from waifuim import Client as WaifiImClient
 
 from extensions.cogs.music.models import Node
 from extensions.logger import WebhookHandler
@@ -158,7 +157,8 @@ class OiBot(Bot):
         pool = wavelink.Pool()
 
         nodes: dict[str, wavelink.Node] = await pool.connect(
-            nodes=[Node(**self.config["LAVALINK"], session=self.session, retries=5)], client=self
+            nodes=[Node(**self.config["LAVALINK"], session=self.session, retries=5)],
+            client=self,
         )
         for node in nodes.values():
             if node.status == wavelink.NodeStatus.DISCONNECTED:
@@ -167,13 +167,6 @@ class OiBot(Bot):
                 _log.info(f"Node {node.identifier} connected.")
 
         self.wl_pool = pool
-
-    async def start_waifuim(self) -> None:
-        await self.wait_until_ready()
-
-        self.waifuim = WaifiImClient(
-            token=self.config["WAIFUIM_TOKEN"], session=aiohttp.ClientSession(), identifier=f"OiBot|{self.user.id}"
-        )
 
     def _server_count(self) -> int:
         return len(self.guilds)
@@ -227,13 +220,16 @@ class OiBot(Bot):
         logger.addHandler(stream_handler)
         logger.setLevel(logging.INFO)
 
+        wavelink_track_exception = logging.getLogger("TrackException")
+        wavelink_track_exception.propagate = False
+
     async def setup_hook(self) -> None:
         self.session = aiohttp.ClientSession()
         self.loop.create_task(self.load_extensions())
         self.loop.create_task(self.create_pool())
         self.loop.create_task(self.start_wavelink_nodes())
         self.loop.create_task(self.start_topgg())
-        self.loop.create_task(self.start_waifuim())
+
         self.loop.create_task(self.tree.fetch_commands())
 
     def run(self) -> None:

@@ -17,55 +17,14 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import random
 from io import BytesIO
 from typing import Any
 
 import discord
-from discord import app_commands
-from discord.ext import commands, menus
-from waifuim import Image as WaifuImage
+from discord.ext import commands
 
 import core
 from core import Context, OiBot
-from utils import Paginator
-
-SFW_TAGS: list[app_commands.Choice] = [
-    app_commands.Choice(name="maid", value="MAID"),
-    app_commands.Choice(name="waifu", value="WAIFU"),
-    app_commands.Choice(name="marin-kitagawa", value="MARIN-KITAGAWA"),
-    app_commands.Choice(name="mori-calliope", value="MORI-CALLIOPE"),
-    app_commands.Choice(name="raiden-shogun", value="RAIDEN-SHOGUN"),
-    app_commands.Choice(name="oppai", value="OPPAI"),
-    app_commands.Choice(name="selfies", value="SELFIES"),
-    app_commands.Choice(name="uniform", value="UNIFORM"),
-]
-
-NSFW_TAGS: list[app_commands.Choice] = [
-    app_commands.Choice(name="ass", value="ASS"),
-    app_commands.Choice(name="hentai", value="HENTAI"),
-    app_commands.Choice(name="milf", value="MILF"),
-    app_commands.Choice(name="oral", value="ORAL"),
-    app_commands.Choice(name="paizuri", value="PAIZURI"),
-    app_commands.Choice(name="ecchi", value="ECCHI"),
-]
-
-
-class WaifuPaginator(menus.ListPageSource):
-    def __init__(self, images: list[WaifuImage], search: str):
-        self.search = search
-        super().__init__(images, per_page=1)
-
-    async def format_page(self, menu: menus.Menu, image: WaifuImage):
-        try:
-            color = discord.Color.from_str(image.dominant_color)
-        except ValueError:
-            color = discord.Color.blurple()
-        embed = discord.Embed(title=self.search.title(), color=color)
-        embed.set_image(url=image.url)
-        embed.set_footer(text="Powered by waifu.im")
-
-        return embed
 
 
 class Image(core.Cog):
@@ -335,34 +294,6 @@ class Image(core.Cog):
         async with ctx.typing():
             kwargs = await self.get_animal(ctx.command.name)
             await ctx.send(**kwargs)
-
-    @core.group(fallback="sfw")
-    @app_commands.choices(tag=SFW_TAGS)
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    @core.describe(tag="Type to image to search for.")
-    async def waifu(self, ctx: Context, tag: app_commands.Choice[str]):
-        """Get images of waifus.
-
-        Images are from https://waifu.im
-        """
-        search = await self.bot.waifuim.search(included_tags=[tag.value], nsfw=False, limit=10)
-        paginator = Paginator(WaifuPaginator(search, tag.name), ctx=ctx, remove_view_after=True)
-        await paginator.start()
-
-    @waifu.command(name="nsfw")
-    @commands.is_nsfw()
-    @app_commands.choices(tag=NSFW_TAGS)
-    @commands.cooldown(1, 5, commands.BucketType.user)
-    @core.describe(tag="Type to image to search for.")
-    async def waifu_nsfw(self, ctx: Context, tag: app_commands.Choice[str]):
-        """Get some NSFW images of waifus.
-
-        This command only works in NSFW channels.
-        Images are from https://waifu.im
-        """
-        search = await self.bot.waifuim.search(included_tags=[tag.value], nsfw=True, limit=10)
-        paginator = Paginator(WaifuPaginator(search, tag.name), ctx=ctx, remove_view_after=True)
-        await paginator.start()
 
 
 async def setup(bot: OiBot):
